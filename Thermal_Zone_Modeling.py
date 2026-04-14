@@ -99,7 +99,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## The Fundamental Electrical Analogy
+    ## 1. The Fundamental Electrical Analogy
     """)
     return
 
@@ -120,7 +120,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### 1. Modeling Room Temperature (Thermal RC Model)
+    ### 1.1 Modeling Room Temperature (Thermal RC Model)
     """)
     return
 
@@ -194,7 +194,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### 2. Modeling Humidity
+    ### 1.2 Modeling Humidity
     """)
     return
 
@@ -214,15 +214,30 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
+    mo.vstack(
+        [
+            mo.image(
+                src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/Humidity_model.jpg",
+                alt="1R1C Humidity RC Network"
+            ),
+            mo.md("<div style='text-align: center; font-style: italic;'><b>Figure 01:</b> 1R1C Humidity Model</div>")
+        ],
+        align="center"
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
     mo.md(r"""
     The Governing Equation (Lumped Air Node):
 
-    $$\rho_{air} V_{room} \frac{dW_{in}}{dt} = \dot{m}_{int} + \dot{m}_{vent} - \dot{m}_{s}$$
+    $$\rho_{air} V_{room} \frac{dW_{in}}{dt} = \dot{m}_{int} + \dot{m}_{vent}(W_{out} - W_{in}) - \dot{m}_{s}$$
 
     Where:
     - $W_{in}$: Indoor humidity ratio.
     - $\dot{m}_{int}$: Internal moisture generation (breathing, sweating, cooking).$
-    - $\dot{m}_{vent}$: Moisture brought in or removed by ventilation: $\dot{V}_{vent} \rho_{air} (W_{out} - W_{in})$.
+    - $\dot{m}_{vent}$: Rate of air leaked out
     - $\dot{m}_{s}$: Dehumidification rate from the AC system.
     """)
     return
@@ -231,7 +246,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### 3. Modeling $CO_2$ Concentration (Mass Transfer Model)
+    ### 1.3 Modeling $CO_2$ Concentration (Mass Transfer Model)
     """)
     return
 
@@ -247,6 +262,21 @@ def _(mo):
     - Resistance ($R$): The inverse of the ventilation rate ($1 / \dot{V}_{vent}$).
     - Capacitor ($C_{vol}$): The volume of the room ($V_{room}$).The
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.vstack(
+        [
+            mo.image(
+                src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/CO2_model.jpg",
+                alt="1R1C CO2 RC Network"
+            ),
+            mo.md("<div style='text-align: center; font-style: italic;'><b>Figure 01:</b> 1R1C CO2 Model</div>")
+        ],
+        align="center"
+    )
     return
 
 
@@ -268,7 +298,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Dynamic System Derivation For a Zone
+    ## 2. Dynamic System Derivation For a Zone
     """)
     return
 
@@ -276,7 +306,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Multi-Room **xR2C** Thermal Model
+    ### 2.1 Multi-Room **xR2C** Thermal Model
     """)
     return
 
@@ -327,6 +357,104 @@ def _(mo):
 
     Mass node equation (for $  T_{m,i}  $):
     $$C_{\text{mass},i} \frac{dT_{m,i}}{dt} = \frac{T_{in,i} - T_{m,i}}{R_{\text{int},i}} + Q_{\text{solar,rad},i} + \sum_{j \in \text{adj}(i)} \frac{T_{m,j} - T_{m,i}}{R_{\text{couple,ms},ij}} $$
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Since, to have coupling effect between zones for humidity and $CO_2$, air need to move between zones. For this setup the zones are designated as independent air zones. Therefore that coupling is negligible and only termal coupling is considered.
+
+    Therefore use generic 1R1C models,
+
+    $$\rho_{air} V_{room} \frac{dW_{in}}{dt} = \dot{m}_{int} + \dot{m}_{vent} (W_{out} - W_{in}) - \dot{m}_{s}$$
+
+    $$V_{room} \frac{dC_{in}}{dt} = G_{int} + \dot{V}_{vent}(C_{out} - C_{in})$$
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 2.2 State Reprentation
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    For a single zone i,
+    State Vector ($x_i$):
+
+    $$x_i = \begin{bmatrix}
+    T_{in,i} \\
+    T_{m,i} \\
+    W_{in,i} \\
+    C_{in,i}
+    \end{bmatrix}$$
+
+    Disturbance Vector ($d_i$):
+
+    $$d_i = \begin{bmatrix}
+    T_{out} \\
+    Q_{int,i} \\
+    Q_{solar,conv,i} \\
+    Q_{solar,red,i} \\
+    \dot{m}_{int,i} \\
+    G_{int,i} \\
+    C_{out}
+    \end{bmatrix}$$
+
+    Dynamics of the system ($f(x_i, d_i)$):
+
+    $$f(x_i, d_i) = \begin{bmatrix}
+    \frac{1}{C_{air,i}} \left( \frac{T_{out} - T_{in,i}}{R_{env,i}} + \frac{T_{m,i} - T_{in,i}}{R_{int,i}} + \sum_{j \in adj(i)} \frac{T_{in,j} - T_{in,i}}{R_{couple,ij}} + Q_{int,i} + Q_{solar,conv,i} \right) \\
+    \frac{1}{C_{mass,i}} \left( \frac{T_{in,i} - T_{m,i}}{R_{int,i}} + Q_{solar,rad,i} + \sum_{j \in adj(i)} \frac{T_{m,j} - T_{m,i}}{R_{couple,ms,ij}} \right) \\
+    \frac{1}{\rho_{air} V_{room}} \left( \dot{m}_{int,i} + \dot{m}_{vent,i}(W_{out} - W_{in,i}) \right) \\
+    \frac{1}{V_{room}} \left( G_{int,i} + \dot{V}_{vent}(C_{out} - C_{in,i}) \right)
+    \end{bmatrix}$$
+
+    AHU Supply Parameters (S):
+
+    $$S = \begin{bmatrix}
+    T_s & W_s & C_s
+    \end{bmatrix}$$
+
+    The Control Authority ($g(x,S)$):
+
+    $$g(x_i,S) = \begin{bmatrix}
+    \frac{c_p}{C_{air,i}} (T_s - T_{in,i}) \\
+    0 \\
+    \frac{1}{\rho_{air} V_{room}} (W_s - W_{in,i}) \\
+    \frac{1}{\rho_{air} V_{room}} (C_s - C_{in,i})
+    \end{bmatrix}$$
+
+    Control Input ($u_i$): Mass flow rate of air provided by the VAV box in kg/s
+    $$u_i=\dot{m}_{s,i}$$
+
+    ##### Dynamics of the system:
+
+    $$\dot{x_i} = f(x_i,d_i) + g(x_i,S).u$$
+
+    ##### Output Equation:
+
+    $$y = \begin{bmatrix}
+    1 & 0 & 0 & 0 \\
+    0 & 0 & 1 & 0 \\
+    0 & 0 & 0 & 1
+    \end{bmatrix}
+     x_i$$
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+ 
     """)
     return
 

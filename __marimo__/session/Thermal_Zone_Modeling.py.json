@@ -55,12 +55,12 @@
     },
     {
       "id": "lEQa",
-      "code_hash": "c24fe83a8fe866e04c85ba47b93d4637",
+      "code_hash": "1ccfb5581db82d15989d3910141207c7",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"the-fundamental-electrical-analogy\">The Fundamental Electrical Analogy</h2></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"1-the-fundamental-electrical-analogy\">1. The Fundamental Electrical Analogy</h2></span>"
           }
         }
       ],
@@ -81,12 +81,12 @@
     },
     {
       "id": "Xref",
-      "code_hash": "d78693150525769b3d232d488cc64833",
+      "code_hash": "f33fc0ca5500dc36e7a3c51660becaaf",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"1-modeling-room-temperature-thermal-rc-model\">1. Modeling Room Temperature (Thermal RC Model)</h3></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"11-modeling-room-temperature-thermal-rc-model\">1.1 Modeling Room Temperature (Thermal RC Model)</h3></span>"
           }
         }
       ],
@@ -107,12 +107,12 @@
     },
     {
       "id": "BYtC",
-      "code_hash": "ac9d504d9cefdfaae9c1fa11d8225815",
+      "code_hash": "9d4b7def1d20f0ca14b138527a9a1ec0",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"2-modeling-humidity\">2. Modeling Humidity</h3></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"12-modeling-humidity\">1.2 Modeling Humidity</h3></span>"
           }
         }
       ],
@@ -133,12 +133,12 @@
     },
     {
       "id": "Kclp",
-      "code_hash": "970b77b324e5944866324a4f6df0a25a",
+      "code_hash": "eee823196065b559eb0e062e124de42e",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"3-modeling-co_2-concentration-mass-transfer-model\">3. Modeling <marimo-tex class=\"arithmatex\">||(CO_2||)</marimo-tex> Concentration (Mass Transfer Model)</h3></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"13-modeling-co_2-concentration-mass-transfer-model\">1.3 Modeling <marimo-tex class=\"arithmatex\">||(CO_2||)</marimo-tex> Concentration (Mass Transfer Model)</h3></span>"
           }
         }
       ],
@@ -159,12 +159,12 @@
     },
     {
       "id": "Hstk",
-      "code_hash": "c18ed88dcbb69f3bd9730a3044cd9457",
+      "code_hash": "0855cb6450b3bbcd288dcbe584b6fd27",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"dynamic-system-derivation-for-a-zone\">Dynamic System Derivation For a Zone</h2></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"2-dynamic-system-derivation-for-a-zone\">2. Dynamic System Derivation For a Zone</h2></span>"
           }
         }
       ],
@@ -172,12 +172,12 @@
     },
     {
       "id": "nWHF",
-      "code_hash": "6627003c04a868ac89550ede54c7885f",
+      "code_hash": "20ebfabd684b3dde016171e9a3e2955c",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"multi-room-xr2c-thermal-model\">Multi-Room <strong>xR2C</strong> Thermal Model</h3></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"21-multi-room-xr2c-thermal-model\">2.1 Multi-Room <strong>xR2C</strong> Thermal Model</h3></span>"
           }
         }
       ],
