@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.23.0"
-app = marimo.App(width="medium")
+app = marimo.App(width="medium", auto_download=["ipynb", "html"])
 
 
 @app.cell(hide_code=True)
@@ -141,6 +141,21 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
+    mo.vstack(
+        [
+            mo.image(
+                src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/2R2C_Temp_Model.jpg",
+                alt="2R2C Thermal RC Network"
+            ),
+            mo.md("<div style='text-align: center; font-style: italic;'><b>Figure 01:</b> 2R2C Grey-Box Thermal Model</div>")
+        ],
+        align="center"
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
     mo.md(r"""
     The Governing Equation
 
@@ -193,16 +208,22 @@ def _(mo):
     - Voltage ($W$ or $P_v$): Humidity ratio ($kg_{water}/kg_{dry\ air}$) or Vapor pressure ($Pa$).
     - Current ($\dot{m}_w$): Moisture mass flow rate ($kg/s$).
     - Capacitor ($C_m$): Moisture storage capacity of the air. $C_m = \rho_{air} \cdot V_{room}$ (where $V$ is volume).
+    """)
+    return
 
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     The Governing Equation (Lumped Air Node):
 
-    $$\rho_{air} V_{room} \frac{dW_{in}}{dt} = \dot{m}_{int} + \dot{m}_{vent} - \dot{m}_{HVAC}$$
+    $$\rho_{air} V_{room} \frac{dW_{in}}{dt} = \dot{m}_{int} + \dot{m}_{vent} - \dot{m}_{s}$$
 
     Where:
     - $W_{in}$: Indoor humidity ratio.
     - $\dot{m}_{int}$: Internal moisture generation (breathing, sweating, cooking).$
     - $\dot{m}_{vent}$: Moisture brought in or removed by ventilation: $\dot{V}_{vent} \rho_{air} (W_{out} - W_{in})$.
-    - $\dot{m}_{HVAC}$: Dehumidification rate from the AC system.
+    - $\dot{m}_{s}$: Dehumidification rate from the AC system.
     """)
     return
 
@@ -224,8 +245,14 @@ def _(mo):
     - Voltage ($C$): $CO_2$ concentration, usually in $ppm$ (parts per million) or $mg/m^3$.
     - Current ($G$): $CO_2$ generation rate ($mg/s$ or $L/s$).
     - Resistance ($R$): The inverse of the ventilation rate ($1 / \dot{V}_{vent}$).
-    - Capacitor ($C_{vol}$): The volume of the room ($V_{room}$).
+    - Capacitor ($C_{vol}$): The volume of the room ($V_{room}$).The
+    """)
+    return
 
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     The Governing Equation:
     $$V_{room} \frac{dC_{in}}{dt} = G_{int} + \dot{V}_{vent}(C_{out} - C_{in})$$
 
@@ -269,8 +296,30 @@ def _(mo):
     Geometry-dependent dynamic coupling
 
     Additional resistances (or conductances) are introduced between zones to model inter-zone heat transfer. These coupling terms ($R_{\text{couple},ij}$) are not fixed constants but are dynamically derived from the building’s physical layout.
+    """)
+    return
 
-    Governing Differential Equations
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.vstack(
+        [
+            mo.image(
+                src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/xR2C_Temp_Model.jpg",
+                alt="xR2C Thermal RC Network"
+            ),
+            mo.md("<div style='text-align: center; font-style: italic;'><b>Figure 01:</b> xR2C Grey-Box Thermal Model</div>")
+        ],
+        align="center"
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **Governing Differential Equations**
+
     For each zone i = 1, 2, ..., N (where N is the number of zones),
 
     Air node equation (for $T_{a,i}$):
