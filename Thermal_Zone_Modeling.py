@@ -92,6 +92,14 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+ 
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     The Governing Equation
 
     If we treat the room air and light furniture as a single node, the first-order differential equation is
@@ -261,6 +269,15 @@ def _(mo):
         ],
         align="center"
     )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ![xR2C Thermal RC Network](https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/xR2C_Temp_Model.jpg)
+    _Figure 04: xR2C Grey-Box Thermal Model_
+    """)
     return
 
 
