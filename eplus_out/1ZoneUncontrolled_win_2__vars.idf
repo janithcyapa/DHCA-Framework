@@ -438,13 +438,3 @@ Output:Variable,
         *,                        !- Key Value
         Zone Mean Air Humidity Ratio,                       !- Variable Name
         TimeStep;                       !- Reporting Frequency
-
-Output:Variable,
-        *,                        !- Key Value
-        Zone Air CO2 Concentration,                       !- Variable Name
-        TimeStep;                       !- Reporting Frequency
-
-Output:Variable,
-        Environment,                        !- Key Value
-        Site Outdoor Air Drybulb Temperature,                       !- Variable Name
-        TimeStep;                       !- Reporting Frequency

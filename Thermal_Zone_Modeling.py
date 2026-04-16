@@ -496,7 +496,7 @@ def _():
     # Now import the utility
     from eplus import EPlusUtil
 
-    return
+    return EPlusUtil, Path, os
 
 
 @app.cell(hide_code=True)
@@ -507,13 +507,12 @@ def _(mo):
     return
 
 
-app._unparsable_cell(
-    r"""
+@app.cell
+def _(EPlusUtil, Path, os):
     # Define File Paths & URLs
     OUT_DIR = str(Path.home() / "Projects" / "DHCA-Framework" / "eplus_out")
     os.makedirs(OUT_DIR, exist_ok=True)
 
-    /home/jazz/EnergyPlus-25-1-0/ExampleFiles/1ZoneUncontrolled_win_2.idf
 
     url_idf = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/System%20Models/1ZoneUncontrolled_win_2.idf"
     url_epw = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/System%20Models/Weather%20Files/LKA_Colombo-Katunayake.434500_SWERA.epw"
@@ -528,9 +527,7 @@ app._unparsable_cell(
     sim.clear_eplus_outputs(patterns="eplusout.*")
     # Set the Model for Simulation
     sim.set_model_from_url(url_idf, url_epw)
-    """,
-    name="_"
-)
+    return (sim,)
 
 
 @app.cell(hide_code=True)
@@ -555,6 +552,20 @@ def _(sim):
     print("Starting EnergyPlus Uncontrolled Simulation...")
     sim.run_annual()
     print("Simulation Complete!")
+    return
+
+
+@app.cell
+def _(Path):
+    err_path = Path.home() / "Projects" / "DHCA-Framework" /  "eplus_out" / "eplusout.err"
+
+    if err_path.exists():
+        print("--- EnergyPlus Error Log ---")
+        with open(err_path, 'r') as f:
+            # Print the last 4000 characters to catch the fatal errors at the end
+            print(f.read()[-4000:]) 
+    else:
+        print(f"Could not find the error file at: {err_path}")
     return
 
 

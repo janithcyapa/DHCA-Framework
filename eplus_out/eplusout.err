@@ -1,4 +1,4 @@
-Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.04.16 14:01,
+Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.04.16 14:10,
    ** Warning ** Weather file location will be used rather than entered (IDF) Location object.
    **   ~~~   ** ..Location object=DENVER STAPLETON INTL ARPT CO USA WMO=724690
    **   ~~~   ** ..Weather File Location=COLOMBO/KATUNAYAKE - LKA SWERA WMO#=434500
@@ -19,4 +19,4 @@ Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.04.16 14:01,
    ************* Fatal error -- final processing.  Program exited before simulations began.  See previous error messages.
    ************* EnergyPlus Warmup Error Summary. During Warmup: 0 Warning; 0 Severe Errors.
    ************* EnergyPlus Sizing Error Summary. During Sizing: 0 Warning; 0 Severe Errors.
-   ************* EnergyPlus Terminated--Fatal Error Detected. 2 Warning; 1 Severe Errors; Elapsed Time=00hr 00min  0.05sec
+   ************* EnergyPlus Terminated--Fatal Error Detected. 2 Warning; 1 Severe Errors; Elapsed Time=00hr 00min  0.04sec
