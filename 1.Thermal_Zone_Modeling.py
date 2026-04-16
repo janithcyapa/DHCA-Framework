@@ -496,8 +496,16 @@ def _():
     from eplus import EPlusUtil
     import matplotlib.pyplot as plt
     import types
+    import pandas as pd
+    import datetime
 
-    return EPlusUtil, Path, os, plt, types
+    # Define File Paths & URLs
+    OUT_DIR = Path.home() / "Projects" / "DHCA-Framework" / "eplus_out"
+    os.makedirs(str(OUT_DIR), exist_ok=True)
+
+    # Initialize Utility
+    sim = EPlusUtil(verbose=1, out_dir=OUT_DIR)
+    return OUT_DIR, os, pd, plt, sim, types
 
 
 @app.cell(hide_code=True)
@@ -509,42 +517,31 @@ def _(mo):
 
 
 @app.cell
-def _(EPlusUtil, Path, os):
-    # Define File Paths & URLs
-    OUT_DIR = Path.home() / "Projects" / "DHCA-Framework" / "eplus_out"
-    os.makedirs(str(OUT_DIR), exist_ok=True)
-
-
-    url_idf = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/System%20Models/1ZoneUncontrolled_win_2.idf"
+def _(sim):
+    url_idf="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/System%20Models/5ZoneAirCooled.idf"
     url_epw = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/System%20Models/Weather%20Files/LKA_Colombo-Katunayake.434500_SWERA.epw"
 
-    # Initialize Utility
-    sim = EPlusUtil(verbose=2, out_dir=OUT_DIR)
     # Reset state before setting model
     sim.reset_state()
-    # Delete previous output directory
     sim.delete_out_dir()
-    # Clear previous outputs
     sim.clear_eplus_outputs(patterns="eplusout.*")
+
     # Set the Model for Simulation
     sim.set_model_from_url(url_idf, url_epw)
     sim.ensure_output_sqlite()
 
-    sim.patch_idf_entry(
-        object_type="Construction:WindowDataFile",
-        object_name="DoubleClear",
-        old_value=r"..\datasets\Window5DataFile.dat", 
-        new_value="/home/jazz/EnergyPlus-25-1-0/DataSets/Window5DataFile.dat"
-    )
-    sim.patch_idf_entry(
-        object_type="SimulationControl",
-        object_name="No", # The first entry in this block is usually the name/toggle
-        old_value="No,                      !- Run Simulation for Weather File",
-        new_value="Yes,                     !- Run Simulation for Weather File"
-    )
-    # sim.run_dry_run(include_ems_edd=False,reset=True,design_day=False)
-    sim.run_design_day()
-    return OUT_DIR, sim
+
+    sim.run_dry_run(include_ems_edd=False,reset=True,design_day=True)
+    return
+
+
+@app.cell
+def _(sim):
+    catalog = sim.api_catalog_df()
+    # mo.ui.table(catalog)
+    # mo.ui.table(catalog['VARIABLES'])
+    sim.list_available_variables()
+    return
 
 
 @app.cell(hide_code=True)
@@ -556,61 +553,113 @@ def _(mo):
 
 
 @app.cell
-def _(OUT_DIR, sim, t_in, types):
-    # Request the variables to construct State Vector (x_i)
-    # specs = [
-    #     # {"name": "Zone Mean Air Temperature", "key": "*"},       # T_in
-    #     # {"name": "Zone Mean Air Humidity Ratio", "key": "*"},    # W_in
-    #     # {"name": "Zone Air CO2 Concentration", "key": "*"},      # C_in
-    #     # {"name": "Site Outdoor Air Drybulb Temperature", "key": "Environment"}, # T_out
-    # ]
-    # sim.ensure_output_variables(specs, activate=True)
+def _(sim):
+    sim.clear_patched_idf()
+    # Request the variables to construct State Vector (x_i) and Disturbances (d_i)
+    specs = [
+        # Zone States (Applies to all zones using "*")
+        {"name": "Zone Mean Air Temperature", "key": "*"},       # T_in,i
+        {"name": "Zone Mean Air Humidity Ratio", "key": "*"},    # W_in,i
+        {"name": "Zone Air Relative Humidity", "key": "*"},      # W_in,i (%)
 
+        # External Environment Disturbances
+        {"name": "Site Outdoor Air Drybulb Temperature", "key": "*"}, # T_out
+        {"name": "Site Outdoor Air Humidity Ratio", "key": "*"},      # W_out
+        {"name": "Site Outdoor Air Relative Humidity", "key": "*"},      # W_in,i (%)
+    ]
+    sim.ensure_output_variables(specs, activate=True)
+
+    # # Set Simulation Time
+    sim.set_simulation_params(
+        start=(1, 1),
+        end=(1, 31),
+        timestep_per_hour = 1, # 4 (every 15 minutes) or 6 (every 10 minutes).
+        start_day_of_week="Sunday",
+    )
+    return
+
+
+@app.cell
+def _(sim, types):
+    # Create a list to store timestep data
+    sim.collected_data = []
 
     def dr_supervisor_logic(self, state):
-        """
-        Supervisor logic that extracts date and time for synchronous data logging.
-        """
         if not self.exchange.api_data_fully_ready(state):
             return
 
-        # 1. Get current simulation time details
+        # 1. Get Simulation Time Details
         day = self.exchange.day_of_year(state)
-        time_now = self.exchange.time_of_day(state) # Hours (0.0 to 24.0)
+        time_now = self.exchange.current_time(state) 
 
-        # Optional: Convert decimal hours to HH:MM for printing
-        hours = int(time_now)
-        minutes = int((time_now - hours) * 60)
+        # Calculate Hours and Minutes
+        total_minutes = int(time_now * 60)
+        hours, mins = divmod(total_minutes, 60)
+        timestamp_str = f"Day {day:03d} {hours:02d}:{mins:02d}"
 
-        # 2. Extract your State Vector (x_i) via handles
-        # Tip: Use the variable names from your specs list
-        # t_in_handle = self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", "ZONE ONE")
-        # t_in = self.exchange.get_variable_value(state, t_in_handle)
+        row = {
+            "timestamp": timestamp_str,
+            "day": day,
+            "hour": hours,
+            "minute": mins,
+            "time_decimal": time_now
+        }
 
-        print(f"[SUPERVISOR] Day: {day} | Time: {hours:02d}:{minutes:02d} | T_in: {t_in:.2f} C")
+        # 2. Extract External Environment (Disturbances)
+        # Note: Your patched IDF uses '*' for the outdoor key
+        t_out_h = self.exchange.get_variable_handle(state, "Site Outdoor Air Drybulb Temperature", "Environment")
+        w_out_h = self.exchange.get_variable_handle(state, "Site Outdoor Air Humidity Ratio", "Environment")
+        rh_out_h = self.exchange.get_variable_handle(state, "Site Outdoor Air Relative Humidity", "Environment")
+    
+        # Check for handles >= 0
+        row["T_out"] = self.exchange.get_variable_value(state, t_out_h) if t_out_h >= 0 else 0.0
+        row["W_out"] = self.exchange.get_variable_value(state, w_out_h) if w_out_h >= 0 else 0.0
+        row["RH_out_%"] = self.exchange.get_variable_value(state, rh_out_h) if rh_out_h >= 0 else 0.0
 
-        # You can now append (day, time_now, t_in) to a list for manual plotting
+        # 3. Extract Internal States for All Zones
+        zones = ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]
+        for zone in zones:
+            # Match variable names in your patched IDF
+            t_in_h = self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", zone)
+            w_in_h = self.exchange.get_variable_handle(state, "Zone Mean Air Humidity Ratio", zone)
+            rh_in_h = self.exchange.get_variable_handle(state, "Zone Air Relative Humidity", zone)
+        
+            row[f"{zone}_T_in"] = self.exchange.get_variable_value(state, t_in_h) if t_in_h >= 0 else 0.0
+            row[f"{zone}_W_in"] = self.exchange.get_variable_value(state, w_in_h) if w_in_h >= 0 else 0.0
+            row[f"{zone}_RH_%"] = self.exchange.get_variable_value(state, rh_in_h) if rh_in_h >= 0 else 0.0
 
+        self.collected_data.append(row)
+
+    # Register New Handler
     sim.my_supervisor = types.MethodType(dr_supervisor_logic, sim)
-
     registered = sim.register_handlers(
         "begin",               # Hook: Begin Timestep
         ["my_supervisor"]      # Method Name
     )
-    print(f"Registered methods: {registered}")
+
+    # Verify
     current_list = sim.list_handlers("begin")
     print(f"Handlers on 'begin' hook: {current_list}")
+    return
 
-    sim.set_simulation_params(
-        start=(1, 1),
-        end=(1, 31),
-        start_day_of_week="Sunday"
-    )
+
+@app.cell
+def _(OUT_DIR, pd, sim):
     print("Starting EnergyPlus Uncontrolled Simulation...")
     res = sim.run_annual()
-    print("Simulation Complete!")
+    print("Simulation Ended!")
+    if(res == 0):
+        print("Simulation Complete! Converting data to Pandas...")
+        # Create the DataFrame
+        df = pd.DataFrame(sim.collected_data)
+        cols = ['timestamp'] + [c for c in df.columns if c != 'timestamp']
+        df = df[cols]
+
+        # Optional: Set a nice multi-index or save to CSV for your FYP analysis
+        # df.to_csv(OUT_DIR / "zone_validation_data.csv", index=False)
+        print("Done.")
+
     if(res == 1):
-    
         err_path = OUT_DIR / "eplusout.err"
         if err_path.exists():
             print("--- EnergyPlus Error Log ---")
@@ -619,6 +668,12 @@ def _(OUT_DIR, sim, t_in, types):
                 print(f.read()[-4000:]) 
         else:
             print(f"Could not find the error file at: {err_path}")
+    return (df,)
+
+
+@app.cell
+def _(df, mo):
+    mo.ui.table(df)
     return
 
 
