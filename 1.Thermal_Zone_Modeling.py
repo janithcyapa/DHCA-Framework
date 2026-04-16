@@ -330,7 +330,7 @@ def _(mo):
     - $Q_{solar,i}$ , $Q_{\text{inf},i}$ and interzone air exchange terms are unmeasurable. So they are included as a lumped disturbance.
     - Ommit $Q_{solar,rad}$ and coupling terms from mass node, because direct mass-node disturbances and solid-to-solid conduction are unobservable with standard sensors. Ignoring them is acceptable because their physical impact is indirectly captured and compensated for by the air-node disturbance observer ($d_{T,i}).
     - $T_{m,i}$ is treated as an unobservable (hidden) state. Utilize a State Observer to estimate that. At simulation env of energy plus this is observable for validation.
-    -
+
 
     $$C_{\text{air},i} \ \dot{T}_{in,i}=
     \frac{T_{\text{out}} - T_{in,i}}{R_{\text{env,external},i}} +
@@ -529,11 +529,7 @@ def _(EPlusUtil, Path, os):
     # Set the Model for Simulation
     sim.set_model_from_url(url_idf, url_epw)
     sim.ensure_output_sqlite()
-    return OUT_DIR, sim
 
-
-@app.cell
-def _(sim):
     sim.patch_idf_entry(
         object_type="Construction:WindowDataFile",
         object_name="DoubleClear",
@@ -546,14 +542,9 @@ def _(sim):
         old_value="No,                      !- Run Simulation for Weather File",
         new_value="Yes,                     !- Run Simulation for Weather File"
     )
-    return
-
-
-@app.cell
-def _(sim):
-    sim.run_dry_run(include_ems_edd=False,reset=True,design_day=False)
+    # sim.run_dry_run(include_ems_edd=False,reset=True,design_day=False)
     sim.run_design_day()
-    return
+    return OUT_DIR, sim
 
 
 @app.cell(hide_code=True)
@@ -565,15 +556,15 @@ def _(mo):
 
 
 @app.cell
-def _(sim, types):
+def _(OUT_DIR, sim, t_in, types):
     # Request the variables to construct State Vector (x_i)
-    specs = [
-        {"name": "Zone Mean Air Temperature", "key": "*"},       # T_in
-        {"name": "Zone Mean Air Humidity Ratio", "key": "*"},    # W_in
-        {"name": "Zone Air CO2 Concentration", "key": "*"},      # C_in
-        {"name": "Site Outdoor Air Drybulb Temperature", "key": "Environment"}, # T_out
-    ]
-    sim.ensure_output_variables(specs, activate=True)
+    # specs = [
+    #     # {"name": "Zone Mean Air Temperature", "key": "*"},       # T_in
+    #     # {"name": "Zone Mean Air Humidity Ratio", "key": "*"},    # W_in
+    #     # {"name": "Zone Air CO2 Concentration", "key": "*"},      # C_in
+    #     # {"name": "Site Outdoor Air Drybulb Temperature", "key": "Environment"}, # T_out
+    # ]
+    # sim.ensure_output_variables(specs, activate=True)
 
 
     def dr_supervisor_logic(self, state):
@@ -586,15 +577,15 @@ def _(sim, types):
         # 1. Get current simulation time details
         day = self.exchange.day_of_year(state)
         time_now = self.exchange.time_of_day(state) # Hours (0.0 to 24.0)
-    
+
         # Optional: Convert decimal hours to HH:MM for printing
         hours = int(time_now)
         minutes = int((time_now - hours) * 60)
-    
+
         # 2. Extract your State Vector (x_i) via handles
         # Tip: Use the variable names from your specs list
-        t_in_handle = self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", "ZN001:ROOM001")
-        t_in = self.exchange.get_variable_value(state, t_in_handle)
+        # t_in_handle = self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", "ZONE ONE")
+        # t_in = self.exchange.get_variable_value(state, t_in_handle)
 
         print(f"[SUPERVISOR] Day: {day} | Time: {hours:02d}:{minutes:02d} | T_in: {t_in:.2f} C")
 
@@ -609,14 +600,25 @@ def _(sim, types):
     print(f"Registered methods: {registered}")
     current_list = sim.list_handlers("begin")
     print(f"Handlers on 'begin' hook: {current_list}")
+
     sim.set_simulation_params(
-        start=(1, 1),           # January 1st
-        end=(1, 7),             # January 7th
+        start=(1, 1),
+        end=(1, 31),
         start_day_of_week="Sunday"
     )
     print("Starting EnergyPlus Uncontrolled Simulation...")
-    sim.run_annual()
+    res = sim.run_annual()
     print("Simulation Complete!")
+    if(res == 1):
+    
+        err_path = OUT_DIR / "eplusout.err"
+        if err_path.exists():
+            print("--- EnergyPlus Error Log ---")
+            with open(err_path, 'r') as f:
+                # Print the last 4000 characters to catch the fatal errors at the end
+                print(f.read()[-4000:]) 
+        else:
+            print(f"Could not find the error file at: {err_path}")
     return
 
 
@@ -624,7 +626,7 @@ def _(sim, types):
 def _(OUT_DIR, os, plt, sim):
     sql_path = OUT_DIR / "eplusout.sql"
     if os.path.exists(sql_path):
-    
+
         # Plot the ground truth temperature to visually check it
         fig = sim.plot_sql_zone_variable(
             "Site Outdoor Air Drybulb Temperature",
@@ -636,20 +638,6 @@ def _(OUT_DIR, os, plt, sim):
         plt.show()
     else:
         print("SQL output not found. Check if the simulation crashed.")
-    return
-
-
-@app.cell
-def _(OUT_DIR):
-    err_path = OUT_DIR / "eplusout.err"
-
-    if err_path.exists():
-        print("--- EnergyPlus Error Log ---")
-        with open(err_path, 'r') as f:
-            # Print the last 4000 characters to catch the fatal errors at the end
-            print(f.read()[-4000:]) 
-    else:
-        print(f"Could not find the error file at: {err_path}")
     return
 
 

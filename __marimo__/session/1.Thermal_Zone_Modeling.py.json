@@ -312,12 +312,12 @@
     },
     {
       "id": "ZBYS",
-      "code_hash": "6db87483f6c2081291eb89d7459f2b70",
+      "code_hash": "0f9f2f8a6abfc2234a756a5b24f6dfc7",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Considering equation(1-4 and 5,6) and the AHU setup in Lab,</span>\n<ul>\n<li>We can either include coupling effect as disturbance or for now we will keep it to check weather we can utilize it decentralized control algorithum.</li>\n<li><marimo-tex class=\"arithmatex\">||(R_{env,ext}||)</marimo-tex>, <marimo-tex class=\"arithmatex\">||(R_{env,couple,ij}||)</marimo-tex>, <marimo-tex class=\"arithmatex\">||(R_{int}||)</marimo-tex>, <marimo-tex class=\"arithmatex\">||(C_{air}||)</marimo-tex>, <marimo-tex class=\"arithmatex\">||(C_{mass}||)</marimo-tex>, <marimo-tex class=\"arithmatex\">||(C_{m}||)</marimo-tex> and <marimo-tex class=\"arithmatex\">||(V_{room}||)</marimo-tex> are derived constants from Derived from IDF.</li>\n<li>Considering the AHU setup where air mixing is done at AHU, <marimo-tex class=\"arithmatex\">||(Q_{vent}||)</marimo-tex> is included in <marimo-tex class=\"arithmatex\">||(Q_s||)</marimo-tex> and that can be written based on supply sensor measurements.</li>\n<li><marimo-tex class=\"arithmatex\">||(Q_{solar,i}||)</marimo-tex> , <marimo-tex class=\"arithmatex\">||(Q_{\\text{inf},i}||)</marimo-tex> and interzone air exchange terms are unmeasurable. So they are included as a lumped disturbance.</li>\n<li>Ommit <marimo-tex class=\"arithmatex\">||(Q_{solar,rad}||)</marimo-tex> and coupling terms from mass node, because direct mass-node disturbances and solid-to-solid conduction are unobservable with standard sensors. Ignoring them is acceptable because their physical impact is indirectly captured and compensated for by the air-node disturbance observer ($d_{T,i}).</li>\n</ul>\n<h2 id=\"-t_mi-is-treated-as-an-unobservable-hidden-state-utilize-a-state-observer-to-estimate-that-at-simulation-env-of-energy-plus-this-is-observable-for-validation\">- <marimo-tex class=\"arithmatex\">||(T_{m,i}||)</marimo-tex> is treated as an unobservable (hidden) state. Utilize a State Observer to estimate that. At simulation env of energy plus this is observable for validation.</h2>\n<marimo-tex class=\"arithmatex\">||[C_{\\text{air},i} \\ \\dot{T}_{in,i}=\n\\frac{T_{\\text{out}} - T_{in,i}}{R_{\\text{env,external},i}} +\n\\sum_{j \\in \\text{adj}(i)} \\frac{T_{in,j} - T_{in,i}}{R_{\\text{env,couple},ij}} +\n\\frac{T_{m,i} - T_{in,i}}{R_{\\text{int},i}} +\n(N_{occ,i}\u22c5q_{person} + Q_{equip})+\n\\rho_{air} \\dot{V}_{s,i} \\ c_p \\ (T_s - T_{in,i}) +\nd_{T,i} \\tag{7}||]</marimo-tex><marimo-tex class=\"arithmatex\">||[C_{\\text{mass},i} \\ \\dot{T}_{m,i}= \\frac{T_{in,i} - T_{m,i}}{R_{\\text{int},i}} \\tag{8}||]</marimo-tex><marimo-tex class=\"arithmatex\">||[M_{air,i}\\ \\dot{W}_{in,i} =\nN_{occ,i} \u22c5g_{w,person} +\n\\dot{m}_{s,i}(W_s - W_{in,i}) +\nd_{W,i} \\tag{9}||]</marimo-tex><marimo-tex class=\"arithmatex\">||[V_{room,i}  \\ \\dot{C}_{in,i} =\nN_{occ,i}\u22c5g_{co2,person} +\n\\dot{V}_{s,i}(C_{s} - C_{in,i}) +\nd_{C,i} \\tag{10}||]</marimo-tex></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Considering equation(1-4 and 5,6) and the AHU setup in Lab,</span>\n<ul>\n<li>We can either include coupling effect as disturbance or for now we will keep it to check weather we can utilize it decentralized control algorithum.</li>\n<li><marimo-tex class=\"arithmatex\">||(R_{env,ext}||)</marimo-tex>, <marimo-tex class=\"arithmatex\">||(R_{env,couple,ij}||)</marimo-tex>, <marimo-tex class=\"arithmatex\">||(R_{int}||)</marimo-tex>, <marimo-tex class=\"arithmatex\">||(C_{air}||)</marimo-tex>, <marimo-tex class=\"arithmatex\">||(C_{mass}||)</marimo-tex>, <marimo-tex class=\"arithmatex\">||(C_{m}||)</marimo-tex> and <marimo-tex class=\"arithmatex\">||(V_{room}||)</marimo-tex> are derived constants from Derived from IDF.</li>\n<li>Considering the AHU setup where air mixing is done at AHU, <marimo-tex class=\"arithmatex\">||(Q_{vent}||)</marimo-tex> is included in <marimo-tex class=\"arithmatex\">||(Q_s||)</marimo-tex> and that can be written based on supply sensor measurements.</li>\n<li><marimo-tex class=\"arithmatex\">||(Q_{solar,i}||)</marimo-tex> , <marimo-tex class=\"arithmatex\">||(Q_{\\text{inf},i}||)</marimo-tex> and interzone air exchange terms are unmeasurable. So they are included as a lumped disturbance.</li>\n<li>Ommit <marimo-tex class=\"arithmatex\">||(Q_{solar,rad}||)</marimo-tex> and coupling terms from mass node, because direct mass-node disturbances and solid-to-solid conduction are unobservable with standard sensors. Ignoring them is acceptable because their physical impact is indirectly captured and compensated for by the air-node disturbance observer ($d_{T,i}).</li>\n<li><marimo-tex class=\"arithmatex\">||(T_{m,i}||)</marimo-tex> is treated as an unobservable (hidden) state. Utilize a State Observer to estimate that. At simulation env of energy plus this is observable for validation.</li>\n</ul>\n<marimo-tex class=\"arithmatex\">||[C_{\\text{air},i} \\ \\dot{T}_{in,i}=\n\\frac{T_{\\text{out}} - T_{in,i}}{R_{\\text{env,external},i}} +\n\\sum_{j \\in \\text{adj}(i)} \\frac{T_{in,j} - T_{in,i}}{R_{\\text{env,couple},ij}} +\n\\frac{T_{m,i} - T_{in,i}}{R_{\\text{int},i}} +\n(N_{occ,i}\u22c5q_{person} + Q_{equip})+\n\\rho_{air} \\dot{V}_{s,i} \\ c_p \\ (T_s - T_{in,i}) +\nd_{T,i} \\tag{7}||]</marimo-tex><marimo-tex class=\"arithmatex\">||[C_{\\text{mass},i} \\ \\dot{T}_{m,i}= \\frac{T_{in,i} - T_{m,i}}{R_{\\text{int},i}} \\tag{8}||]</marimo-tex><marimo-tex class=\"arithmatex\">||[M_{air,i}\\ \\dot{W}_{in,i} =\nN_{occ,i} \u22c5g_{w,person} +\n\\dot{m}_{s,i}(W_s - W_{in,i}) +\nd_{W,i} \\tag{9}||]</marimo-tex><marimo-tex class=\"arithmatex\">||[V_{room,i}  \\ \\dot{C}_{in,i} =\nN_{occ,i}\u22c5g_{co2,person} +\n\\dot{V}_{s,i}(C_{s} - C_{in,i}) +\nd_{C,i} \\tag{10}||]</marimo-tex></span>"
           }
         }
       ],
@@ -415,24 +415,12 @@
     },
     {
       "id": "TXez",
-      "code_hash": "a3d26dbf32e929b8df4bb95e842f1957",
+      "code_hash": "8c03d454bb1a490997b4f8671909929d",
       "outputs": [],
       "console": []
     },
     {
       "id": "dNNg",
-      "code_hash": "f49ebb551802ae57393a077f245e4611",
-      "outputs": [],
-      "console": []
-    },
-    {
-      "id": "yCnT",
-      "code_hash": "9d656a357cb341578e3a69ed9183064d",
-      "outputs": [],
-      "console": []
-    },
-    {
-      "id": "wlCL",
       "code_hash": "9e8852a8661b9d8f2a754d72aaef7759",
       "outputs": [
         {
@@ -445,25 +433,19 @@
       "console": []
     },
     {
-      "id": "kqZH",
-      "code_hash": "75645ce79b9155e84bafcd9f9d061103",
+      "id": "yCnT",
+      "code_hash": "3140d4e6b040014a7e6166efb5ea4d13",
       "outputs": [],
       "console": []
     },
     {
-      "id": "wAgl",
+      "id": "wlCL",
       "code_hash": "9a49c2d2a8da8ff16b3ed25ed936d0e5",
       "outputs": [],
       "console": []
     },
     {
-      "id": "rEll",
-      "code_hash": "2f7725289ed6d3c179c5d70717b37d5f",
-      "outputs": [],
-      "console": []
-    },
-    {
-      "id": "dGlV",
+      "id": "kqZH",
       "code_hash": "7b02b2f321f85f5d8ca9461d8cb98515",
       "outputs": [
         {
@@ -476,7 +458,7 @@
       "console": []
     },
     {
-      "id": "SdmI",
+      "id": "wAgl",
       "code_hash": "98404c8b2aa3e410a1880eb8cb7e9e6c",
       "outputs": [
         {
