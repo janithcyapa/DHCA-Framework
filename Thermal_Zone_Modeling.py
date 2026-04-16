@@ -44,7 +44,7 @@ def _(mo):
     | $Q_{int}$ | Internal sensible heat gains (occupants, equipment, lighting) | $W$ |
     | $Q_{solar}$ | Solar radiation heat entering through windows | $W$ |
     | $Q_s$ | Sensible heating or cooling energy from HVAC | $W$ |
-    | $Q_{vent}$ | Heat transfer due to ventilation and air infiltration | $W$ |
+    | $Q_{vent}$ | Heat transfer due to ventilation and air infiltration. | $W$ |
 
     ---
 
@@ -64,10 +64,10 @@ def _(mo):
     ### 3. $CO_2$ Concentration
     | Symbol | Definition | Unit |
     | :--- | :--- | :--- |
-    | $C_{in}$ | Indoor $CO_2$ concentration | $ppm$ or $mg/m^3$ |
-    | $C_{out}$ | Outdoor $CO_2$ concentration | $ppm$ |
-    | $C_s$ | $CO_2$ concentration of the HVAC supply air | $ppm$ |
-    | $\dot{C}_{in}$ | Internal $CO_2$ generation rate (occupants) | $kg/s$ or $L/s$ |
+    | $C_{in}$ | Indoor $CO_2$ concentration | $mg/m^3$ |
+    | $C_{out}$ | Outdoor $CO_2$ concentration | $mg/m^3$|
+    | $C_s$ | $CO_2$ concentration of the HVAC supply air | $mg/m^3$|
+    | $G_{int}$ | Internal $CO_2$ generation rate (occupants) | $mg/s$ |
 
     ---
 
@@ -85,9 +85,9 @@ def _(mo):
     | :--- | :--- | :--- |
     | $C_{air}$ | Thermal capacity of the room's air volume | $J/K$ |
     | $C_{mass}$ | Thermal capacity of the building mass | $J/K$ |
-    | $C_m$ | Moisture storage capacity of the air ($\rho_{air} \cdot V_{room}$) | $kg$ |
+    | $C_m$ | moisture inertia term ($\rho_{air} \cdot V_{room}$) | $kg$ |
     | $R_{env}$ | Thermal resistance of the building envelope | $K/W$ |
-    | $R_{in}$ | Thermal resistance between indoor air and building mass | $K/W$ |
+    | $R_{int}$ | Thermal resistance between indoor air and building mass | $K/W$ |
     | $M_{air}$ | Total mass of the air inside the room | $kg$ |
     | $V_{room}$ | Total volume of the room | $m^3$ |
     | $\rho_{air}$ | Density of the room air | $kg/m^3$ |
@@ -130,11 +130,11 @@ def _(mo):
     mo.md(r"""
     A single room or thermal zone is typically modeled using a 1R1C, 2R1C, or 2R2C (or higher-order 3R2C) resistance-capacitance network, depending on the required accuracy and the importance of thermal mass dynamics. The 2-node model (2R2C) is a good compromise, it separates the fast dynamics of the room air from the slower response of the building's thermal mass (walls, floor, furniture, etc.).
 
-    The Analogy:Voltage ($T$):
-    - Temperature ($^\circ C$ or $K$). Nodes represent the outdoor air ($T_{out}$), indoor air ($T_{in}$), and wall mass ($T_{w}$).
-    - Current ($Q$): Heat flow ($W$).
-    - Resistance ($R$): Thermal resistance of walls, windows, and infiltration ($K/W$).
-    - Capacitor ($C$): Thermal capacitance of the indoor air and internal mass ($J/K$).
+    The Analogy:
+    - Voltage $T$ ($^\circ C$ or $K$). Nodes represent the outdoor air ($T_{out}$), indoor air ($T_{in}$), and wall mass ($T_{w}$).
+    - Current $Q$ ($W$): Heat flow.
+    - Resistance $R$ ($K/W$): Thermal resistance of walls, windows, and infiltration.
+    - Capacitor $C$ ($J/K$): Thermal capacitance of the indoor air and internal mass.
     """)
     return
 
@@ -161,20 +161,10 @@ def _(mo):
 
     If we treat the room air and light furniture as a single node, the first-order differential equation is
 
-    $$C_{air} \frac{dT_{in}}{dt} = \sum \frac{T_{out} - T_{in}}{R_{env}} + \frac{T_{m} - T_{in}}{R_{int}} + Q_{int} + Q_{solar,conv} +  Q_{s} + Q_{vent}$$
+    $$C_{air} \frac{dT_{in}}{dt} = \sum \frac{T_{out} - T_{in}}{R_{env}} + \frac{T_{m} - T_{in}}{R_{int}} + Q_{int} + Q_{solar,conv} +  Q_{s} + Q_{vent} + Q_{inf}$$
 
     For the mass node,
     $$ C_{mass} \frac{dT_m}{dt} = \frac{T_{in} - T_m}{R_{int}} + Q_{solar,rad} $$
-
-    Where:
-    - $C_{air}$: Thermal capacity of the room air.
-    - $R_{int}$: Equivalent thermal resistance of the building envelope (walls, windows).
-    - $C_{C_mass}$: Effective thermal capacity of the internal mass.
-    - $R_{env}$: Air-to-mass coupling resistance (K/W).
-    - $Q_{int}$: Internal heat gains (people, equipment, lighting).
-    - $Q_{solar}$: Solar radiation entering through windows.
-    - $Q_{s}$: Heating or cooling provided by the system.
-    - $Q_{vent}$: Heat transfer due to ventilation/infiltration, modeled as $\dot{m} c_p (T_{out} - T_{in})$.
     """)
     return
 
@@ -205,9 +195,13 @@ def _(mo):
     Humidity can be modeled similarly, though it is usually treated as a mass balance. In an RC framework, it is generally a 1C model (just the room air), unless you want to model the moisture absorbed by walls and furniture (hygroscopic buffering), which would require additional R and C components.
 
     The Analogy:
-    - Voltage ($W$ or $P_v$): Humidity ratio ($kg_{water}/kg_{dry\ air}$) or Vapor pressure ($Pa$).
-    - Current ($\dot{m}_w$): Moisture mass flow rate ($kg/s$).
-    - Capacitor ($C_m$): Moisture storage capacity of the air. $C_m = \rho_{air} \cdot V_{room}$ (where $V$ is volume).
+    - Voltage $W$ ($kg_{water}/kg_{dry\_air}$): Humidity ratio (potential).
+    - Current Source $G_{w}$ ($kg_{water}/s$): Internal moisture generation rate.
+    - Resistance $R$ ($s/kg_{dry\_air}$): Resistance to moisture flow via advection.
+    - Capacitor $C_m$ ($kg_{dry\_air}$): Moisture storage capacity of the room.
+
+    $R = \frac{1}{\dot{m}_{dry\_air}}$ - So we use $\dot{m}_{dry\_air}$ in governing equation.
+    $C_m = \rho_{dry\_air} \cdot V_{room}$ (where $V_{room}$ is the volume).
     """)
     return
 
@@ -232,13 +226,7 @@ def _(mo):
     mo.md(r"""
     The Governing Equation (Lumped Air Node):
 
-    $$\rho_{air} V_{room} \frac{dW_{in}}{dt} = \dot{m}_{int} + \dot{m}_{vent}(W_{out} - W_{in}) - \dot{m}_{s}$$
-
-    Where:
-    - $W_{in}$: Indoor humidity ratio.
-    - $\dot{m}_{int}$: Internal moisture generation (breathing, sweating, cooking).$
-    - $\dot{m}_{vent}$: Rate of air leaked out
-    - $\dot{m}_{s}$: Dehumidification rate from the AC system.
+    $$C_m  \frac{dW_{in}}{dt} = G_{w,int} + \dot{m}_{inf}(W_{out} - W_{in}) + \dot{m}_{s}(W_s - W_{in})$$
     """)
     return
 
@@ -257,10 +245,12 @@ def _(mo):
     $CO_2$ modeling is the most straightforward of the three. Because $CO_2$ does not absorb into walls or furniture like moisture or heat, it is almost strictly a 1C model (pure mass balance). The "capacitor" is simply the volume of the room.
 
     The Analogy:
-    - Voltage ($C$): $CO_2$ concentration, usually in $ppm$ (parts per million) or $mg/m^3$.
-    - Current ($G$): $CO_2$ generation rate ($mg/s$ or $L/s$).
-    - Resistance ($R$): The inverse of the ventilation rate ($1 / \dot{V}_{vent}$).
-    - Capacitor ($C_{vol}$): The volume of the room ($V_{room}$).The
+    - Voltage $C$  ($mg/m^3$): $CO_2$ concentration.
+    - Current $G_{co2}$ ($mg/s$): $CO_2$ generation rate.
+    - Resistance $R$ : The inverse of the ventilation rate.
+    - Capacitor $V_{room}$ ($m^3$) : The volume of the room.
+
+    $R$ defined as $R = \frac{1}{\dot{V}}$. Therefore we use $\dot{V}$ in governing equation.
     """)
     return
 
@@ -284,13 +274,7 @@ def _(mo):
 def _(mo):
     mo.md(r"""
     The Governing Equation:
-    $$V_{room} \frac{dC_{in}}{dt} = G_{int} + \dot{V}_{vent}(C_{out} - C_{in})$$
-
-    Where:
-    - $C_{in}$: Indoor $CO_2$ concentration.
-    - $C_{out}$: Outdoor $CO_2$ concentration (typically around 400-420 ppm).
-    - $G_{int}$: Internal $CO_2$ generation rate (primarily from occupants).
-    - $\dot{V}_{vent}$: Volumetric flow rate of ventilation and infiltration.
+    $$V_{room} \frac{dC_{in}}{dt} = G_{co2,int} + \dot{V}_{inf}(C_{out} - C_{in}) + \dot{V}_{s}(C_{s} - C_{in})$$
     """)
     return
 
@@ -314,7 +298,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    In a multizone termal node there is a coupling effect. Which is not included in the standard 2R2C or any other static modeling methord. So I proporce this dynamic **xR2C** model which generated based on the bulding geometry.
+    In a multizone thermal node there is a coupling effect. Which is not included in the standard 2R2C or any other static modeling method. So I propose this dynamic **xR2C** model which generated based on the building geometry.
 
     - **x **= number of resistances (K/W) → heat flow paths (envelope, internal partitions, convection/radiation, ventilation).
 
@@ -352,10 +336,16 @@ def _(mo):
 
     For each zone i = 1, 2, ..., N (where N is the number of zones),
 
-    Air node equation (for $T_{a,i}$):
-    $$C_{\text{air},i} \frac{dT_{in,i}}{dt} = \frac{T_{\text{out}} - T_{in,i}}{R_{\text{env},i}} + \frac{T_{m,i} - T_{in,i}}{R_{\text{int},i}} + \sum_{j \in \text{adj}(i)} \frac{T_{in,j} - T_{in,i}}{R_{\text{couple},ij}} + Q_{\text{int},i} + Q_{\text{solar,conv},i} + Q_{s,i} + Q_{\text{vent},i}$$
+    Air node equation (for $T_{in,i}$):
 
-    Mass node equation (for $  T_{m,i}  $):
+    $$C_{\text{air},i} \frac{dT_{in,i}}{dt} =
+    \frac{T_{\text{out}} - T_{in,i}}{R_{\text{env,external},i}} +
+    \sum_{j \in \text{adj}(i)} \frac{T_{in,j} - T_{in,i}}{R_{\text{env,couple},ij}} +
+    \frac{T_{m,i} - T_{in,i}}{R_{\text{int},i}} +
+    \sum_{j \in \text{adj}(i)} \dot{m}_{ij} c_p (T_{in,j}- T_{in,i}) +
+    Q_{\text{int},i} + Q_{\text{solar,conv},i} + Q_{s,i} + Q_{\text{vent},i} + Q_{\text{inf},i}$$
+
+    Mass node equation (for $T_{m,i}$):
     $$C_{\text{mass},i} \frac{dT_{m,i}}{dt} = \frac{T_{in,i} - T_{m,i}}{R_{\text{int},i}} + Q_{\text{solar,rad},i} + \sum_{j \in \text{adj}(i)} \frac{T_{m,j} - T_{m,i}}{R_{\text{couple,ms},ij}} $$
     """)
     return
@@ -364,13 +354,16 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    Since, to have coupling effect between zones for humidity and $CO_2$, air need to move between zones. For this setup the zones are designated as independent air zones. Therefore that coupling is negligible and only termal coupling is considered.
+    In a similar way, the dynamics of humidity and $CO_2$ can be definedd using 1R1C model as follow,
 
-    Therefore use generic 1R1C models,
+    $$C_{m,i} \frac{dW_{in,i}}{dt} =
+    G_{w,int,i} + \dot{m}_{inf,i}(W_{out} - W_{in,i}) +
+    \sum_{j \in \text{adj}(i)} \dot{m}_{mix,ij}(W_{in,j} - W_{in,i}) +
+    \dot{m}_{s,i}(W_s - W_{in,i})$$
 
-    $$\rho_{air} V_{room} \frac{dW_{in}}{dt} = \dot{m}_{int} + \dot{m}_{vent} (W_{out} - W_{in}) - \dot{m}_{s}$$
-
-    $$V_{room} \frac{dC_{in}}{dt} = G_{int} + \dot{V}_{vent}(C_{out} - C_{in})$$
+    $$V_{room,i} \frac{dC_{in,i}}{dt} = G_{co2,int,i} + \dot{V}_{inf,i}(C_{out} - C_{in,i}) +
+    \sum_{j \in \text{adj}(i)} \dot{V}_{mix,ij}(C_{in,j} - C_{in,i}) +
+    \dot{V}_{s,i}(C_{s} - C_{in,i})$$
     """)
     return
 
@@ -400,6 +393,7 @@ def _(mo):
 
     $$d_i = \begin{bmatrix}
     T_{out} \\
+    W_{out} \\
     Q_{int,i} \\
     Q_{solar,conv,i} \\
     Q_{solar,red,i} \\
@@ -413,8 +407,8 @@ def _(mo):
     $$f(x_i, d_i) = \begin{bmatrix}
     \frac{1}{C_{air,i}} \left( \frac{T_{out} - T_{in,i}}{R_{env,i}} + \frac{T_{m,i} - T_{in,i}}{R_{int,i}} + \sum_{j \in adj(i)} \frac{T_{in,j} - T_{in,i}}{R_{couple,ij}} + Q_{int,i} + Q_{solar,conv,i} \right) \\
     \frac{1}{C_{mass,i}} \left( \frac{T_{in,i} - T_{m,i}}{R_{int,i}} + Q_{solar,rad,i} + \sum_{j \in adj(i)} \frac{T_{m,j} - T_{m,i}}{R_{couple,ms,ij}} \right) \\
-    \frac{1}{\rho_{air} V_{room}} \left( \dot{m}_{int,i} + \dot{m}_{vent,i}(W_{out} - W_{in,i}) \right) \\
-    \frac{1}{V_{room}} \left( G_{int,i} + \dot{V}_{vent}(C_{out} - C_{in,i}) \right)
+    \frac{1}{\rho_{air} V_{room}} \left( \dot{m}_{int,i} + \dot{m}_{inf,i}(W_{out} - W_{in,i}) \right) \\
+    \frac{1}{V_{room}} \left( G_{int,i} + \dot{V}_{inf,i}(C_{out} - C_{in,i}) \right)
     \end{bmatrix}$$
 
     AHU Supply Parameters (S):
@@ -437,7 +431,7 @@ def _(mo):
 
     ##### Dynamics of the system:
 
-    $$\dot{x_i} = f(x_i,d_i) + g(x_i,S).u$$
+    $$\dot{x_i} = f(x_i,d_i) + g(x_i,S)u$$
 
     ##### Output Equation:
 
