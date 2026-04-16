@@ -429,12 +429,5 @@
   Output:Table:SummaryReports,
     AllSummary;              !- Report 1 Name
 
-Output:Variable,
-        *,                        !- Key Value
-        Zone Mean Air Temperature,                       !- Variable Name
-        TimeStep;                       !- Reporting Frequency
-
-Output:Variable,
-        *,                        !- Key Value
-        Zone Mean Air Humidity Ratio,                       !- Variable Name
-        TimeStep;                       !- Reporting Frequency
+Output:SQLite,
+  SimpleAndTabular;

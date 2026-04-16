@@ -1,5 +1,5 @@
 {
-   "created_at" : "20260413T141105Z",
+   "created_at" : "20260416T092515Z",
    "seed_file" : "../Test1.osm",
    "steps" : 
    [
@@ -11,5 +11,6 @@
          "name" : "OpenStudio Results"
       }
    ],
-   "updated_at" : "20260413T141119Z"
+   "updated_at" : "20260416T092658Z",
+   "weather_file" : "LKA_Colombo-Katunayake.434500_SWERA.epw"
 }

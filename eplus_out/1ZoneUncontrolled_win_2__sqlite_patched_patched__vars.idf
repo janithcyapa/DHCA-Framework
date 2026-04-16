@@ -113,7 +113,7 @@
     No,                      !- Do System Sizing Calculation
     No,                      !- Do Plant Sizing Calculation
     Yes,                     !- Run Simulation for Sizing Periods
-    No,                      !- Run Simulation for Weather File Run Periods
+    Yes,                     !- Run Simulation for Weather File Run Periods
     No,                      !- Do HVAC Sizing Simulation for Sizing Periods
     1;                       !- Maximum Number of HVAC Sizing Simulation Passes
 
@@ -244,7 +244,7 @@
 
   Construction:WindowDataFile,
     DoubleClear,             !- Name
-    ..\datasets\Window5DataFile.dat;  !- File Name
+    /home/jazz/EnergyPlus-25-1-0/DataSets/Window5DataFile.dat;  !- File Name
 
   Site:GroundTemperature:BuildingSurface,18.89,18.92,19.02,19.12,19.21,19.23,19.07,19.32,19.09,19.21,19.13,18.96;
 
@@ -429,15 +429,8 @@
   Output:Table:SummaryReports,
     AllSummary;              !- Report 1 Name
 
-Output:Variable,
-        *,                        !- Key Value
-        Zone Mean Air Temperature,                       !- Variable Name
-        TimeStep;                       !- Reporting Frequency
-
-Output:Variable,
-        *,                        !- Key Value
-        Zone Mean Air Humidity Ratio,                       !- Variable Name
-        TimeStep;                       !- Reporting Frequency
+Output:SQLite,
+  SimpleAndTabular;
 
 Output:Variable,
         *,                        !- Key Value
@@ -447,4 +440,14 @@ Output:Variable,
 Output:Variable,
         *,                        !- Key Value
         Zone Mean Air Humidity Ratio,                       !- Variable Name
+        TimeStep;                       !- Reporting Frequency
+
+Output:Variable,
+        *,                        !- Key Value
+        Zone Air CO2 Concentration,                       !- Variable Name
+        TimeStep;                       !- Reporting Frequency
+
+Output:Variable,
+        Environment,                        !- Key Value
+        Site Outdoor Air Drybulb Temperature,                       !- Variable Name
         TimeStep;                       !- Reporting Frequency

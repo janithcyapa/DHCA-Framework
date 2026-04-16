@@ -487,16 +487,17 @@ def _():
     if eplus_dest not in sys.path:
         sys.path.insert(0, eplus_dest)
 
-    # Now you can safely import your professor's utility
+    # Safely import utility
     repo_path = "/home/jazz/Projects/energy-plus-utility" 
-
     if repo_path not in sys.path:
         sys.path.insert(0, repo_path)
 
     # Now import the utility
     from eplus import EPlusUtil
+    import matplotlib.pyplot as plt
+    import types
 
-    return EPlusUtil, Path, os
+    return EPlusUtil, Path, os, plt, types
 
 
 @app.cell(hide_code=True)
@@ -510,8 +511,8 @@ def _(mo):
 @app.cell
 def _(EPlusUtil, Path, os):
     # Define File Paths & URLs
-    OUT_DIR = str(Path.home() / "Projects" / "DHCA-Framework" / "eplus_out")
-    os.makedirs(OUT_DIR, exist_ok=True)
+    OUT_DIR = Path.home() / "Projects" / "DHCA-Framework" / "eplus_out"
+    os.makedirs(str(OUT_DIR), exist_ok=True)
 
 
     url_idf = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/System%20Models/1ZoneUncontrolled_win_2.idf"
@@ -527,7 +528,32 @@ def _(EPlusUtil, Path, os):
     sim.clear_eplus_outputs(patterns="eplusout.*")
     # Set the Model for Simulation
     sim.set_model_from_url(url_idf, url_epw)
-    return (sim,)
+    sim.ensure_output_sqlite()
+    return OUT_DIR, sim
+
+
+@app.cell
+def _(sim):
+    sim.patch_idf_entry(
+        object_type="Construction:WindowDataFile",
+        object_name="DoubleClear",
+        old_value=r"..\datasets\Window5DataFile.dat", 
+        new_value="/home/jazz/EnergyPlus-25-1-0/DataSets/Window5DataFile.dat"
+    )
+    sim.patch_idf_entry(
+        object_type="SimulationControl",
+        object_name="No", # The first entry in this block is usually the name/toggle
+        old_value="No,                      !- Run Simulation for Weather File",
+        new_value="Yes,                     !- Run Simulation for Weather File"
+    )
+    return
+
+
+@app.cell
+def _(sim):
+    sim.run_dry_run(include_ems_edd=False,reset=True,design_day=False)
+    sim.run_design_day()
+    return
 
 
 @app.cell(hide_code=True)
@@ -539,16 +565,55 @@ def _(mo):
 
 
 @app.cell
-def _(sim):
+def _(sim, types):
     # Request the variables to construct State Vector (x_i)
     specs = [
         {"name": "Zone Mean Air Temperature", "key": "*"},       # T_in
         {"name": "Zone Mean Air Humidity Ratio", "key": "*"},    # W_in
-        # {"name": "Zone Air CO2 Concentration", "key": "*"},      # C_in
-        # {"name": "Site Outdoor Air Drybulb Temperature", "key": "Environment"}, # T_out
+        {"name": "Zone Air CO2 Concentration", "key": "*"},      # C_in
+        {"name": "Site Outdoor Air Drybulb Temperature", "key": "Environment"}, # T_out
     ]
     sim.ensure_output_variables(specs, activate=True)
 
+
+    def dr_supervisor_logic(self, state):
+        """
+        Supervisor logic that extracts date and time for synchronous data logging.
+        """
+        if not self.exchange.api_data_fully_ready(state):
+            return
+
+        # 1. Get current simulation time details
+        day = self.exchange.day_of_year(state)
+        time_now = self.exchange.time_of_day(state) # Hours (0.0 to 24.0)
+    
+        # Optional: Convert decimal hours to HH:MM for printing
+        hours = int(time_now)
+        minutes = int((time_now - hours) * 60)
+    
+        # 2. Extract your State Vector (x_i) via handles
+        # Tip: Use the variable names from your specs list
+        t_in_handle = self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", "ZN001:ROOM001")
+        t_in = self.exchange.get_variable_value(state, t_in_handle)
+
+        print(f"[SUPERVISOR] Day: {day} | Time: {hours:02d}:{minutes:02d} | T_in: {t_in:.2f} C")
+
+        # You can now append (day, time_now, t_in) to a list for manual plotting
+
+    sim.my_supervisor = types.MethodType(dr_supervisor_logic, sim)
+
+    registered = sim.register_handlers(
+        "begin",               # Hook: Begin Timestep
+        ["my_supervisor"]      # Method Name
+    )
+    print(f"Registered methods: {registered}")
+    current_list = sim.list_handlers("begin")
+    print(f"Handlers on 'begin' hook: {current_list}")
+    sim.set_simulation_params(
+        start=(1, 1),           # January 1st
+        end=(1, 7),             # January 7th
+        start_day_of_week="Sunday"
+    )
     print("Starting EnergyPlus Uncontrolled Simulation...")
     sim.run_annual()
     print("Simulation Complete!")
@@ -556,8 +621,27 @@ def _(sim):
 
 
 @app.cell
-def _(Path):
-    err_path = Path.home() / "Projects" / "DHCA-Framework" /  "eplus_out" / "eplusout.err"
+def _(OUT_DIR, os, plt, sim):
+    sql_path = OUT_DIR / "eplusout.sql"
+    if os.path.exists(sql_path):
+    
+        # Plot the ground truth temperature to visually check it
+        fig = sim.plot_sql_zone_variable(
+            "Site Outdoor Air Drybulb Temperature",
+            keys=["*"],
+            reporting_freq=("TimeStep",),
+            resample="1h",
+            title="EnergyPlus Ground Truth: Uncontrolled Zone Temperature"
+        )
+        plt.show()
+    else:
+        print("SQL output not found. Check if the simulation crashed.")
+    return
+
+
+@app.cell
+def _(OUT_DIR):
+    err_path = OUT_DIR / "eplusout.err"
 
     if err_path.exists():
         print("--- EnergyPlus Error Log ---")

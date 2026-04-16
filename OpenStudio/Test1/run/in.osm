@@ -388,7 +388,7 @@ OS:WeatherFile,
   79.88,                                  !- Longitude {deg}
   6,                                      !- Time Zone {hr}
   8,                                      !- Elevation {m}
-  LKA_Colombo-Katunayake.434500_SWERA.epw, !- Url
+  /tmp/osmodel-4082-3ce6-17f9-61c3-1776331515-0/resources/files/LKA_Colombo-Katunayake.434500_SWERA.epw, !- Url
   33E2FBA7,                               !- Checksum
   ,                                       !- Start Date Actual Year
   Sunday;                                 !- Start Day of Week
