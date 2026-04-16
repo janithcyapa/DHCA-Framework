@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.23.0"
-app = marimo.App(width="medium", auto_download=["ipynb", "html"])
+app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
@@ -466,7 +466,7 @@ def _(mo):
 def _():
     import importlib.metadata
     ver = importlib.metadata.version("energy-plus-utility")
-    print(f"\n✅ Installed 'energy-plus-utility' version: {ver}")
+    print(f"\nInstalled 'energy-plus-utility' version: {ver}")
     return
 
 
@@ -504,7 +504,7 @@ def _():
     os.makedirs(str(OUT_DIR), exist_ok=True)
 
     # Initialize Utility
-    sim = EPlusUtil(verbose=1, out_dir=OUT_DIR)
+    sim = EPlusUtil(verbose=2, out_dir=OUT_DIR)
     return OUT_DIR, os, pd, plt, sim, types
 
 
@@ -528,19 +528,27 @@ def _(sim):
 
     # Set the Model for Simulation
     sim.set_model_from_url(url_idf, url_epw)
-    sim.ensure_output_sqlite()
+    # Clean legacy outputs and patch the IDF for CO2 tracking
+    sim.prepare_run_with_co2(
+        outdoor_co2_ppm=420.0, 
+        wipe_outputs=True, 
+        activate=True, 
+        reset=True
+    )
 
+
+    sim.ensure_output_sqlite()
 
     sim.run_dry_run(include_ems_edd=False,reset=True,design_day=True)
     return
 
 
 @app.cell
-def _(sim):
+def _(mo, sim):
     catalog = sim.api_catalog_df()
     # mo.ui.table(catalog)
-    # mo.ui.table(catalog['VARIABLES'])
-    sim.list_available_variables()
+    mo.ui.table(catalog['VARIABLES'])
+    # sim.list_available_variables()
     return
 
 
@@ -554,25 +562,39 @@ def _(mo):
 
 @app.cell
 def _(sim):
-    sim.clear_patched_idf()
     # Request the variables to construct State Vector (x_i) and Disturbances (d_i)
     specs = [
-        # Zone States (Applies to all zones using "*")
+        # Zone States (x_i)
         {"name": "Zone Mean Air Temperature", "key": "*"},       # T_in,i
+        {"name": "Zone Mean Radiant Temperature", "key": "*"},   # T_m,i (Thermal Mass proxy)
         {"name": "Zone Mean Air Humidity Ratio", "key": "*"},    # W_in,i
         {"name": "Zone Air Relative Humidity", "key": "*"},      # W_in,i (%)
+        {"name": "Zone Air CO2 Concentration", "key": "*"},      # ppm
 
-        # External Environment Disturbances
+        # Time-Varying Parameters (p_i)
+        {"name": "Zone People Occupant Count", "key": "*"},      # No. of People
+        {"name": "Zone Electric Equipment Total Heating Rate", "key": "*"}, # Watts
+
+        # External Environment Conditions (x_out)
         {"name": "Site Outdoor Air Drybulb Temperature", "key": "*"}, # T_out
         {"name": "Site Outdoor Air Humidity Ratio", "key": "*"},      # W_out
-        {"name": "Site Outdoor Air Relative Humidity", "key": "*"},      # W_in,i (%)
+        {"name": "Site Outdoor Air Relative Humidity", "key": "*"},   # W_in,i (%)
+        {"name": "Schedule Value", "key": "CO2-Outdoor-Actuated"},     # ppm
+
+        # Control Inputs - VAV Box Volumetric Flow Rate (m3/s)
+        {"name": "System Node Current Density Volume Flow Rate", "key": "*"},
+
+        # AHU Supply Parameters (S)
+        {"name": "System Node Temperature", "key": "*"},       # T_s
+        {"name": "System Node Humidity Ratio", "key": "*"},    # W_s
+        {"name": "System Node CO2 Concentration", "key": "*"}, # C_s
     ]
     sim.ensure_output_variables(specs, activate=True)
 
     # # Set Simulation Time
     sim.set_simulation_params(
         start=(1, 1),
-        end=(1, 31),
+        end=(1, 7),
         timestep_per_hour = 1, # 4 (every 15 minutes) or 6 (every 10 minutes).
         start_day_of_week="Sunday",
     )
@@ -610,32 +632,68 @@ def _(sim, types):
         t_out_h = self.exchange.get_variable_handle(state, "Site Outdoor Air Drybulb Temperature", "Environment")
         w_out_h = self.exchange.get_variable_handle(state, "Site Outdoor Air Humidity Ratio", "Environment")
         rh_out_h = self.exchange.get_variable_handle(state, "Site Outdoor Air Relative Humidity", "Environment")
-    
-        # Check for handles >= 0
-        row["T_out"] = self.exchange.get_variable_value(state, t_out_h) if t_out_h >= 0 else 0.0
-        row["W_out"] = self.exchange.get_variable_value(state, w_out_h) if w_out_h >= 0 else 0.0
-        row["RH_out_%"] = self.exchange.get_variable_value(state, rh_out_h) if rh_out_h >= 0 else 0.0
+        co2_out_h = self.exchange.get_variable_handle(state, "Schedule Value", "CO2-Outdoor-Actuated")
 
+
+        row["T_out"] = self.exchange.get_variable_value(state, t_out_h)
+        row["W_out"] = self.exchange.get_variable_value(state, w_out_h)
+        row["RH_out_%"] = self.exchange.get_variable_value(state, rh_out_h)
+        row["CO2_out"] = self.exchange.get_variable_value(state, co2_out_h)
+
+        t_s_h = self.exchange.get_variable_handle(state, "System Node Temperature", "VAV Sys 1 Outlet Node")
+        w_s_h = self.exchange.get_variable_handle(state, "System Node Humidity Ratio", "VAV Sys 1 Outlet Node")
+        c_s_h = self.exchange.get_variable_handle(state, "System Node CO2 Concentration", "VAV Sys 1 Outlet Node")
+
+        row["T_s"] = self.exchange.get_variable_value(state, t_s_h)
+        row["W_s"] = self.exchange.get_variable_value(state, w_s_h)
+        row["C_s"] = self.exchange.get_variable_value(state, c_s_h)
+    
         # 3. Extract Internal States for All Zones
         zones = ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]
         for zone in zones:
             # Match variable names in your patched IDF
             t_in_h = self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", zone)
+            t_m_h = self.exchange.get_variable_handle(state, "Zone Mean Radiant Temperature", zone)
             w_in_h = self.exchange.get_variable_handle(state, "Zone Mean Air Humidity Ratio", zone)
             rh_in_h = self.exchange.get_variable_handle(state, "Zone Air Relative Humidity", zone)
-        
-            row[f"{zone}_T_in"] = self.exchange.get_variable_value(state, t_in_h) if t_in_h >= 0 else 0.0
-            row[f"{zone}_W_in"] = self.exchange.get_variable_value(state, w_in_h) if w_in_h >= 0 else 0.0
-            row[f"{zone}_RH_%"] = self.exchange.get_variable_value(state, rh_in_h) if rh_in_h >= 0 else 0.0
+            co2_in_h = self.exchange.get_variable_handle(state, "Zone Air CO2 Concentration", zone)
+            occ_in_h = self.exchange.get_variable_handle(state, "Zone People Occupant Count", zone)
+            q_eq_h = self.exchange.get_variable_handle(state, "Zone Electric Equipment Total Heating Rate", zone)
+            v_dot_h = self.exchange.get_variable_handle(state, "System Node Current Density Volume Flow Rate", f"{zone} In Node")
+
+            row[f"{zone}_T_in"] = self.exchange.get_variable_value(state, t_in_h)
+            row[f"{zone}_T_m"] = self.exchange.get_variable_value(state, t_m_h)
+            row[f"{zone}_W_in"] = self.exchange.get_variable_value(state, w_in_h)
+            row[f"{zone}_RH_%"] = self.exchange.get_variable_value(state, rh_in_h)
+            row[f"{zone}_CO2_in"] = self.exchange.get_variable_value(state, co2_in_h)
+            row[f"{zone}_Occ"] = self.exchange.get_variable_value(state, occ_in_h)
+            row[f"{zone}_Q_equip"] = self.exchange.get_variable_value(state, q_eq_h)
+            row[f"{zone}_V_dot"] = self.exchange.get_variable_value(state, v_dot_h)
 
         self.collected_data.append(row)
+
 
     # Register New Handler
     sim.my_supervisor = types.MethodType(dr_supervisor_logic, sim)
     registered = sim.register_handlers(
-        "begin",               # Hook: Begin Timestep
-        ["my_supervisor"]      # Method Name
-    )
+        "begin",[
+            {"method_name": "my_supervisor"}, 
+            {
+                "method_name": "occupancy_handler",
+                "kwargs": {
+                    "lam": 3.0,   # Mean expected occupants
+                    "min": 0,     # Minimum occupants
+                    "max": 5,     # Maximum occupants
+                    "seed": 4     # Optional seed for reproducibility
+                }
+            },
+            {
+                "method_name": "co2_set_outdoor_ppm",
+                "kwargs": {
+                    "value_ppm": 420.0,
+                    "log_every_minutes": 60 
+                }
+            }])
 
     # Verify
     current_list = sim.list_handlers("begin")
