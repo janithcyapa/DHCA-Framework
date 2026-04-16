@@ -161,10 +161,10 @@ def _(mo):
 
     If we treat the room air and light furniture as a single node, the first-order differential equation is
 
-    $$C_{air} \frac{dT_{in}}{dt} = \sum \frac{T_{out} - T_{in}}{R_{env}} + \frac{T_{m} - T_{in}}{R_{int}} + Q_{int} + Q_{solar,conv} +  Q_{s} + Q_{vent} + Q_{inf}$$
+    $$C_{air} \frac{dT_{in}}{dt} = \sum \frac{T_{out} - T_{in}}{R_{env}} + \frac{T_{m} - T_{in}}{R_{int}} + Q_{int} + Q_{solar,conv} +  Q_{s} + Q_{vent} + Q_{inf} \tag{A}$$
 
     For the mass node,
-    $$ C_{mass} \frac{dT_m}{dt} = \frac{T_{in} - T_m}{R_{int}} + Q_{solar,rad} $$
+    $$ C_{mass} \frac{dT_m}{dt} = \frac{T_{in} - T_m}{R_{int}} + Q_{solar,rad} \tag{B}$$
     """)
     return
 
@@ -198,10 +198,10 @@ def _(mo):
     - Voltage $W$ ($kg_{water}/kg_{dry\_air}$): Humidity ratio (potential).
     - Current Source $G_{w}$ ($kg_{water}/s$): Internal moisture generation rate.
     - Resistance $R$ ($s/kg_{dry\_air}$): Resistance to moisture flow via advection.
-    - Capacitor $C_m$ ($kg_{dry\_air}$): Moisture storage capacity of the room.
+    - Capacitor $M_{air}$ ($kg_{dry\_air}$): Moisture storage capacity of the room.
 
     $R = \frac{1}{\dot{m}_{dry\_air}}$ - So we use $\dot{m}_{dry\_air}$ in governing equation.
-    $C_m = \rho_{dry\_air} \cdot V_{room}$ (where $V_{room}$ is the volume).
+    $M_{air} = \rho_{dry\_air} \cdot V_{room}$ (where $V_{room}$ is the volume).
     """)
     return
 
@@ -226,7 +226,7 @@ def _(mo):
     mo.md(r"""
     The Governing Equation (Lumped Air Node):
 
-    $$C_m  \frac{dW_{in}}{dt} = G_{w,int} + \dot{m}_{inf}(W_{out} - W_{in}) + \dot{m}_{s}(W_s - W_{in})$$
+    $$M_{air} \frac{dW_{in}}{dt} = G_{w,int} + \dot{m}_{inf}(W_{out} - W_{in}) + \dot{m}_{s}(W_s - W_{in}) \tag{C}$$
     """)
     return
 
@@ -274,7 +274,7 @@ def _(mo):
 def _(mo):
     mo.md(r"""
     The Governing Equation:
-    $$V_{room} \frac{dC_{in}}{dt} = G_{co2,int} + \dot{V}_{inf}(C_{out} - C_{in}) + \dot{V}_{s}(C_{s} - C_{in})$$
+    $$V_{room} \frac{dC_{in}}{dt} = G_{co2,int} + \dot{V}_{inf}(C_{out} - C_{in}) + \dot{V}_{s}(C_{s} - C_{in}) \tag{D}$$
     """)
     return
 
@@ -343,10 +343,10 @@ def _(mo):
     \sum_{j \in \text{adj}(i)} \frac{T_{in,j} - T_{in,i}}{R_{\text{env,couple},ij}} +
     \frac{T_{m,i} - T_{in,i}}{R_{\text{int},i}} +
     \sum_{j \in \text{adj}(i)} \dot{m}_{ij} c_p (T_{in,j}- T_{in,i}) +
-    Q_{\text{int},i} + Q_{\text{solar,conv},i} + Q_{s,i} + Q_{\text{vent},i} + Q_{\text{inf},i}$$
+    Q_{\text{int},i} + Q_{\text{solar,conv},i} + Q_{s,i} + Q_{\text{vent},i} + Q_{\text{inf},i} \tag{1}$$
 
     Mass node equation (for $T_{m,i}$):
-    $$C_{\text{mass},i} \frac{dT_{m,i}}{dt} = \frac{T_{in,i} - T_{m,i}}{R_{\text{int},i}} + Q_{\text{solar,rad},i} + \sum_{j \in \text{adj}(i)} \frac{T_{m,j} - T_{m,i}}{R_{\text{couple,ms},ij}} $$
+    $$C_{\text{mass},i} \frac{dT_{m,i}}{dt} = \frac{T_{in,i} - T_{m,i}}{R_{\text{int},i}} + Q_{\text{solar,rad},i} + \sum_{j \in \text{adj}(i)} \frac{T_{m,j} - T_{m,i}}{R_{\text{couple,ms},ij}} \tag{2}$$
     """)
     return
 
@@ -356,14 +356,86 @@ def _(mo):
     mo.md(r"""
     In a similar way, the dynamics of humidity and $CO_2$ can be definedd using 1R1C model as follow,
 
-    $$C_{m,i} \frac{dW_{in,i}}{dt} =
+    $$M_{air,i} \frac{dW_{in,i}}{dt} =
     G_{w,int,i} + \dot{m}_{inf,i}(W_{out} - W_{in,i}) +
     \sum_{j \in \text{adj}(i)} \dot{m}_{mix,ij}(W_{in,j} - W_{in,i}) +
-    \dot{m}_{s,i}(W_s - W_{in,i})$$
+    \dot{m}_{s,i}(W_s - W_{in,i}) \tag{3}$$
 
     $$V_{room,i} \frac{dC_{in,i}}{dt} = G_{co2,int,i} + \dot{V}_{inf,i}(C_{out} - C_{in,i}) +
     \sum_{j \in \text{adj}(i)} \dot{V}_{mix,ij}(C_{in,j} - C_{in,i}) +
-    \dot{V}_{s,i}(C_{s} - C_{in,i})$$
+    \dot{V}_{s,i}(C_{s} - C_{in,i}) \tag{4}$$
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 2.2 Estimations vs. Unmeasured Disturbances
+
+    To make the equations computable, divide the non-controlble terms into two distinct groups, Heuristic Estimations (which act as feed-forward knowns) and Lumped Disturbances (which an observer algorithm will dynamically estimate).
+
+    **Heuristic Estimations (Occupancy & Equipment)**
+
+    If the number of occupants ($N_{occ,i}$) is known by sheduling or estimation, the internal generation terms can be calculated using standard ASHRAE metabolic rates,
+
+    Sensible Heat:
+    $$Q_{int,i} \approx N_{occ,i}⋅q_{person} + Q_{equip} \tag{5(a)}$$
+
+    Latent Moisture:
+    $$G_{w,int,i} \approx N_{occ,i} ⋅g_{w,person} \tag{5(b)}$$
+
+    CO2 Generation:
+    $$G_{co2,int,i} \approx N_{occ,i}⋅g_{co2,person} \tag{5(c)}$$
+
+    Additionally, envelope infiltration is estimated as a constant based on the building's historical Air Changes per Hour (ACH):
+    $$ \dot{m}_{inf,i} \approx \frac{ACH \ . \ V_{room,i} \ . \ \rho_{air}}{3600}$$
+    But, to make model robust include them in disturbance.
+
+    **The Lumped Disturbance Vector ($d_i$)**
+
+    All chaotic, unmeasurable inter-zone dynamics and unpredictable environmental factors are stripped from the main equations and lumped into unified disturbance variables. A Disturbance Observer (DOB) can be use to estimate these values in real-time.
+
+    $$ d_{T,i} = Q_{solar,i} + Q_{\text{inf},i} + \sum \dot{m}_{ij} c_p (T_{in,j} - T_{in,i}) + \text{unmodeled conduction} \tag{6(a)}$$
+
+    $$ d_{W,i} = \dot{m}_{inf,i}(W_{out} - W_{in,i}) + \sum \dot{m}_{mix,ij} (W_{in,j} - W_{in,i}) + \text{unmodeled moisture leaks} \tag{6(b)}$$
+
+    $$ d_{C,i} = \dot{V}_{inf,i}(C_{out} - C_{in,i}) + \sum \dot{V}_{mix,ij} (C_{in,j} - C_{in,i}) + \text{unmodeled } CO_2 \text{ leaks} \tag{6(c)}$$
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Considering equation(1-4 and 5,6) and the AHU setup in Lab,
+    - We can either include coupling effect as disturbance or for now we will keep it to check weather we can utilize it decentralized control algorithum.
+    - $R_{env,ext}$, $R_{env,couple,ij}$, $R_{int}$, $C_{air}$, $C_{mass}$, $C_{m}$ and $V_{room}$ are derived constants from Derived from IDF.
+    - Considering the AHU setup where air mixing is done at AHU, $Q_{vent}$ is included in $Q_s$ and that can be written based on supply sensor measurements.
+    - $Q_{solar,i}$ , $Q_{\text{inf},i}$ and interzone air exchange terms are unmeasurable. So they are included as a lumped disturbance.
+    - Ommit $Q_{solar,rad}$ and coupling terms from mass node, because direct mass-node disturbances and solid-to-solid conduction are unobservable with standard sensors. Ignoring them is acceptable because their physical impact is indirectly captured and compensated for by the air-node disturbance observer ($d_{T,i}).
+    - $T_{m,i}$ is treated as an unobservable (hidden) state. Utilize a State Observer to estimate that. At simulation env of energy plus this is observable for validation.
+    -
+
+    $$C_{\text{air},i} \ \dot{T}_{in,i}=
+    \frac{T_{\text{out}} - T_{in,i}}{R_{\text{env,external},i}} +
+    \sum_{j \in \text{adj}(i)} \frac{T_{in,j} - T_{in,i}}{R_{\text{env,couple},ij}} +
+    \frac{T_{m,i} - T_{in,i}}{R_{\text{int},i}} +
+    (N_{occ,i}⋅q_{person} + Q_{equip})+
+    \rho_{air} \dot{V}_{s,i} \ c_p \ (T_s - T_{in,i}) +
+    d_{T,i} \tag{7}$$
+
+    $$C_{\text{mass},i} \ \dot{T}_{m,i}= \frac{T_{in,i} - T_{m,i}}{R_{\text{int},i}} \tag{8}$$
+
+    $$M_{air,i}\ \dot{W}_{in,i} =
+    N_{occ,i} ⋅g_{w,person} +
+    \dot{m}_{s,i}(W_s - W_{in,i}) +
+    d_{W,i} \tag{9}$$
+
+    $$V_{room,i}  \ \dot{C}_{in,i} =
+    N_{occ,i}⋅g_{co2,person} +
+    \dot{V}_{s,i}(C_{s} - C_{in,i}) +
+    d_{C,i} \tag{10}$$
     """)
     return
 
@@ -379,7 +451,8 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    For a single zone i,
+    1. Vector Definitions For a single zone i
+
     State Vector ($x_i$):
 
     $$x_i = \begin{bmatrix}
@@ -389,58 +462,32 @@ def _(mo):
     C_{in,i}
     \end{bmatrix}$$
 
-    Disturbance Vector ($d_i$):
+
+    Control Input ($u_i$): Taking the VAV box damper position to represent volumetric flow rate ($m^3/s$)
+    $$u_i=\dot{V}_{s,i}$$
+
+    Time-Varying Parameter Vector ($p_i$):
+
+    $$p_i = \begin{bmatrix}
+    N_{occ,i} \\
+    Q_{equip,i}
+    \end{bmatrix}$$
+
+    Lumped Disturbance Vector ($d_i$):
 
     $$d_i = \begin{bmatrix}
-    T_{out} \\
-    W_{out} \\
-    Q_{int,i} \\
-    Q_{solar,conv,i} \\
-    Q_{solar,red,i} \\
-    \dot{m}_{int,i} \\
-    G_{int,i} \\
-    C_{out}
+    d_{T,i} \\
+    d_{W,i} \\
+    d_{C,i}
     \end{bmatrix}$$
 
-    Dynamics of the system ($f(x_i, d_i)$):
-
-    $$f(x_i, d_i) = \begin{bmatrix}
-    \frac{1}{C_{air,i}} \left( \frac{T_{out} - T_{in,i}}{R_{env,i}} + \frac{T_{m,i} - T_{in,i}}{R_{int,i}} + \sum_{j \in adj(i)} \frac{T_{in,j} - T_{in,i}}{R_{couple,ij}} + Q_{int,i} + Q_{solar,conv,i} \right) \\
-    \frac{1}{C_{mass,i}} \left( \frac{T_{in,i} - T_{m,i}}{R_{int,i}} + Q_{solar,rad,i} + \sum_{j \in adj(i)} \frac{T_{m,j} - T_{m,i}}{R_{couple,ms,ij}} \right) \\
-    \frac{1}{\rho_{air} V_{room}} \left( \dot{m}_{int,i} + \dot{m}_{inf,i}(W_{out} - W_{in,i}) \right) \\
-    \frac{1}{V_{room}} \left( G_{int,i} + \dot{V}_{inf,i}(C_{out} - C_{in,i}) \right)
-    \end{bmatrix}$$
-
-    AHU Supply Parameters (S):
+    AHU Supply Parameters ($S$):
 
     $$S = \begin{bmatrix}
-    T_s & W_s & C_s
+    T_{s} \\
+    W_{s} \\
+    C_{s}
     \end{bmatrix}$$
-
-    The Control Authority ($g(x,S)$):
-
-    $$g(x_i,S) = \begin{bmatrix}
-    \frac{c_p}{C_{air,i}} (T_s - T_{in,i}) \\
-    0 \\
-    \frac{1}{\rho_{air} V_{room}} (W_s - W_{in,i}) \\
-    \frac{1}{\rho_{air} V_{room}} (C_s - C_{in,i})
-    \end{bmatrix}$$
-
-    Control Input ($u_i$): Mass flow rate of air provided by the VAV box in kg/s
-    $$u_i=\dot{m}_{s,i}$$
-
-    ##### Dynamics of the system:
-
-    $$\dot{x_i} = f(x_i,d_i) + g(x_i,S)u$$
-
-    ##### Output Equation:
-
-    $$y = \begin{bmatrix}
-    1 & 0 & 0 & 0 \\
-    0 & 0 & 1 & 0 \\
-    0 & 0 & 0 & 1
-    \end{bmatrix}
-     x_i$$
     """)
     return
 
@@ -448,7 +495,38 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
- 
+    2. State-Space Model
+
+    The system dynamics can be written in the standard nonlinear form:
+    $$\dot{x_i} = f(x_i,p_i,d_i) + g(x_i,S)u_i$$
+
+
+    Dynamics of the system ($f(x_i, p_i, d_i)$):
+
+    $$f(x_i, p_i, d_i) = \begin{bmatrix}
+    \frac{1}{C_{air,i}} \left( \frac{T_{out} - T_{in,i}}{R_{env,external,i}} + \sum_{j \in adj(i)} \frac{T_{in,j} - T_{in,i}}{R_{env,couple,ij}} + \frac{T_{m,i} - T_{in,i}}{R_{int,i}} + p_{1,i} q_{person} + p_{2,i} + d_{T,i} \right) \\
+    \frac{1}{C_{mass,i}} \left( \frac{T_{in,i} - T_{m,i}}{R_{int,i}} \right) \\
+    \frac{1}{M_{air,i}} \left( p_{1,i} g_{w,person} + d_{W,i} \right) \\
+    \frac{1}{V_{room,i}} \left( p_{1,i} g_{co2,person} + d_{C,i} \right)
+    \end{bmatrix}$$
+
+    The Control Authority ($g(x_i,S)$):
+
+    $$g(x_i, S) = \begin{bmatrix}
+    \frac{\rho_{air} c_p}{C_{air,i}} (T_s - T_{in,i}) \\
+    0 \\
+    \frac{\rho_{air}}{M_{air,i}} (W_s - W_{in,i}) \\
+    \frac{1}{V_{room,i}} (C_s - C_{in,i})
+    \end{bmatrix}$$
+
+    Output Equation:
+
+    $$y = \begin{bmatrix}
+    1 & 0 & 0 & 0 \\
+    0 & 0 & 1 & 0 \\
+    0 & 0 & 0 & 1
+    \end{bmatrix}
+     x_i$$
     """)
     return
 

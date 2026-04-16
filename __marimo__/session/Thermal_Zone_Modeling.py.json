@@ -130,12 +130,12 @@
     },
     {
       "id": "RGSE",
-      "code_hash": "57e4cb5d2bfdf50730af0f6321d80b31",
+      "code_hash": "c36b87cbc7ae0d4cccc173bee1bb007d",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">The Governing Equation</span>\n<span class=\"paragraph\">If we treat the room air and light furniture as a single node, the first-order differential equation is</span>\n<marimo-tex class=\"arithmatex\">||[C_{air} \\frac{dT_{in}}{dt} = \\sum \\frac{T_{out} - T_{in}}{R_{env}} + \\frac{T_{m} - T_{in}}{R_{int}} + Q_{int} + Q_{solar,conv} +  Q_{s} + Q_{vent} + Q_{inf}||]</marimo-tex><span class=\"paragraph\">For the mass node,</span>\n<marimo-tex class=\"arithmatex\">||[ C_{mass} \\frac{dT_m}{dt} = \\frac{T_{in} - T_m}{R_{int}} + Q_{solar,rad} ||]</marimo-tex></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">The Governing Equation</span>\n<span class=\"paragraph\">If we treat the room air and light furniture as a single node, the first-order differential equation is</span>\n<marimo-tex class=\"arithmatex\">||[C_{air} \\frac{dT_{in}}{dt} = \\sum \\frac{T_{out} - T_{in}}{R_{env}} + \\frac{T_{m} - T_{in}}{R_{int}} + Q_{int} + Q_{solar,conv} +  Q_{s} + Q_{vent} + Q_{inf} \\tag{A}||]</marimo-tex><span class=\"paragraph\">For the mass node,</span>\n<marimo-tex class=\"arithmatex\">||[ C_{mass} \\frac{dT_m}{dt} = \\frac{T_{in} - T_m}{R_{int}} + Q_{solar,rad} \\tag{B}||]</marimo-tex></span>"
           }
         }
       ],
@@ -169,12 +169,12 @@
     },
     {
       "id": "Hstk",
-      "code_hash": "89f9cd240a27b53fc9072cc33f4ea46b",
+      "code_hash": "6f255c2cb1b68d9e4cb9ee9e96b26c7c",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Humidity can be modeled similarly, though it is usually treated as a mass balance. In an RC framework, it is generally a 1C model (just the room air), unless you want to model the moisture absorbed by walls and furniture (hygroscopic buffering), which would require additional R and C components.</span>\n<span class=\"paragraph\">The Analogy:</span>\n<ul>\n<li>Voltage <marimo-tex class=\"arithmatex\">||(W||)</marimo-tex> (<marimo-tex class=\"arithmatex\">||(kg_{water}/kg_{dry\\_air}||)</marimo-tex>): Humidity ratio (potential).</li>\n<li>Current Source <marimo-tex class=\"arithmatex\">||(G_{w}||)</marimo-tex> (<marimo-tex class=\"arithmatex\">||(kg_{water}/s||)</marimo-tex>): Internal moisture generation rate.</li>\n<li>Resistance <marimo-tex class=\"arithmatex\">||(R||)</marimo-tex> (<marimo-tex class=\"arithmatex\">||(s/kg_{dry\\_air}||)</marimo-tex>): Resistance to moisture flow via advection.</li>\n<li>Capacitor <marimo-tex class=\"arithmatex\">||(C_m||)</marimo-tex> (<marimo-tex class=\"arithmatex\">||(kg_{dry\\_air}||)</marimo-tex>): Moisture storage capacity of the room.</li>\n</ul>\n<span class=\"paragraph\"><marimo-tex class=\"arithmatex\">||(R = \\frac{1}{\\dot{m}_{dry\\_air}}||)</marimo-tex> - So we use <marimo-tex class=\"arithmatex\">||(\\dot{m}_{dry\\_air}||)</marimo-tex> in governing equation.\n<marimo-tex class=\"arithmatex\">||(C_m = \\rho_{dry\\_air} \\cdot V_{room}||)</marimo-tex> (where <marimo-tex class=\"arithmatex\">||(V_{room}||)</marimo-tex> is the volume).</span></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Humidity can be modeled similarly, though it is usually treated as a mass balance. In an RC framework, it is generally a 1C model (just the room air), unless you want to model the moisture absorbed by walls and furniture (hygroscopic buffering), which would require additional R and C components.</span>\n<span class=\"paragraph\">The Analogy:</span>\n<ul>\n<li>Voltage <marimo-tex class=\"arithmatex\">||(W||)</marimo-tex> (<marimo-tex class=\"arithmatex\">||(kg_{water}/kg_{dry\\_air}||)</marimo-tex>): Humidity ratio (potential).</li>\n<li>Current Source <marimo-tex class=\"arithmatex\">||(G_{w}||)</marimo-tex> (<marimo-tex class=\"arithmatex\">||(kg_{water}/s||)</marimo-tex>): Internal moisture generation rate.</li>\n<li>Resistance <marimo-tex class=\"arithmatex\">||(R||)</marimo-tex> (<marimo-tex class=\"arithmatex\">||(s/kg_{dry\\_air}||)</marimo-tex>): Resistance to moisture flow via advection.</li>\n<li>Capacitor <marimo-tex class=\"arithmatex\">||(M_{air}||)</marimo-tex> (<marimo-tex class=\"arithmatex\">||(kg_{dry\\_air}||)</marimo-tex>): Moisture storage capacity of the room.</li>\n</ul>\n<span class=\"paragraph\"><marimo-tex class=\"arithmatex\">||(R = \\frac{1}{\\dot{m}_{dry\\_air}}||)</marimo-tex> - So we use <marimo-tex class=\"arithmatex\">||(\\dot{m}_{dry\\_air}||)</marimo-tex> in governing equation.\n<marimo-tex class=\"arithmatex\">||(M_{air} = \\rho_{dry\\_air} \\cdot V_{room}||)</marimo-tex> (where <marimo-tex class=\"arithmatex\">||(V_{room}||)</marimo-tex> is the volume).</span></span>"
           }
         }
       ],
@@ -198,12 +198,12 @@
     },
     {
       "id": "iLit",
-      "code_hash": "e170b28f5200a01ae5e2c61daf2e683d",
+      "code_hash": "cd033435c17b165253b299a960698dbe",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">The Governing Equation (Lumped Air Node):</span>\n<marimo-tex class=\"arithmatex\">||[C_m  \\frac{dW_{in}}{dt} = G_{w,int} + \\dot{m}_{inf}(W_{out} - W_{in}) + \\dot{m}_{s}(W_s - W_{in})||]</marimo-tex></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">The Governing Equation (Lumped Air Node):</span>\n<marimo-tex class=\"arithmatex\">||[M_{air} \\frac{dW_{in}}{dt} = G_{w,int} + \\dot{m}_{inf}(W_{out} - W_{in}) + \\dot{m}_{s}(W_s - W_{in}) \\tag{C}||]</marimo-tex></span>"
           }
         }
       ],
@@ -253,12 +253,12 @@
     },
     {
       "id": "TqIu",
-      "code_hash": "cc42a244f19206c2cf9d71d3d1adc855",
+      "code_hash": "76d41d85fe80470f690c6626909283c6",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">The Governing Equation:</span>\n<marimo-tex class=\"arithmatex\">||[V_{room} \\frac{dC_{in}}{dt} = G_{co2,int} + \\dot{V}_{inf}(C_{out} - C_{in}) + \\dot{V}_{s}(C_{s} - C_{in})||]</marimo-tex></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">The Governing Equation:</span>\n<marimo-tex class=\"arithmatex\">||[V_{room} \\frac{dC_{in}}{dt} = G_{co2,int} + \\dot{V}_{inf}(C_{out} - C_{in}) + \\dot{V}_{s}(C_{s} - C_{in}) \\tag{D}||]</marimo-tex></span>"
           }
         }
       ],
@@ -321,12 +321,12 @@
     },
     {
       "id": "Pvdt",
-      "code_hash": "6e90dc95ea7a06af68e8fb33cd4c0890",
+      "code_hash": "9ae6d6f4eb8341fd259112c13ba391f8",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Governing Differential Equations</strong></span>\n<span class=\"paragraph\">For each zone i = 1, 2, ..., N (where N is the number of zones),</span>\n<span class=\"paragraph\">Air node equation (for <marimo-tex class=\"arithmatex\">||(T_{in,i}||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[C_{\\text{air},i} \\frac{dT_{in,i}}{dt} = \n\\frac{T_{\\text{out}} - T_{in,i}}{R_{\\text{env,external},i}} + \n\\sum_{j \\in \\text{adj}(i)} \\frac{T_{in,j} - T_{in,i}}{R_{\\text{env,couple},ij}} + \n\\frac{T_{m,i} - T_{in,i}}{R_{\\text{int},i}} + \n\\sum_{j \\in \\text{adj}(i)} \\dot{m}_{ij} c_p (T_{in,j}- T_{in,i}) + \nQ_{\\text{int},i} + Q_{\\text{solar,conv},i} + Q_{s,i} + Q_{\\text{vent},i} + Q_{\\text{inf},i}||]</marimo-tex><span class=\"paragraph\">Mass node equation (for <marimo-tex class=\"arithmatex\">||(T_{m,i}||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[C_{\\text{mass},i} \\frac{dT_{m,i}}{dt} = \\frac{T_{in,i} - T_{m,i}}{R_{\\text{int},i}} + Q_{\\text{solar,rad},i} + \\sum_{j \\in \\text{adj}(i)} \\frac{T_{m,j} - T_{m,i}}{R_{\\text{couple,ms},ij}} ||]</marimo-tex></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Governing Differential Equations</strong></span>\n<span class=\"paragraph\">For each zone i = 1, 2, ..., N (where N is the number of zones),</span>\n<span class=\"paragraph\">Air node equation (for <marimo-tex class=\"arithmatex\">||(T_{in,i}||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[C_{\\text{air},i} \\frac{dT_{in,i}}{dt} = \n\\frac{T_{\\text{out}} - T_{in,i}}{R_{\\text{env,external},i}} + \n\\sum_{j \\in \\text{adj}(i)} \\frac{T_{in,j} - T_{in,i}}{R_{\\text{env,couple},ij}} + \n\\frac{T_{m,i} - T_{in,i}}{R_{\\text{int},i}} + \n\\sum_{j \\in \\text{adj}(i)} \\dot{m}_{ij} c_p (T_{in,j}- T_{in,i}) + \nQ_{\\text{int},i} + Q_{\\text{solar,conv},i} + Q_{s,i} + Q_{\\text{vent},i} + Q_{\\text{inf},i} \\tag{1}||]</marimo-tex><span class=\"paragraph\">Mass node equation (for <marimo-tex class=\"arithmatex\">||(T_{m,i}||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[C_{\\text{mass},i} \\frac{dT_{m,i}}{dt} = \\frac{T_{in,i} - T_{m,i}}{R_{\\text{int},i}} + Q_{\\text{solar,rad},i} + \\sum_{j \\in \\text{adj}(i)} \\frac{T_{m,j} - T_{m,i}}{R_{\\text{couple,ms},ij}} \\tag{2}||]</marimo-tex></span>"
           }
         }
       ],
@@ -334,12 +334,12 @@
     },
     {
       "id": "ZBYS",
-      "code_hash": "7c0ecc2f3d0d8db2a9a4ffc4cd50024c",
+      "code_hash": "67037ea65cb1897a60a09dbde036f486",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">In a similar way, the dynamics of humidity and <marimo-tex class=\"arithmatex\">||(CO_2||)</marimo-tex> can be definedd using 1R1C model as follow,</span>\n<marimo-tex class=\"arithmatex\">||[C_{m,i} \\frac{dW_{in,i}}{dt} = \nG_{w,int,i} + \\dot{m}_{inf,i}(W_{out} - W_{in,i}) +\n\\sum_{j \\in \\text{adj}(i)} \\dot{m}_{mix,ij}(W_{in,j} - W_{in,i}) + \n\\dot{m}_{s,i}(W_s - W_{in,i})||]</marimo-tex><marimo-tex class=\"arithmatex\">||[V_{room,i} \\frac{dC_{in,i}}{dt} = G_{co2,int,i} + \\dot{V}_{inf,i}(C_{out} - C_{in,i}) + \n\\sum_{j \\in \\text{adj}(i)} \\dot{V}_{mix,ij}(C_{in,j} - C_{in,i}) + \n\\dot{V}_{s,i}(C_{s} - C_{in,i})||]</marimo-tex></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">In a similar way, the dynamics of humidity and <marimo-tex class=\"arithmatex\">||(CO_2||)</marimo-tex> can be definedd using 1R1C model as follow,</span>\n<marimo-tex class=\"arithmatex\">||[M_{air,i} \\frac{dW_{in,i}}{dt} = \nG_{w,int,i} + \\dot{m}_{inf,i}(W_{out} - W_{in,i}) +\n\\sum_{j \\in \\text{adj}(i)} \\dot{m}_{mix,ij}(W_{in,j} - W_{in,i}) + \n\\dot{m}_{s,i}(W_s - W_{in,i}) \\tag{3}||]</marimo-tex><marimo-tex class=\"arithmatex\">||[V_{room,i} \\frac{dC_{in,i}}{dt} = G_{co2,int,i} + \\dot{V}_{inf,i}(C_{out} - C_{in,i}) + \n\\sum_{j \\in \\text{adj}(i)} \\dot{V}_{mix,ij}(C_{in,j} - C_{in,i}) + \n\\dot{V}_{s,i}(C_{s} - C_{in,i}) \\tag{4}||]</marimo-tex></span>"
           }
         }
       ],
@@ -360,12 +360,12 @@
     },
     {
       "id": "nHfw",
-      "code_hash": "c3bf3c298e4629f99daf8a13491b0a2e",
+      "code_hash": "5af8a00b7fff958a8d295a3f9323bd74",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">For a single zone i,\nState Vector (<marimo-tex class=\"arithmatex\">||(x_i||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[x_i = \\begin{bmatrix}\nT_{in,i} \\\\\nT_{m,i} \\\\\nW_{in,i} \\\\\nC_{in,i}\n\\end{bmatrix}||]</marimo-tex><span class=\"paragraph\">Disturbance Vector (<marimo-tex class=\"arithmatex\">||(d_i||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[d_i = \\begin{bmatrix}\nT_{out} \\\\\nW_{out} \\\\\nQ_{int,i} \\\\\nQ_{solar,conv,i} \\\\\nQ_{solar,red,i} \\\\\n\\dot{m}_{int,i} \\\\\nG_{int,i} \\\\\nC_{out}\n\\end{bmatrix}||]</marimo-tex><span class=\"paragraph\">Dynamics of the system (<marimo-tex class=\"arithmatex\">||(f(x_i, d_i)||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[f(x_i, d_i) = \\begin{bmatrix}\n\\frac{1}{C_{air,i}} \\left( \\frac{T_{out} - T_{in,i}}{R_{env,i}} + \\frac{T_{m,i} - T_{in,i}}{R_{int,i}} + \\sum_{j \\in adj(i)} \\frac{T_{in,j} - T_{in,i}}{R_{couple,ij}} + Q_{int,i} + Q_{solar,conv,i} \\right) \\\\\n\\frac{1}{C_{mass,i}} \\left( \\frac{T_{in,i} - T_{m,i}}{R_{int,i}} + Q_{solar,rad,i} + \\sum_{j \\in adj(i)} \\frac{T_{m,j} - T_{m,i}}{R_{couple,ms,ij}} \\right) \\\\\n\\frac{1}{\\rho_{air} V_{room}} \\left( \\dot{m}_{int,i} + \\dot{m}_{inf,i}(W_{out} - W_{in,i}) \\right) \\\\\n\\frac{1}{V_{room}} \\left( G_{int,i} + \\dot{V}_{inf,i}(C_{out} - C_{in,i}) \\right)\n\\end{bmatrix}||]</marimo-tex><span class=\"paragraph\">AHU Supply Parameters (S):</span>\n<marimo-tex class=\"arithmatex\">||[S = \\begin{bmatrix}\nT_s &amp; W_s &amp; C_s\n\\end{bmatrix}||]</marimo-tex><span class=\"paragraph\">The Control Authority (<marimo-tex class=\"arithmatex\">||(g(x,S)||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[g(x_i,S) = \\begin{bmatrix}\n\\frac{c_p}{C_{air,i}} (T_s - T_{in,i}) \\\\\n0 \\\\\n\\frac{1}{\\rho_{air} V_{room}} (W_s - W_{in,i}) \\\\\n\\frac{1}{\\rho_{air} V_{room}} (C_s - C_{in,i})\n\\end{bmatrix}||]</marimo-tex><span class=\"paragraph\">Control Input (<marimo-tex class=\"arithmatex\">||(u_i||)</marimo-tex>): Mass flow rate of air provided by the VAV box in kg/s</span>\n<marimo-tex class=\"arithmatex\">||[u_i=\\dot{m}_{s,i}||]</marimo-tex><h5 id=\"dynamics-of-the-system\">Dynamics of the system:</h5>\n<marimo-tex class=\"arithmatex\">||[\\dot{x_i} = f(x_i,d_i) + g(x_i,S)u||]</marimo-tex><h5 id=\"output-equation\">Output Equation:</h5>\n<marimo-tex class=\"arithmatex\">||[y = \\begin{bmatrix}\n1 &amp; 0 &amp; 0 &amp; 0 \\\\\n0 &amp; 0 &amp; 1 &amp; 0 \\\\\n0 &amp; 0 &amp; 0 &amp; 1\n\\end{bmatrix}\n x_i||]</marimo-tex></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><ol>\n<li>Vector Definitions For a single zone i</li>\n</ol>\n<span class=\"paragraph\">State Vector (<marimo-tex class=\"arithmatex\">||(x_i||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[x_i = \\begin{bmatrix}\nT_{in,i} \\\\\nT_{m,i} \\\\\nW_{in,i} \\\\\nC_{in,i}\n\\end{bmatrix}||]</marimo-tex><span class=\"paragraph\">Control Input (<marimo-tex class=\"arithmatex\">||(u_i||)</marimo-tex>): Taking the VAV box damper position to represent volumetric flow rate (<marimo-tex class=\"arithmatex\">||(m^3/s||)</marimo-tex>)</span>\n<marimo-tex class=\"arithmatex\">||[u_i=\\dot{V}_{s,i}||]</marimo-tex><span class=\"paragraph\">Time-Varying Parameter Vector (<marimo-tex class=\"arithmatex\">||(p_i||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[p_i = \\begin{bmatrix}\nN_{occ,i} \\\\\nQ_{equip,i}\n\\end{bmatrix}||]</marimo-tex><span class=\"paragraph\">Lumped Disturbance Vector (<marimo-tex class=\"arithmatex\">||(d_i||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[d_i = \\begin{bmatrix}\nd_{T,i} \\\\\nd_{W,i} \\\\\nd_{C,i}\n\\end{bmatrix}||]</marimo-tex><span class=\"paragraph\">AHU Supply Parameters (<marimo-tex class=\"arithmatex\">||(S||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[S = \\begin{bmatrix}\nT_{s} \\\\\nW_{s} \\\\\nC_{s}\n\\end{bmatrix}||]</marimo-tex></span>"
           }
         }
       ],
@@ -373,12 +373,12 @@
     },
     {
       "id": "xXTn",
-      "code_hash": "e181efcf155eef21719f37511de1f32f",
+      "code_hash": "03bcb7e70d6f8b4706f00b1c69b18a97",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><ol start=\"2\">\n<li>State-Space Model</li>\n</ol>\n<span class=\"paragraph\">The system dynamics can be written in the standard nonlinear form:</span>\n<marimo-tex class=\"arithmatex\">||[\\dot{x_i} = f(x_i,p_i,d_i) + g(x_i,S)u_i||]</marimo-tex><span class=\"paragraph\">Dynamics of the system (<marimo-tex class=\"arithmatex\">||(f(x_i, p_i, d_i)||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[f(x_i, p_i, d_i) = \\begin{bmatrix}\n\\frac{1}{C_{air,i}} \\left( \\frac{T_{out} - T_{in,i}}{R_{env,external,i}} + \\sum_{j \\in adj(i)} \\frac{T_{in,j} - T_{in,i}}{R_{env,couple,ij}} + \\frac{T_{m,i} - T_{in,i}}{R_{int,i}} + p_{1,i} q_{person} + p_{2,i} + d_{T,i} \\right) \\\\\n\\frac{1}{C_{mass,i}} \\left( \\frac{T_{in,i} - T_{m,i}}{R_{int,i}} \\right) \\\\\n\\frac{1}{M_{air,i}} \\left( p_{1,i} g_{w,person} + d_{W,i} \\right) \\\\\n\\frac{1}{V_{room,i}} \\left( p_{1,i} g_{co2,person} + d_{C,i} \\right)\n\\end{bmatrix}||]</marimo-tex><span class=\"paragraph\">The Control Authority (<marimo-tex class=\"arithmatex\">||(g(x_i,S)||)</marimo-tex>):</span>\n<marimo-tex class=\"arithmatex\">||[g(x_i, S) = \\begin{bmatrix}\n\\frac{\\rho_{air} c_p}{C_{air,i}} (T_s - T_{in,i}) \\\\\n0 \\\\\n\\frac{\\rho_{air}}{M_{air,i}} (W_s - W_{in,i}) \\\\\n\\frac{1}{V_{room,i}} (C_s - C_{in,i})\n\\end{bmatrix}||]</marimo-tex><span class=\"paragraph\">Output Equation:</span>\n<marimo-tex class=\"arithmatex\">||[y = \\begin{bmatrix}\n1 &amp; 0 &amp; 0 &amp; 0 \\\\\n0 &amp; 0 &amp; 1 &amp; 0 \\\\\n0 &amp; 0 &amp; 0 &amp; 1\n\\end{bmatrix}\n x_i||]</marimo-tex></span>"
           }
         }
       ],
