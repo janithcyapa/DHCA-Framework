@@ -504,8 +504,8 @@ def _():
     os.makedirs(str(OUT_DIR), exist_ok=True)
 
     # Initialize Utility
-    sim = EPlusUtil(verbose=2, out_dir=OUT_DIR)
-    return OUT_DIR, os, pd, plt, sim, types
+    sim = EPlusUtil(verbose=0, out_dir=OUT_DIR)
+    return OUT_DIR, pd, sim, types
 
 
 @app.cell(hide_code=True)
@@ -540,14 +540,10 @@ def _(sim):
     sim.ensure_output_sqlite()
 
     sim.run_dry_run(include_ems_edd=False,reset=True,design_day=True)
-    return
 
-
-@app.cell
-def _(mo, sim):
-    catalog = sim.api_catalog_df()
+    # catalog = sim.api_catalog_df()
     # mo.ui.table(catalog)
-    mo.ui.table(catalog['VARIABLES'])
+    # mo.ui.table(catalog['VARIABLES'])
     # sim.list_available_variables()
     return
 
@@ -561,7 +557,7 @@ def _(mo):
 
 
 @app.cell
-def _(sim):
+def _(sim, types):
     # Request the variables to construct State Vector (x_i) and Disturbances (d_i)
     specs = [
         # Zone States (x_i)
@@ -598,48 +594,41 @@ def _(sim):
         timestep_per_hour = 1, # 4 (every 15 minutes) or 6 (every 10 minutes).
         start_day_of_week="Sunday",
     )
-    return
 
-
-@app.cell
-def _(sim, types):
-    # Create a list to store timestep data
     sim.collected_data = []
+    sim.current_state = {}
 
-    def dr_supervisor_logic(self, state):
+    def state_logger(self, state):
+        """Extracts sensor data, updates the current snapshot, and logs history."""
         if not self.exchange.api_data_fully_ready(state):
             return
 
         # 1. Get Simulation Time Details
         day = self.exchange.day_of_year(state)
         time_now = self.exchange.current_time(state) 
-
-        # Calculate Hours and Minutes
         total_minutes = int(time_now * 60)
         hours, mins = divmod(total_minutes, 60)
-        timestamp_str = f"Day {day:03d} {hours:02d}:{mins:02d}"
-
+    
         row = {
-            "timestamp": timestamp_str,
+            "timestamp": f"Day {day:03d} {hours:02d}:{mins:02d}",
             "day": day,
             "hour": hours,
             "minute": mins,
             "time_decimal": time_now
         }
 
-        # 2. Extract External Environment (Disturbances)
-        # Note: Your patched IDF uses '*' for the outdoor key
+        # 2. Extract Outdoor and Supply Data
         t_out_h = self.exchange.get_variable_handle(state, "Site Outdoor Air Drybulb Temperature", "Environment")
         w_out_h = self.exchange.get_variable_handle(state, "Site Outdoor Air Humidity Ratio", "Environment")
         rh_out_h = self.exchange.get_variable_handle(state, "Site Outdoor Air Relative Humidity", "Environment")
         co2_out_h = self.exchange.get_variable_handle(state, "Schedule Value", "CO2-Outdoor-Actuated")
-
 
         row["T_out"] = self.exchange.get_variable_value(state, t_out_h)
         row["W_out"] = self.exchange.get_variable_value(state, w_out_h)
         row["RH_out_%"] = self.exchange.get_variable_value(state, rh_out_h)
         row["CO2_out"] = self.exchange.get_variable_value(state, co2_out_h)
 
+    
         t_s_h = self.exchange.get_variable_handle(state, "System Node Temperature", "VAV Sys 1 Outlet Node")
         w_s_h = self.exchange.get_variable_handle(state, "System Node Humidity Ratio", "VAV Sys 1 Outlet Node")
         c_s_h = self.exchange.get_variable_handle(state, "System Node CO2 Concentration", "VAV Sys 1 Outlet Node")
@@ -647,11 +636,10 @@ def _(sim, types):
         row["T_s"] = self.exchange.get_variable_value(state, t_s_h)
         row["W_s"] = self.exchange.get_variable_value(state, w_s_h)
         row["C_s"] = self.exchange.get_variable_value(state, c_s_h)
-    
+
         # 3. Extract Internal States for All Zones
         zones = ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]
         for zone in zones:
-            # Match variable names in your patched IDF
             t_in_h = self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", zone)
             t_m_h = self.exchange.get_variable_handle(state, "Zone Mean Radiant Temperature", zone)
             w_in_h = self.exchange.get_variable_handle(state, "Zone Mean Air Humidity Ratio", zone)
@@ -670,34 +658,64 @@ def _(sim, types):
             row[f"{zone}_Q_equip"] = self.exchange.get_variable_value(state, q_eq_h)
             row[f"{zone}_V_dot"] = self.exchange.get_variable_value(state, v_dot_h)
 
+        # 4. Update the current snapshot AND append to historical log
+        self.current_state = row
         self.collected_data.append(row)
 
+    sim.state_logger = types.MethodType(state_logger, sim)
+    sim.register_handlers(
+        "begin", [
+            {"method_name": "state_logger"},  
+            {"method_name": "occupancy_handler", "kwargs": {"lam": 3.0, "min": 0, "max": 5, "seed": 4 } },
+            {"method_name": "co2_set_outdoor_ppm", "kwargs": { "value_ppm": 420.0, "log_every_minutes": 60 } }
+        ]
+    )
 
-    # Register New Handler
-    sim.my_supervisor = types.MethodType(dr_supervisor_logic, sim)
-    registered = sim.register_handlers(
-        "begin",[
-            {"method_name": "my_supervisor"}, 
-            {
-                "method_name": "occupancy_handler",
-                "kwargs": {
-                    "lam": 3.0,   # Mean expected occupants
-                    "min": 0,     # Minimum occupants
-                    "max": 5,     # Maximum occupants
-                    "seed": 4     # Optional seed for reproducibility
-                }
-            },
-            {
-                "method_name": "co2_set_outdoor_ppm",
-                "kwargs": {
-                    "value_ppm": 420.0,
-                    "log_every_minutes": 60 
-                }
-            }])
+    print(f"Handlers on 'begin' hook: {sim.list_handlers("begin")}")
+    return
 
-    # Verify
-    current_list = sim.list_handlers("begin")
-    print(f"Handlers on 'begin' hook: {current_list}")
+
+@app.cell
+def _(sim, types):
+    def test_zone_controller(self, state):
+        """Calculates control laws using the latest state and sets actuators."""
+        if not self.exchange.api_data_fully_ready(state):
+            return
+
+        # Ensure the logger has populated the snapshot for this timestep
+        if not hasattr(self, 'current_state') or not self.current_state:
+            return
+    
+        current_data = self.current_state
+        print(f"Controller executing for timestamp: {current_data.get('timestamp')}")
+    
+        # zones = ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]
+
+        # for zone in zones:
+        #     # 1. Read Current State from Snapshot
+        #     t_in = current_data.get(f"{zone}_T_in")
+        #     co2_in = current_data.get(f"{zone}_CO2_in")
+        #     occ = current_data.get(f"{zone}_Occ")
+
+        #     # 2. Calculate Control Law (Placeholder for your specific control logic)
+        #     # Example: Calculate required VAV volumetric flow rate based on T_in error
+        #     target_temp = 24.0
+        #     error = target_temp - t_in
+        
+        #     # Calculate desired control action (u_i)
+        #     calculated_v_dot = 0.05 + (error * 0.01) # Replace with actual control law
+
+        #     # 3. Set Actuators
+        #     # Note: You must define these actuators in your IDF file first.
+        #     # act_handle = self.exchange.get_actuator_handle(state, "System Node Setpoint", "Mass Flow Rate", f"{zone} In Node")
+        #     # if act_handle != -1:
+        #     #     self.exchange.set_actuator_value(state, act_handle, calculated_v_dot)
+
+
+    sim.test_zone_controller = types.MethodType(test_zone_controller, sim)
+    sim.register_handlers( "begin", [{"method_name": "test_zone_controller"}])
+
+    print(f"Handlers on 'begin' hook: {sim.list_handlers("begin")}")
     return
 
 
@@ -732,25 +750,6 @@ def _(OUT_DIR, pd, sim):
 @app.cell
 def _(df, mo):
     mo.ui.table(df)
-    return
-
-
-@app.cell
-def _(OUT_DIR, os, plt, sim):
-    sql_path = OUT_DIR / "eplusout.sql"
-    if os.path.exists(sql_path):
-
-        # Plot the ground truth temperature to visually check it
-        fig = sim.plot_sql_zone_variable(
-            "Site Outdoor Air Drybulb Temperature",
-            keys=["*"],
-            reporting_freq=("TimeStep",),
-            resample="1h",
-            title="EnergyPlus Ground Truth: Uncontrolled Zone Temperature"
-        )
-        plt.show()
-    else:
-        print("SQL output not found. Check if the simulation crashed.")
     return
 
 
