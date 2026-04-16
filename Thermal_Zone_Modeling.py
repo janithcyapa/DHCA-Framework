@@ -15,14 +15,6 @@ def _():
     return (mo,)
 
 
-@app.cell
-def _():
-    import schemdraw
-    import schemdraw.elements as elm
-
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -451,6 +443,118 @@ def _(mo):
     \end{bmatrix}
      x_i$$
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # Validating Model in Energy Plus
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Setup EnergyPlusUtility - Local
+    """)
+    return
+
+
+@app.cell
+def _():
+    import importlib.metadata
+    ver = importlib.metadata.version("energy-plus-utility")
+    print(f"\n✅ Installed 'energy-plus-utility' version: {ver}")
+    return
+
+
+@app.cell
+def _():
+    import os
+    import sys
+    from pathlib import Path
+
+    # Set paths
+    eplus_dest = str(Path.home() / "EnergyPlus-25-1-0")
+
+    # Inject environment variables so EnergyPlus and the Utility can find the binaries
+    os.environ["ENERGYPLUSDIR"] = eplus_dest
+    os.environ["LD_LIBRARY_PATH"] = f"{eplus_dest}:" + os.environ.get("LD_LIBRARY_PATH", "")
+
+    # Add to Python path so you can import pyenergyplus
+    if eplus_dest not in sys.path:
+        sys.path.insert(0, eplus_dest)
+
+    # Now you can safely import your professor's utility
+    repo_path = "/home/jazz/Projects/energy-plus-utility" 
+
+    if repo_path not in sys.path:
+        sys.path.insert(0, repo_path)
+
+    # Now import the utility
+    from eplus import EPlusUtil
+
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Setup Simulator Model
+    """)
+    return
+
+
+app._unparsable_cell(
+    r"""
+    # Define File Paths & URLs
+    OUT_DIR = str(Path.home() / "Projects" / "DHCA-Framework" / "eplus_out")
+    os.makedirs(OUT_DIR, exist_ok=True)
+
+    /home/jazz/EnergyPlus-25-1-0/ExampleFiles/1ZoneUncontrolled_win_2.idf
+
+    url_idf = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/System%20Models/1ZoneUncontrolled_win_2.idf"
+    url_epw = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/System%20Models/Weather%20Files/LKA_Colombo-Katunayake.434500_SWERA.epw"
+
+    # Initialize Utility
+    sim = EPlusUtil(verbose=2, out_dir=OUT_DIR)
+    # Reset state before setting model
+    sim.reset_state()
+    # Delete previous output directory
+    sim.delete_out_dir()
+    # Clear previous outputs
+    sim.clear_eplus_outputs(patterns="eplusout.*")
+    # Set the Model for Simulation
+    sim.set_model_from_url(url_idf, url_epw)
+    """,
+    name="_"
+)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Setup Simualtor
+    """)
+    return
+
+
+@app.cell
+def _(sim):
+    # Request the variables to construct State Vector (x_i)
+    specs = [
+        {"name": "Zone Mean Air Temperature", "key": "*"},       # T_in
+        {"name": "Zone Mean Air Humidity Ratio", "key": "*"},    # W_in
+        # {"name": "Zone Air CO2 Concentration", "key": "*"},      # C_in
+        # {"name": "Site Outdoor Air Drybulb Temperature", "key": "Environment"}, # T_out
+    ]
+    sim.ensure_output_variables(specs, activate=True)
+
+    print("Starting EnergyPlus Uncontrolled Simulation...")
+    sim.run_annual()
+    print("Simulation Complete!")
     return
 
 
