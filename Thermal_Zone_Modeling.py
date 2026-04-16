@@ -34,71 +34,6 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### 1. Temperature & Heat Transfer (Sensible Heat)
-    | Symbol | Definition | Unit |
-    | :--- | :--- | :--- |
-    | $T_{in}$ | Indoor air temperature of the zone | $K$ or $^\circ C$ |
-    | $T_m$| Temperature of the building's thermal mass | $K$ or $^\circ C$ |
-    | $T_{out}$ | Outdoor ambient air temperature | $K$ or $^\circ C$ |
-    | $T_s$ | Temperature of the HVAC supply air | $K$ or $^\circ C$ |
-    | $Q_{int}$ | Internal sensible heat gains (occupants, equipment, lighting) | $W$ |
-    | $Q_{solar}$ | Solar radiation heat entering through windows | $W$ |
-    | $Q_s$ | Sensible heating or cooling energy from HVAC | $W$ |
-    | $Q_{vent}$ | Heat transfer due to ventilation and air infiltration. | $W$ |
-
-    ---
-
-    ### 2. Humidity & Moisture (Latent Heat)
-    | Symbol | Definition | Unit |
-    | :--- | :--- | :--- |
-    | $W_{in}$ | Indoor humidity ratio | $kg_{w}/kg_{da}$ |
-    | $W_{out}$ | Outdoor humidity ratio | $kg_{w}/kg_{da}$ |
-    | $W_s$ | HVAC supply air humidity ratio | $kg_{w}/kg_{da}$ |
-    | $P_v$ | Vapor pressure in the air | $Pa$ |
-    | $\dot{m}_{lat}$ | Internal moisture generation rate | $kg_{w}/s$ |
-    | $\dot{m}_{vent}$ | Moisture rate brought in/removed by ventilation | $kg_{w}/s$ |
-    | $\dot{m}_{s}$ | Dehumidification rate by the air conditioning system | $kg_{w}/s$ |
-
-    ---
-
-    ### 3. $CO_2$ Concentration
-    | Symbol | Definition | Unit |
-    | :--- | :--- | :--- |
-    | $C_{in}$ | Indoor $CO_2$ concentration | $mg/m^3$ |
-    | $C_{out}$ | Outdoor $CO_2$ concentration | $mg/m^3$|
-    | $C_s$ | $CO_2$ concentration of the HVAC supply air | $mg/m^3$|
-    | $G_{int}$ | Internal $CO_2$ generation rate (occupants) | $mg/s$ |
-
-    ---
-
-    ### 4. Airflows & Control Inputs
-    | Symbol | Definition | Unit |
-    | :--- | :--- | :--- |
-    | $\dot{m}_{s}$ | Mass flow rate of HVAC supply air (Control Input) | $kg/s$ |
-    | $\dot{m}_{inf}$ | Mass flow rate of uncontrolled air infiltration | $kg/s$ |
-    | $\dot{V}_{vent}$ | Volumetric flow rate of ventilation and infiltration | $m^3/s$ |
-
-    ---
-
-    ### 5. Physical Constants & Building Parameters
-    | Symbol | Definition | Unit |
-    | :--- | :--- | :--- |
-    | $C_{air}$ | Thermal capacity of the room's air volume | $J/K$ |
-    | $C_{mass}$ | Thermal capacity of the building mass | $J/K$ |
-    | $C_m$ | moisture inertia term ($\rho_{air} \cdot V_{room}$) | $kg$ |
-    | $R_{env}$ | Thermal resistance of the building envelope | $K/W$ |
-    | $R_{int}$ | Thermal resistance between indoor air and building mass | $K/W$ |
-    | $M_{air}$ | Total mass of the air inside the room | $kg$ |
-    | $V_{room}$ | Total volume of the room | $m^3$ |
-    | $\rho_{air}$ | Density of the room air | $kg/m^3$ |
-    | $c_p$ | Specific heat capacity of air | $J/(kg \cdot K)$ |
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
     ## 1. The Fundamental Electrical Analogy
     """)
     return
@@ -527,6 +462,63 @@ def _(mo):
     0 & 0 & 0 & 1
     \end{bmatrix}
      x_i$$
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # Appendix
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Appendix: Nomenclature & Variable Definitions
+
+    **State & Output Variables**
+    * $x_i$: State vector of zone $i$
+    * $y_i$: Output measurement vector of zone $i$
+    * $T_{in,i}$: Indoor air temperature of zone $i$ $[K]$
+    * $T_{m,i}$: Temperature of the building's thermal mass in zone $i$ $[K]$
+    * $W_{in,i}$: Indoor humidity ratio of zone $i$ $[kg_w/kg_{da}]$
+    * $C_{in,i}$: Indoor $CO_2$ concentration of zone $i$ $[mg/m^3]$
+
+    **Control & Supply Parameters (AHU)**
+    * $u_i$: Control input for zone $i$, representing $\dot{V}_{s,i}$ $[m^3/s]$
+    * $\dot{V}_{s,i}$: Volumetric flow rate of supply air from the VAV box to zone $i$ $[m^3/s]$
+    * $S$: AHU supply parameter vector
+    * $T_s$: Supply air temperature $[K]$
+    * $W_s$: Supply air humidity ratio $[kg_w/kg_{da}]$
+    * $C_s$: Supply air $CO_2$ concentration $[mg/m^3]$
+
+    **Physical Constants & Geometric Parameters**
+    * $C_{air,i}$: Thermal capacitance of the room's air volume $[J/K]$
+    * $C_{mass,i}$: Thermal capacitance of the building's solid mass $[J/K]$
+    * $M_{air,i}$: Total mass of dry air inside the room $[kg_{da}]$
+    * $V_{room,i}$: Total volume of the room $[m^3]$
+    * $R_{env,external,i}$: Thermal resistance of the external building envelope $[K/W]$
+    * $R_{env,couple,ij}$: Inter-zone coupling thermal resistance between zone $i$ and $j$ $[K/W]$
+    * $R_{int,i}$: Internal thermal resistance between the indoor air and building mass $[K/W]$
+    * $\rho_{air}$: Density of the air $[kg/m^3]$
+    * $c_p$: Specific heat capacity of the air $[J/(kg \cdot K)]$
+
+    **Heuristic Estimations (Time-Varying Parameters)**
+    * $p_i$: Time-varying parameter vector for heuristic estimations
+    * $p_{1,i}$: Estimated number of occupants ($N_{occ,i}$)
+    * $p_{2,i}$: Estimated equipment sensible heat gain ($Q_{equip,i}$) $[W]$
+    * $q_{person}$: Standard sensible heat generation per occupant $[W/person]$
+    * $g_{w,person}$: Standard moisture generation per occupant $[kg_w/(s \cdot person)]$
+    * $g_{co2,person}$: Standard $CO_2$ generation per occupant $[mg/(s \cdot person)]$
+
+    **Unmeasured Lumped Disturbances**
+    * $d_i$: Lumped disturbance vector estimated by the Disturbance Observer (DOB)
+    * $d_{T,i}$: Lumped thermal disturbance (includes unmeasurable solar radiation, infiltration, and unmodeled conduction) $[W]$
+    * $d_{W,i}$: Lumped moisture disturbance (includes infiltration and unmodeled moisture leaks) $[kg_w/s]$
+    * $d_{C,i}$: Lumped $CO_2$ disturbance (includes infiltration and unmodeled $CO_2$ leaks) $[mg/s]$
     """)
     return
 
