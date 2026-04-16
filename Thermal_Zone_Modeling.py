@@ -76,23 +76,12 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.vstack(
-        [
-            mo.image(
-                src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/2R2C_Temp_Model.jpg",
-                alt="2R2C Thermal RC Network"
-            ),
-            mo.md("<div style='text-align: center; font-style: italic;'><b>Figure 01:</b> 2R2C Grey-Box Thermal Model</div>")
-        ],
-        align="center"
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
     mo.md(r"""
- 
+    <center>
+      <img src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/2R2C_Temp_Model.jpg" alt="xR2C Thermal RC Network" width="50%">
+      <br>
+      <i>Figure 01: 2R2C Grey-Box Thermal Model</i>
+    </center>
     """)
     return
 
@@ -151,16 +140,13 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.vstack(
-        [
-            mo.image(
-                src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/Humidity_model.jpg",
-                alt="1R1C Humidity RC Network"
-            ),
-            mo.md("<div style='text-align: center; font-style: italic;'><b>Figure 01:</b> 1R1C Humidity Model</div>")
-        ],
-        align="center"
-    )
+    mo.md(r"""
+    <center>
+      <img src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/Humidity_model.jpg" alt="xR2C Thermal RC Network" width="50%">
+      <br>
+      <i>Figure 02: 1R1C Humidity Model</i>
+    </center>
+    """)
     return
 
 
@@ -200,16 +186,13 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.vstack(
-        [
-            mo.image(
-                src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/CO2_model.jpg",
-                alt="1R1C CO2 RC Network"
-            ),
-            mo.md("<div style='text-align: center; font-style: italic;'><b>Figure 01:</b> 1R1C CO2 Model</div>")
-        ],
-        align="center"
-    )
+    mo.md(r"""
+    <center>
+      <img src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/CO2_model.jpg" alt="xR2C Thermal RC Network" width="50%">
+      <br>
+      <i>Figure 03: 1R1C CO2 Model</i>
+    </center>
+    """)
     return
 
 
@@ -259,24 +242,12 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.vstack(
-        [
-            mo.image(
-                src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/xR2C_Temp_Model.jpg",
-                alt="xR2C Thermal RC Network"
-            ),
-            mo.md("<div style='text-align: center; font-style: italic;'><b>Figure 01:</b> xR2C Grey-Box Thermal Model</div>")
-        ],
-        align="center"
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
     mo.md(r"""
-    ![xR2C Thermal RC Network](https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/xR2C_Temp_Model.jpg)
-    _Figure 04: xR2C Grey-Box Thermal Model_
+    <center>
+      <img src="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/main/Images/xR2C_Temp_Model.jpg" alt="xR2C Thermal RC Network" width="90%">
+      <br>
+      <i>Figure 04: xR2C Thermal RC Network</i>
+    </center>
     """)
     return
 
