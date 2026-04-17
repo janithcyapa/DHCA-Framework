@@ -462,19 +462,12 @@ def _(mo):
     return
 
 
-@app.cell
-def _():
-    import importlib.metadata
-    ver = importlib.metadata.version("energy-plus-utility")
-    print(f"\nInstalled 'energy-plus-utility' version: {ver}")
-    return
-
-
-@app.cell
-def _():
+@app.cell(hide_code=True)
+def config_ep_utility():
     import os
     import sys
     from pathlib import Path
+    import importlib.metadata
 
     # Set paths
     eplus_dest = str(Path.home() / "EnergyPlus-25-1-0")
@@ -491,13 +484,23 @@ def _():
     repo_path = "/home/jazz/Projects/energy-plus-utility" 
     if repo_path not in sys.path:
         sys.path.insert(0, repo_path)
+    
 
-    # Now import the utility
+    ver = importlib.metadata.version("energy-plus-utility")
+    print(f"\nInstalled 'energy-plus-utility' version: {ver}")
+    return Path, os
+
+
+@app.cell
+def create_sim_instance(Path, os):
     from eplus import EPlusUtil
     import matplotlib.pyplot as plt
     import types
     import pandas as pd
+    import numpy as np
+    import control as ct
     import datetime
+    import traceback
 
     # Define File Paths & URLs
     OUT_DIR = Path.home() / "Projects" / "DHCA-Framework" / "eplus_out"
@@ -505,7 +508,7 @@ def _():
 
     # Initialize Utility
     sim = EPlusUtil(verbose=0, out_dir=OUT_DIR)
-    return OUT_DIR, pd, sim, types
+    return OUT_DIR, ct, np, pd, sim, traceback, types
 
 
 @app.cell(hide_code=True)
@@ -517,7 +520,7 @@ def _(mo):
 
 
 @app.cell
-def _(sim):
+def config_sim_model(sim):
     url_idf="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/System%20Models/5ZoneAirCooled.idf"
     url_epw = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/System%20Models/Weather%20Files/LKA_Colombo-Katunayake.434500_SWERA.epw"
 
@@ -536,7 +539,6 @@ def _(sim):
         reset=True
     )
 
-
     sim.ensure_output_sqlite()
 
     sim.run_dry_run(include_ems_edd=False,reset=True,design_day=True)
@@ -551,13 +553,13 @@ def _(sim):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Setup Simualtor
+    ### Setup Data Logger
     """)
     return
 
 
-@app.cell
-def _(sim, types):
+@app.cell(hide_code=True)
+def set_data_logger(sim, types):
     # Request the variables to construct State Vector (x_i) and Disturbances (d_i)
     specs = [
         # Zone States (x_i)
@@ -608,7 +610,7 @@ def _(sim, types):
         time_now = self.exchange.current_time(state) 
         total_minutes = int(time_now * 60)
         hours, mins = divmod(total_minutes, 60)
-    
+
         row = {
             "timestamp": f"Day {day:03d} {hours:02d}:{mins:02d}",
             "day": day,
@@ -628,7 +630,7 @@ def _(sim, types):
         row["RH_out_%"] = self.exchange.get_variable_value(state, rh_out_h)
         row["CO2_out"] = self.exchange.get_variable_value(state, co2_out_h)
 
-    
+
         t_s_h = self.exchange.get_variable_handle(state, "System Node Temperature", "VAV Sys 1 Outlet Node")
         w_s_h = self.exchange.get_variable_handle(state, "System Node Humidity Ratio", "VAV Sys 1 Outlet Node")
         c_s_h = self.exchange.get_variable_handle(state, "System Node CO2 Concentration", "VAV Sys 1 Outlet Node")
@@ -675,51 +677,235 @@ def _(sim, types):
     return
 
 
-@app.cell
-def _(sim, types):
-    def test_zone_controller(self, state):
-        """Calculates control laws using the latest state and sets actuators."""
-        if not self.exchange.api_data_fully_ready(state):
-            return
-
-        # Ensure the logger has populated the snapshot for this timestep
-        if not hasattr(self, 'current_state') or not self.current_state:
-            return
-    
-        current_data = self.current_state
-        print(f"Controller executing for timestamp: {current_data.get('timestamp')}")
-    
-        # zones = ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]
-
-        # for zone in zones:
-        #     # 1. Read Current State from Snapshot
-        #     t_in = current_data.get(f"{zone}_T_in")
-        #     co2_in = current_data.get(f"{zone}_CO2_in")
-        #     occ = current_data.get(f"{zone}_Occ")
-
-        #     # 2. Calculate Control Law (Placeholder for your specific control logic)
-        #     # Example: Calculate required VAV volumetric flow rate based on T_in error
-        #     target_temp = 24.0
-        #     error = target_temp - t_in
-        
-        #     # Calculate desired control action (u_i)
-        #     calculated_v_dot = 0.05 + (error * 0.01) # Replace with actual control law
-
-        #     # 3. Set Actuators
-        #     # Note: You must define these actuators in your IDF file first.
-        #     # act_handle = self.exchange.get_actuator_handle(state, "System Node Setpoint", "Mass Flow Rate", f"{zone} In Node")
-        #     # if act_handle != -1:
-        #     #     self.exchange.set_actuator_value(state, act_handle, calculated_v_dot)
-
-
-    sim.test_zone_controller = types.MethodType(test_zone_controller, sim)
-    sim.register_handlers( "begin", [{"method_name": "test_zone_controller"}])
-
-    print(f"Handlers on 'begin' hook: {sim.list_handlers("begin")}")
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Setup Control Law
+    """)
     return
 
 
 @app.cell
+def _(mo, sim):
+    # Assuming util is your instantiated EPlusUtil
+    thermal_plant = sim.get_zone_thermal_parameters()
+
+    # mo.ui.table(thermal_plant["SPACE2-1"]["boundaries"])
+    mo.tree(thermal_plant["SPACE2-1"])
+    # mo.tree(thermal_plant)
+    return
+
+
+@app.cell
+def _(np):
+    def _dynamics(self, t, x, u, params):
+        """Nonlinear ODEs for the Thermal Zone."""
+        T_in_m, T_m_m, W_in_m, C_in_m = x
+    
+        # Handle both scalar and array inputs from python-control
+        V_dot = u[0] if isinstance(u, (list, np.ndarray)) else u
+
+        # Constants
+        rho_air = 1.204        
+        c_p = 1006.0           
+        q_person = 120.0       
+        g_w_person = 5.0e-5    
+        g_co2_person = 11.0    
+
+        # Parameters from EPlus
+        T_out = params.get('T_out', 25.0)
+        T_s = params.get('T_s', 20.0)
+        W_s = params.get('W_s', 0.008)
+        C_s = params.get('C_s', 400.0)
+        N_occ = params.get('N_occ', 0.0)
+        Q_equip = params.get('Q_equip', 0.0)
+    
+        Q_env_external = 0.0
+        Q_env_couple = 0.0
+    
+        for b in self.z_params["boundaries"]:
+            R_abs = b["R_absolute_K_W"]
+            if b["boundary_condition"] == "outdoors" or b["target"] == "Environment":
+                Q_env_external += (T_out - T_in_m) / R_abs
+            elif b["boundary_condition"] == "surface":
+                target_zone = b["target"]
+                target_T = params.get(f"{target_zone}_T_in", T_in_m) 
+                Q_env_couple += (target_T - T_in_m) / R_abs
+
+        # Equations of Motion
+        dT_in_dt = (Q_env_external + Q_env_couple + (T_m_m - T_in_m)/self.z_params["R_int"] + 
+                    (N_occ * q_person) + Q_equip) / self.z_params["C_air"] + \
+                   (rho_air * c_p / self.z_params["C_air"]) * (T_s - T_in_m) * V_dot
+
+        dT_m_dt = ((T_in_m - T_m_m) / self.z_params["R_int"]) / self.z_params["C_mass"]
+
+        dW_in_dt = ((N_occ * g_w_person)) / self.z_params["M_air"] + \
+                   (rho_air / self.z_params["M_air"]) * (W_s - W_in_m) * V_dot
+
+        dC_in_dt = ((N_occ * g_co2_person)) / self.z_params["V_room"] + \
+                   (1.0 / self.z_params["V_room"]) * (C_s - C_in_m) * V_dot
+
+        return [dT_in_dt, dT_m_dt, dW_in_dt, dC_in_dt]
+
+    def _output(self, t, x, u, params):
+        return x
+
+
+    return
+
+
+@app.cell
+def _(ct, sim, traceback, types):
+    def zone_1_model(self, state):
+        try:
+            if not self.exchange.api_data_fully_ready(state):
+                return
+
+            zone_id = "SPACE1-1"
+        
+            # Calculate Absolute Time to prevent negative dt on day rollovers
+            day = self.exchange.day_of_year(state)
+            time_hours = self.exchange.current_time(state)
+            abs_time = (day * 24.0) + time_hours
+
+            # Phase 1: Initialization
+            if not hasattr(self, 'sys_ode'):
+                self.model_last_abs_time = abs_time
+                self.model_log = []
+            
+                thermal_plant = self.get_zone_thermal_parameters()
+                self.z_params = thermal_plant[zone_id]
+            
+                self.adjacent_zones = [
+                    b["target"] for b in self.z_params["boundaries"] 
+                    if b["boundary_condition"] == "surface" and b["target"] not in ["Ground", "Environment"]
+                ]
+                self.adjacent_zones = list(set(self.adjacent_zones)) # Remove duplicates
+            
+                print(f"[{zone_id}] Successfully initialized. Coupled zones: {self.adjacent_zones}")
+            
+                # Using integer values for states/inputs prevents crashes on older python-control versions
+                self.sys_ode = ct.NonlinearIOSystem(
+                    updf=types.MethodType(_dynamics, self),
+                    outf=types.MethodType(_output, self),
+                    states=4,  
+                    inputs=1,  
+                    outputs=4, 
+                    name=f'ODE_{zone_id}'
+                )
+
+                self.model_handles = {
+                    "T_out": self.exchange.get_variable_handle(state, "Site Outdoor Air Drybulb Temperature", "Environment"),
+                    "T_s": self.exchange.get_variable_handle(state, "System Node Temperature", "VAV Sys 1 Outlet Node"),
+                    "W_s": self.exchange.get_variable_handle(state, "System Node Humidity Ratio", "VAV Sys 1 Outlet Node"),
+                    "C_s": self.exchange.get_variable_handle(state, "System Node CO2 Concentration", "VAV Sys 1 Outlet Node"),
+                    "N_occ": self.exchange.get_variable_handle(state, "Zone People Occupant Count", zone_id),
+                    "Q_equip": self.exchange.get_variable_handle(state, "Zone Electric Equipment Total Heating Rate", zone_id),
+                    "V_dot": self.exchange.get_variable_handle(state, "System Node Current Density Volume Flow Rate", f"{zone_id} In Node"),
+                    "T_in": self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", zone_id),
+                    "T_m": self.exchange.get_variable_handle(state, "Zone Mean Radiant Temperature", zone_id),
+                    "W_in": self.exchange.get_variable_handle(state, "Zone Mean Air Humidity Ratio", zone_id),
+                    "CO2_in": self.exchange.get_variable_handle(state, "Zone Air CO2 Concentration", zone_id)
+                }
+            
+                for adj_zone in self.adjacent_zones:
+                    self.model_handles[f"{adj_zone}_T_in"] = self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", adj_zone)
+            
+                self.model_x = [
+                    self.exchange.get_variable_value(state, self.model_handles["T_in"]),
+                    self.exchange.get_variable_value(state, self.model_handles["T_m"]),
+                    self.exchange.get_variable_value(state, self.model_handles["W_in"]),
+                    self.exchange.get_variable_value(state, self.model_handles["CO2_in"])
+                ]
+                return
+
+            # Phase 2: Time Logic & Resyncing
+            dt_hours = abs_time - self.model_last_abs_time
+        
+            # If time goes backwards or resets (e.g., repeating warmup days), resync states and wait
+            if dt_hours <= 0:
+                self.model_last_abs_time = abs_time
+                self.model_x = [
+                    self.exchange.get_variable_value(state, self.model_handles["T_in"]),
+                    self.exchange.get_variable_value(state, self.model_handles["T_m"]),
+                    self.exchange.get_variable_value(state, self.model_handles["W_in"]),
+                    self.exchange.get_variable_value(state, self.model_handles["CO2_in"])
+                ]
+                return
+            
+            self.model_last_abs_time = abs_time
+            dt_seconds = dt_hours * 3600.0
+
+            # Optional: Skip logging actual data during the warmup phase
+            if self.exchange.warmup_flag(state):
+                return
+
+            # Phase 3: Stepping the Control Model
+            current_params = {
+                'T_out': self.exchange.get_variable_value(state, self.model_handles["T_out"]),
+                'T_s': self.exchange.get_variable_value(state, self.model_handles["T_s"]),
+                'W_s': self.exchange.get_variable_value(state, self.model_handles["W_s"]),
+                'C_s': self.exchange.get_variable_value(state, self.model_handles["C_s"]),
+                'N_occ': self.exchange.get_variable_value(state, self.model_handles["N_occ"]),
+                'Q_equip': self.exchange.get_variable_value(state, self.model_handles["Q_equip"])
+            }
+        
+            for adj_zone in self.adjacent_zones:
+                handle = self.model_handles[f"{adj_zone}_T_in"]
+                if handle > 0:
+                    current_params[f"{adj_zone}_T_in"] = self.exchange.get_variable_value(state, handle)
+
+            V_dot = self.exchange.get_variable_value(state, self.model_handles["V_dot"])
+
+            res = ct.input_output_response(
+                self.sys_ode, 
+                T=[0, dt_seconds], 
+                U=[V_dot, V_dot], 
+                X0=self.model_x, 
+                params=current_params
+            )
+
+            self.model_x = res.states[:, -1]
+
+            # Phase 4: Logging
+            total_minutes = int(time_hours * 60)
+            hours, mins = divmod(total_minutes, 60)
+        
+            self.model_log.append({
+                "timestamp": f"Day {day:03d} {hours:02d}:{mins:02d}",
+                "time_decimal": abs_time,
+                "EP_T_in": self.exchange.get_variable_value(state, self.model_handles["T_in"]),
+                "EP_T_m": self.exchange.get_variable_value(state, self.model_handles["T_m"]),
+                "EP_W_in": self.exchange.get_variable_value(state, self.model_handles["W_in"]),
+                "EP_CO2_in": self.exchange.get_variable_value(state, self.model_handles["CO2_in"]),
+                "Model_T_in": self.model_x[0],
+                "Model_T_m": self.model_x[1],
+                "Model_W_in": self.model_x[2],
+                "Model_CO2_in": self.model_x[3]
+            })
+        
+        except Exception as e:
+            print(f"\n--- Python Exception in zone_1_model ---")
+            print(f"Error: {e}")
+            traceback.print_exc()
+            print("----------------------------------------\n")
+
+
+
+    sim.zone_1_model = types.MethodType(zone_1_model, sim)
+    sim.register_handlers("begin", [{"method_name": "zone_1_model"}])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Run Simualtion
+    """)
+    return
+
+
+@app.cell(hide_code=True)
 def _(OUT_DIR, pd, sim):
     print("Starting EnergyPlus Uncontrolled Simulation...")
     res = sim.run_annual()
@@ -750,6 +936,17 @@ def _(OUT_DIR, pd, sim):
 @app.cell
 def _(df, mo):
     mo.ui.table(df)
+    return
+
+
+@app.cell
+def _(sim):
+    # df_model = pd.DataFrame(sim.model_log)
+    # cols_ = ['timestamp', 'time_decimal'] + [c for c in df_model.columns if c not in ['timestamp', 'time_decimal']]
+    # df_model = df_model[cols_]
+    # mo.ui.table(df_model, pagination=True, selection='single')
+
+    print(sim.model_log)
     return
 
 
