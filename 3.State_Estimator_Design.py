@@ -284,7 +284,7 @@ def _(mo):
     ###### **Phase 2**: Update (A Posteriori)
 
     2.1 Calculate the Innovation ($y_k$)
-
+    $$ y_k = Z - H \hat{x}_{k|k-1}  $$
     $$ y_k = \begin{bmatrix} T_{in,mes} - \hat{x}_{1,k|k-1} \\ W_{in,mes} - \hat{x}_{3,k|k-1} \\ C_{in,mes} - \hat{x}_{4,k|k-1} \end{bmatrix} $$
 
     2.2 Calculate the Innovation Covariance ($S_k$)
