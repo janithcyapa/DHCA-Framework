@@ -231,6 +231,10 @@ def _(mo):
 
     $$ R = \begin{bmatrix} r_T & 0 & 0 \\ 0 & r_W & 0 \\ 0 & 0 & r_C \end{bmatrix} $$
 
+    Based on sensor datasheets,
+    static version for CO2 -> 1000ppm
+    $$ R = \begin{bmatrix} 0.09 & 0 & 0 \\ 0 & 4.0 & 0 \\ 0 & 0 & 14,400\end{bmatrix} $$
+
     Our measurement vector,
     $$z_k =  \begin{bmatrix} T_{in,mes} & W_{in,mes} & C_{in,mes} \end{bmatrix}^T$$
     Therefore, measurement matrix H is,
