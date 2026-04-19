@@ -5,22 +5,23 @@ app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
+def _():
+    import marimo as mo
+    import urllib.request as req
+    import plotly.io as pio
+    import requests
+    mo.Html(
+        f"<style>{req.urlopen('https://raw.githubusercontent.com/janithcyapa/Engineering-Codex/refs/heads/main/shared_files/marimo/theme.css').read().decode()}</style>"
+    )
+    return mo, pio, requests
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # State Estimation Using Extended Kalman Filter (EKF)
     """)
     return
-
-
-@app.cell(hide_code=True)
-def _():
-    import marimo as mo
-    import urllib.request as req
-
-    mo.Html(
-        f"<style>{req.urlopen('https://raw.githubusercontent.com/janithcyapa/Engineering-Codex/refs/heads/main/shared_files/marimo/theme.css').read().decode()}</style>"
-    )
-    return (mo,)
 
 
 @app.cell(hide_code=True)
@@ -319,6 +320,74 @@ def _(mo):
 
     Where $H P_{k|k-1}$ is just the $3 \times 7$ matrix formed by extracting rows **1**, **3**, and **4** from $P_{k|k-1}$.
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # Validation Using EnergyPlus
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### EKF State and Disturbance Estimation Results
+
+    To enable real-time decentralized control, an Extended Kalman Filter (EKF) was implemented to estimate hidden structural states ($T_m$), unmeasured disturbances, and dynamic occupancy levels ($N_{occ}$) based on available sensor data.
+
+    | State / Parameter | Unit | MAE | Max Error | RMSE | Final Step Error |
+    | :--- | :---: | ---: | ---: | ---: | ---: |
+    | Zone Air Temp ($T_{in}$) | °C | 0.0005 | 0.0057 | 0.0007 | 0.0000 |
+    | Thermal Mass Temp ($T_m$) | °C | 0.8608 | 2.6883 | 1.0261 | -0.2892 |
+    | Humidity Ratio ($W_{in}$) | kg/kg | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+    | CO$_2$ Concentration ($C_{in}$) | ppm | 41.2183 | 170.6253 | 50.3283 | 3.6997 |
+    | Occupancy ($N_{occ}$) | count | 1.5425 | 6.5058 | 1.8686 | 2.8551 |
+
+    **Commentary on Estimation Performance:**
+
+    The EKF successfully reconstructs the full system state and hidden parameters, providing a reliable foundation for feedback control.
+
+    * **Observable States:** The filter tightly bounds the measured states, driving the estimation errors for zone air temperature ($T_{in}$) and humidity ratio ($W_{in}$) to near zero.
+    * **Hidden Parameters ($T_m$):** The thermal mass temperature estimate shows a Mean Absolute Error (MAE) of 0.86°C. The slight increase in error compared to the open-loop model is expected; in the EKF formulation, $T_m$ often absorbs the structural thermal unmodeled dynamics and external heat disturbances ($d_T$) to keep the primary observable state ($T_{in}$) highly accurate.
+    * **Occupancy Estimation ($N_{occ}$):** The EKF demonstrates excellent performance in estimating the unmeasured occupancy, maintaining an MAE of ~1.5 people. Accurately tracking a discrete human presence using continuous environmental data (primarily $C_{in}$ and $T_{in}$ generation) is a strong validation of the filter's tuning and covariance matrices.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### EnergyPlus simulation (with sensor noice) vs EKF Estimation
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(pio, requests):
+    url = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/Results/Basic/EKF_Validation.json"
+    response = requests.get(url)
+    fig = pio.from_json(response.text)
+    fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### General System Data
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(pio, requests):
+    url_1 = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/Results/Basic/System_Data.json"
+    response_1 = requests.get(url_1)
+    fig_1 = pio.from_json(response_1.text)
+    fig_1
     return
 
 

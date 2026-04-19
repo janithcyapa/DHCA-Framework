@@ -8,11 +8,13 @@ app = marimo.App(width="medium")
 def _():
     import marimo as mo
     import urllib.request as req
+    import plotly.io as pio
+    import requests
 
     mo.Html(
         f"<style>{req.urlopen('https://raw.githubusercontent.com/janithcyapa/Engineering-Codex/refs/heads/main/shared_files/marimo/theme.css').read().decode()}</style>"
     )
-    return (mo,)
+    return mo, pio, requests
 
 
 @app.cell(hide_code=True)
@@ -443,6 +445,79 @@ def _(mo):
     \end{bmatrix}
      x_i$$
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # Validation Using EnergyPlus
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    To validate the lumped-parameter RC model, a high-fidelity baseline simulation of the thermal zones was developed using EnergyPlus. The state trajectories from the simplified, control-oriented model were then benchmarked against this rigorous thermodynamic simulation to ensure the accuracy required for the broader decentralized control architecture.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Model Validation: RC Model vs. EnergyPlus
+
+    | State Variable | Unit | MAE | Max Error | RMSE | Final Step Error |
+    | :--- | :---: | ---: | ---: | ---: | ---: |
+    | Zone Air Temp ($T_{in}$) | °C | 0.2834 | 1.6303 | 0.3958 | 0.0242 |
+    | Thermal Mass Temp ($T_m$) | °C | 0.0409 | 0.3085 | 0.0511 | -0.0356 |
+    | Humidity Ratio ($W_{in}$) | kg/kg | 0.0001 | 0.0003 | 0.0001 | -0.0002 |
+    | CO$_2$ Concentration ($C_{in}$) | ppm | 6.9327 | 83.8138 | 8.5904 | 6.4350 |
+
+    **Commentary on Results:**
+
+    The lumped-parameter RC model was validated against a high-fidelity EnergyPlus baseline, demonstrating excellent state tracking suitable for control design.
+
+    * **Thermal Dynamics:** The zone air temperature ($T_{in}$) maintains an exceptionally low Mean Absolute Error (MAE) of **0.28°C**. The thermal mass temperature ($T_m$) tracks with near-perfect accuracy (MAE of 0.04°C), validating the structural capacitance parameters. The isolated maximum error of 1.63°C in air temperature is a brief transient likely tied to sudden load changes or system startup.
+    * **Mass Balance:** Humidity ratio and $CO_2$ concentration show negligible deviations. An MAE of ~6.9 ppm for $C_{in}$ confirms the volumetric mass balance equations are highly robust.
+    * **Conclusion:** The state trajectories from the simplified RC model successfully shadow the EnergyPlus outputs. The model proves to be computationally lightweight yet mathematically sound, making it an ideal foundation for implementing the state estimators (Kalman filters) and nonlinear controllers in the next phase.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### EnergyPlus simulation vs Simplified Model
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(pio, requests):
+    url = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/Results/Basic/Base_RC_Model.json"
+    response = requests.get(url)
+    fig = pio.from_json(response.text)
+    fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### General System Data
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(pio, requests):
+    url_1 = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/Results/Basic/System_Data.json"
+    response_1 = requests.get(url_1)
+    fig_1 = pio.from_json(response_1.text)
+    fig_1
     return
 
 
