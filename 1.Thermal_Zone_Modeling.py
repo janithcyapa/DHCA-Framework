@@ -20,6 +20,14 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    [🏠 Home](https://janithcyapa.github.io/DHCA-Framework/)
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     # Modeling a thermal zone using an RC (Resistor-Capacitor) model
     """)
     return

@@ -19,6 +19,14 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    [🏠 Home](https://janithcyapa.github.io/DHCA-Framework/)
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     # Model Pridictive Control for the Thermal Zone
     """)
     return
@@ -143,6 +151,13 @@ def _(mo):
     0 & 0 & 0 & \frac{\partial \dot{W}{in}}{\partial W{in}}
     \end{bmatrix}$$
 
+    $$A_c = \begin{bmatrix}
+    -\frac{1}{C_{air,i}} \left( \frac{1}{R_{env,ext,i}} + \sum \frac{1}{R_{env,cpl,ij}} + \frac{1}{R_{int,i}} + \rho_{air} c_p \dot{V}_{s,i,op} \right) & \frac{1}{C{air,i} R_{int,i}} & 0 & 0 \\
+    \frac{1}{C_{mass,i} R_{int,i}} & -\frac{1}{C_{mass,i} R_{int,i}} & 0 & 0 \\
+    0 & 0 & -\frac{\dot{V}_{s,i,op}}{V_{room,i}} & 0 \\
+    0 & 0 & 0 & -\frac{\dot{m}_{s,i,op}}{M_{air,i}}
+    \end{bmatrix}$$
+
     2. The Input Jacobian $B_c$
 
     $$B_c = \left. \frac{\partial f}{\partial u} \right|_{x_{op}, u_{op}, d_{op}}$$
@@ -152,6 +167,13 @@ def _(mo):
     0 \\
     \frac{\partial \dot{C}{in}}{\partial u} \\
     \frac{\partial \dot{W}_{in}}{\partial u}
+    \end{bmatrix}$$
+
+    $$B_c =  \begin{bmatrix}
+    \frac{\rho_{air} c_p (T_s - T_{in,i,op})}{C_{air,i}} \\
+    0 \\
+    \frac{C_s - C_{in,i,op}}{V_{room,i}} \\
+    \frac{\rho_{air} (W_s - W_{in,i,op})}{M_{air,i}}
     \end{bmatrix}$$
 
     3. The Affine Drift Vector $C_c$
