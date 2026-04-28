@@ -1,5 +1,7 @@
 # Decentralized HVAC Control Architecture (FYP)
 
+[📚 Documentation and Calcualtions](https://janithcyapa.github.io/DHCA-Framework/)
+
 ![Status](https://img.shields.io/badge/Status-Development-yellow) ![License](https://img.shields.io/badge/License-MIT-blue)
 
 ## 📄 Abstract
