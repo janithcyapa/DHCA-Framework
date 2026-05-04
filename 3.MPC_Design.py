@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.0"
+__generated_with = "0.23.4"
 app = marimo.App(width="medium")
 
 
@@ -77,6 +77,9 @@ def _(mo):
     d_{C,i} \tag{10}$$
 
     _(Note: In this calculations I have removed $X_i$ notation for simplicity.)_
+
+    *Note: For numerical consistency, \(C\) is expressed as a volumetric fraction (m³ CO₂ / m³ air) in the ODE.
+    Conversion: \(C_{\text{frac}} = C_{\text{ppm}} \times 10^{-6}\). The generation rate \(g_{co2,person}\) is then in m³/s·person.*
     """)
     return
 
@@ -227,6 +230,8 @@ def _(mo):
 
     At the current control interval $k$ $A_d, B_d$, and $c_d$.
     $$x_{i+1} = A_d x_i + B_d u_i + c_d$$
+    $$\begin{bmatrix} A_d & B_d & c_d \\ 0 & I & 0 \\ 0 & 0 & 1 \end{bmatrix} = \exp\left(
+    \begin{bmatrix} A_c & B_c & c_c \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{bmatrix} T_s \right)$$
     """)
     return
 
@@ -278,7 +283,13 @@ def _(mo):
 def _(mo):
     mo.md(r"""
     2. The Output Tracking Requirement
-    We do not need or want to track every state to a specific number. For instance, the exact temperature of the furniture ($T_m$) is irrelevant as long as the indoor air ($T_{in}$) is comfortable.
+
+    Because only $(T_{in})$ is actively tracked, the target selector solves a reduced system of size $3×3$
+
+    $(\Delta x_{\text{thermal}},\, u_{ss})$. The remaining states $(C_{in}, W_{in})$ take their current
+    estimated values as the “target” in the deviation vector, but their Q‑penalties are zero – they are
+    only constrained via inequality constraints.
+
 
     We define an output matrix $C_y$ that extracts only the variables we want to actively track. For a 4-state system ($T_{in}, T_m, C_{in}, W_{in}$) with a priority on temperature control, we track only $T_{in}$:
 
@@ -361,6 +372,7 @@ def _(mo):
 
     $$J = \sum_{i=0}^{N_p-1} \left( \Delta x_i^T Q \Delta x_i + \Delta u_i^T R \Delta u_i + \delta u_i^T R_{\Delta} \delta u_i \right) + \Delta x_{N_p}^T P \Delta x_{N_p} + \rho_c \epsilon_c^2 + \rho_w \epsilon_w^2$$
 
+
     > The Weighting Matrices
 
     * $Q \in \mathbb{R}^{4 \times 4}$ **(State Penalty):** A diagonal matrix.
@@ -404,8 +416,9 @@ def _(mo):
     **E. Air Quality Bounds (Soft Inequality Constraint - Priority 2):**
     Ensures the room remains safe for human occupancy per ASHRAE standards. If the room hits 1000 ppm, the slack variable $\epsilon_c$ engages, forcing the solver to sacrifice the temperature tracking to flush the room with fresh air.
 
-    $$C_{in,i} \leq 1000 + \epsilon_c$$
+    $$C_{in,i} \leq 1000 \times 10^{-6} + \epsilon_c \quad \text{(i.e. 1000 ppm)}$$
     $$\epsilon_c \geq 0$$
+
 
     **F. Humidity Bounds (Soft Inequality Constraint - Priority 3):**
     Ensures the room does not become uncomfortably humid.
@@ -507,6 +520,12 @@ def _(mo):
 
     The solver must obey Taylor-series physics:
     $$x_{i+1} - A_d x_i - B_d u_i = c_d$$
+
+    For each dynamic step $(i=0,\dots,N_p-1)$:
+
+    $$\begin{bmatrix} -A_d & -B_d & I \end{bmatrix}
+    \begin{bmatrix} x_i \\ u_i \\ x_{i+1} \end{bmatrix} = c_d$$
+
     This creates a diagonal band of $-A_d$ and $-B_d$ blocks shifting one step to the right, enforcing the transition from step $i$ to $i+1$.
 
     Lower Bound = Upper Bound = $c_d$
