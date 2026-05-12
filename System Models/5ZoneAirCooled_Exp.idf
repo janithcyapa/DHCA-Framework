@@ -2493,61 +2493,61 @@
     SPACE1_VAV_AirFlow,           !- Name
     SPACE1-1 VAV Reheat,          !- Actuated Component Unique Name
     AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Mass Flow Rate;               !- Control Type
+    Air Mass Flow Rate;               !- Control Type
 
   EnergyManagementSystem:Actuator,
     SPACE1_Reheat_WaterFlow,      !- Name
     SPACE1-1 Zone Coil,           !- Actuated Component Unique Name
     Coil:Heating:Water,           !- Component Type
-    Mass Flow Rate;               !- Control Type
+    Water Mass Flow Rate;         !- Control Type
     
   EnergyManagementSystem:Actuator,
     SPACE2_VAV_AirFlow,           !- Name
     SPACE2-1 VAV Reheat,          !- Actuated Component Unique Name
     AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Mass Flow Rate;               !- Control Type
+    Air Mass Flow Rate               !- Control Type
 
   EnergyManagementSystem:Actuator,
     SPACE2_Reheat_WaterFlow,      !- Name
     SPACE2-1 Zone Coil,           !- Actuated Component Unique Name
     Coil:Heating:Water,           !- Component Type
-    Mass Flow Rate;               !- Control Type
+    Water Mass Flow Rate;         !- Control Type
 
   EnergyManagementSystem:Actuator,
     SPACE3_VAV_AirFlow,           !- Name
     SPACE3-1 VAV Reheat,          !- Actuated Component Unique Name
     AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Mass Flow Rate;               !- Control Type
+    Air Mass Flow Rate;               !- Control Type
 
   EnergyManagementSystem:Actuator,
     SPACE3_Reheat_WaterFlow,      !- Name
     SPACE3-1 Zone Coil,           !- Actuated Component Unique Name
     Coil:Heating:Water,           !- Component Type
-    Mass Flow Rate;               !- Control Type
+    Water Mass Flow Rate;         !- Control Type
 
   EnergyManagementSystem:Actuator,
     SPACE4_VAV_AirFlow,           !- Name
     SPACE4-1 VAV Reheat,          !- Actuated Component Unique Name
     AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Mass Flow Rate;               !- Control Type
+    Air Mass Flow Rate;               !- Control Type
 
   EnergyManagementSystem:Actuator,
     SPACE4_Reheat_WaterFlow,      !- Name
     SPACE4-1 Zone Coil,           !- Actuated Component Unique Name
     Coil:Heating:Water,           !- Component Type
-    Mass Flow Rate;               !- Control Type
+    Water Mass Flow Rate;         !- Control Type
     
   EnergyManagementSystem:Actuator,
     SPACE5_VAV_AirFlow,           !- Name
     SPACE5-1 VAV Reheat,          !- Actuated Component Unique Name
     AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Mass Flow Rate;               !- Control Type
+    Air Mass Flow Rate;               !- Control Type
 
   EnergyManagementSystem:Actuator,
     SPACE5_Reheat_WaterFlow,      !- Name
     SPACE5-1 Zone Coil,           !- Actuated Component Unique Name
     Coil:Heating:Water,           !- Component Type
-    Mass Flow Rate;               !- Control Type
+    Water Mass Flow Rate;         !- Control Type
     
 
   Controller:WaterCoil,
