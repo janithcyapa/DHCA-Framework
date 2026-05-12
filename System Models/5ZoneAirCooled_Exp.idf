@@ -2505,7 +2505,7 @@
     SPACE2_VAV_AirFlow,           !- Name
     SPACE2-1 VAV Reheat,          !- Actuated Component Unique Name
     AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Air Mass Flow Rate               !- Control Type
+    Air Mass Flow Rate;               !- Control Type
 
   EnergyManagementSystem:Actuator,
     SPACE2_Reheat_WaterFlow,      !- Name
