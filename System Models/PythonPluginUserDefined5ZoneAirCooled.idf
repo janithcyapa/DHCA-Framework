@@ -1,12 +1,10 @@
-!-Generator IDFEditor 1.34
-!-Option OriginalOrderTop UseSpecialFormat
-!-NOTE: All comments with '!-' are ignored by the IDFEditor and are generated automatically.
-!-      Use '!' comments if they need to be retained when using the IDFEditor.
-! 5ZoneAirCooled.idf
+! PythonPluginUserDefined5ZoneAirCooled.idf
 ! Basic file description:  1 story building divided into 4 exterior and one interior conditioned zones and return plenum.
 !
-! Highlights:              Electric chiller with air cooled condenser; autosized preheating and precooling water coils in the
-!                          outside air stream controlled to preheat and precool setpoints.
+! Highlights:              User Defined component models using Python Plugin System
+!                          PlantComponent:UserDefined example of a constant COP chiller
+!                          Coil:UserDefined examples with chilled water and hot water coil systems that meet setpoint on leaving air node
+!                          AirTerminal:SingleDuct:UserDefined with VAV reheat air terminals that operate at full stop during heating (for zone mixing).
 !
 ! Simulation Location/Run: CHICAGO_IL_USA TMY2-94846, 2 design days, 2 run periods,
 !                          Run Control executes the run periods using the weather file
@@ -82,15 +80,15 @@
 !                                 All equipment is autosized. HW and ChW coils are used in the outside air
 !                                 stream to precondition the outside air.
 !
-! Zonal Equipment:                AirTerminal:SingleDuct:VAV:Reheat
+! Zonal Equipment:                AirTerminal:SingleDuct:UserDefined
 ! Central Air Handling Equipment: Yes
 ! System Equipment Autosize:      Yes
 ! Purchased Cooling:              None
 ! Purchased Heating:              None
-! Coils:                          Coil:Cooling:Water, Coil:Heating:Water
+! Coils:                          Coil:UserDefined, for both heating and cooling coils
 ! Pumps:                          Pump:VariableSpeed
 ! Boilers:                        Boiler:HotWater
-! Chillers:                       Chiller:Electric
+! Chillers:                       PlantComponent:UserDefined used for a constant COP chiller
 !
 ! Results:
 ! Standard Reports:               None
@@ -123,7 +121,7 @@
   GlobalGeometryRules,
     UpperLeftCorner,         !- Starting Vertex Position
     CounterClockWise,        !- Vertex Entry Direction
-    Relative;                !- Coordinate System
+    relative;                !- Coordinate System
 
   ScheduleTypeLimits,
     Any Number;              !- Name
@@ -159,13 +157,31 @@
     10,                      !- Upper Limit Value
     CONTINUOUS;              !- Numeric Type
 
+  Output:SQLite,
+    simple;                  !- Option Type
+
   RunPeriod,
-    Run Period 1,            !- Name
+    Jan14,                   !- Name
     1,                       !- Begin Month
-    1,                       !- Begin Day of Month
+    14,                      !- Begin Day of Month
     ,                        !- Begin Year
-    12,                      !- End Month
-    31,                      !- End Day of Month
+    1,                       !- End Month
+    14,                      !- End Day of Month
+    ,                        !- End Year
+    Tuesday,                 !- Day of Week for Start Day
+    Yes,                     !- Use Weather File Holidays and Special Days
+    Yes,                     !- Use Weather File Daylight Saving Period
+    No,                      !- Apply Weekend Holiday Rule
+    Yes,                     !- Use Weather File Rain Indicators
+    Yes;                     !- Use Weather File Snow Indicators
+
+  RunPeriod,
+    Jul7,                    !- Name
+    7,                       !- Begin Month
+    7,                       !- Begin Day of Month
+    ,                        !- Begin Year
+    7,                       !- End Month
+    7,                       !- End Day of Month
     ,                        !- End Year
     Tuesday,                 !- Day of Week for Start Day
     Yes,                     !- Use Weather File Holidays and Special Days
@@ -371,9 +387,25 @@
     0.7500000;               !- Visible Absorptance
 
   Material:NoMass,
+    MAT-SB-U,                !- Name
+    Rough,                   !- Roughness
+    0.117406666,             !- Thermal Resistance {m2-K/W}
+    0.65,                    !- Thermal Absorptance
+    0.65,                    !- Solar Absorptance
+    0.65;                    !- Visible Absorptance
+
+  Material:NoMass,
     MAT-CLNG-1,              !- Name
     Rough,                   !- Roughness
     0.652259290,             !- Thermal Resistance {m2-K/W}
+    0.65,                    !- Thermal Absorptance
+    0.65,                    !- Solar Absorptance
+    0.65;                    !- Visible Absorptance
+
+  Material:NoMass,
+    MAT-FLOOR-1,             !- Name
+    Rough,                   !- Roughness
+    3.522199631,             !- Thermal Resistance {m2-K/W}
     0.65,                    !- Thermal Absorptance
     0.65,                    !- Solar Absorptance
     0.65;                    !- Visible Absorptance
@@ -415,8 +447,18 @@
     GP02;                    !- Layer 3
 
   WindowMaterial:Gas,
+    AIR 6MM,                 !- Name
+    Air,                     !- Gas Type
+    0.0063;                  !- Thickness {m}
+
+  WindowMaterial:Gas,
     AIR 13MM,                !- Name
     Air,                     !- Gas Type
+    0.0127;                  !- Thickness {m}
+
+  WindowMaterial:Gas,
+    ARGON 13MM,              !- Name
+    Argon,                   !- Gas Type
     0.0127;                  !- Thickness {m}
 
   WindowMaterial:Glazing,
@@ -449,6 +491,38 @@
     0.0,                     !- Infrared Transmittance at Normal Incidence
     0.84,                    !- Front Side Infrared Hemispherical Emissivity
     0.84,                    !- Back Side Infrared Hemispherical Emissivity
+    0.9;                     !- Conductivity {W/m-K}
+
+  WindowMaterial:Glazing,
+    CLEAR 6MM,               !- Name
+    SpectralAverage,         !- Optical Data Type
+    ,                        !- Window Glass Spectral Data Set Name
+    0.006,                   !- Thickness {m}
+    0.775,                   !- Solar Transmittance at Normal Incidence
+    0.071,                   !- Front Side Solar Reflectance at Normal Incidence
+    0.071,                   !- Back Side Solar Reflectance at Normal Incidence
+    0.881,                   !- Visible Transmittance at Normal Incidence
+    0.080,                   !- Front Side Visible Reflectance at Normal Incidence
+    0.080,                   !- Back Side Visible Reflectance at Normal Incidence
+    0.0,                     !- Infrared Transmittance at Normal Incidence
+    0.84,                    !- Front Side Infrared Hemispherical Emissivity
+    0.84,                    !- Back Side Infrared Hemispherical Emissivity
+    0.9;                     !- Conductivity {W/m-K}
+
+  WindowMaterial:Glazing,
+    LoE CLEAR 6MM,           !- Name
+    SpectralAverage,         !- Optical Data Type
+    ,                        !- Window Glass Spectral Data Set Name
+    0.006,                   !- Thickness {m}
+    0.600,                   !- Solar Transmittance at Normal Incidence
+    0.170,                   !- Front Side Solar Reflectance at Normal Incidence
+    0.220,                   !- Back Side Solar Reflectance at Normal Incidence
+    0.840,                   !- Visible Transmittance at Normal Incidence
+    0.055,                   !- Front Side Visible Reflectance at Normal Incidence
+    0.078,                   !- Back Side Visible Reflectance at Normal Incidence
+    0.0,                     !- Infrared Transmittance at Normal Incidence
+    0.84,                    !- Front Side Infrared Hemispherical Emissivity
+    0.10,                    !- Back Side Infrared Hemispherical Emissivity
     0.9;                     !- Conductivity {W/m-K}
 
   Construction,
@@ -1686,10 +1760,10 @@
     ,                        !- Heating Maximum Air Flow {m3/s}
     ,                        !- Heating Maximum Air Flow Fraction
     ,                        !- Design Specification Zone Air Distribution Object Name
-    No,                      !- Account for Dedicated Outdoor Air System
-    NeutralSupplyAir,        !- Dedicated Outdoor Air System Control Strategy
-    autosize,                !- Dedicated Outdoor Air Low Setpoint Temperature for Design {C}
-    autosize;                !- Dedicated Outdoor Air High Setpoint Temperature for Design {C}
+    ,                        !- Account for Dedicated Outdoor Air System
+    ,                        !- Dedicated Outdoor Air System Control Strategy
+    ,                        !- Dedicated Outdoor Air Low Setpoint Temperature for Design {C}
+    ;                        !- Dedicated Outdoor Air High Setpoint Temperature for Design {C}
 
   DesignSpecification:OutdoorAir,
     SZ DSOA SPACE1-1,        !- Name
@@ -1722,10 +1796,10 @@
     ,                        !- Heating Maximum Air Flow {m3/s}
     ,                        !- Heating Maximum Air Flow Fraction
     ,                        !- Design Specification Zone Air Distribution Object Name
-    No,                      !- Account for Dedicated Outdoor Air System
-    NeutralSupplyAir,        !- Dedicated Outdoor Air System Control Strategy
-    autosize,                !- Dedicated Outdoor Air Low Setpoint Temperature for Design {C}
-    autosize;                !- Dedicated Outdoor Air High Setpoint Temperature for Design {C}
+    ,                        !- Account for Dedicated Outdoor Air System
+    ,                        !- Dedicated Outdoor Air System Control Strategy
+    ,                        !- Dedicated Outdoor Air Low Setpoint Temperature for Design {C}
+    ;                        !- Dedicated Outdoor Air High Setpoint Temperature for Design {C}
 
   DesignSpecification:OutdoorAir,
     SZ DSOA SPACE2-1,        !- Name
@@ -1758,10 +1832,10 @@
     ,                        !- Heating Maximum Air Flow {m3/s}
     ,                        !- Heating Maximum Air Flow Fraction
     ,                        !- Design Specification Zone Air Distribution Object Name
-    No,                      !- Account for Dedicated Outdoor Air System
-    NeutralSupplyAir,        !- Dedicated Outdoor Air System Control Strategy
-    autosize,                !- Dedicated Outdoor Air Low Setpoint Temperature for Design {C}
-    autosize;                !- Dedicated Outdoor Air High Setpoint Temperature for Design {C}
+    ,                        !- Account for Dedicated Outdoor Air System
+    ,                        !- Dedicated Outdoor Air System Control Strategy
+    ,                        !- Dedicated Outdoor Air Low Setpoint Temperature for Design {C}
+    ;                        !- Dedicated Outdoor Air High Setpoint Temperature for Design {C}
 
   DesignSpecification:OutdoorAir,
     SZ DSOA SPACE3-1,        !- Name
@@ -1794,10 +1868,10 @@
     ,                        !- Heating Maximum Air Flow {m3/s}
     ,                        !- Heating Maximum Air Flow Fraction
     ,                        !- Design Specification Zone Air Distribution Object Name
-    No,                      !- Account for Dedicated Outdoor Air System
-    NeutralSupplyAir,        !- Dedicated Outdoor Air System Control Strategy
-    autosize,                !- Dedicated Outdoor Air Low Setpoint Temperature for Design {C}
-    autosize;                !- Dedicated Outdoor Air High Setpoint Temperature for Design {C}
+    ,                        !- Account for Dedicated Outdoor Air System
+    ,                        !- Dedicated Outdoor Air System Control Strategy
+    ,                        !- Dedicated Outdoor Air Low Setpoint Temperature for Design {C}
+    ;                        !- Dedicated Outdoor Air High Setpoint Temperature for Design {C}
 
   DesignSpecification:OutdoorAir,
     SZ DSOA SPACE4-1,        !- Name
@@ -1830,10 +1904,10 @@
     ,                        !- Heating Maximum Air Flow {m3/s}
     ,                        !- Heating Maximum Air Flow Fraction
     ,                        !- Design Specification Zone Air Distribution Object Name
-    No,                      !- Account for Dedicated Outdoor Air System
-    NeutralSupplyAir,        !- Dedicated Outdoor Air System Control Strategy
-    autosize,                !- Dedicated Outdoor Air Low Setpoint Temperature for Design {C}
-    autosize;                !- Dedicated Outdoor Air High Setpoint Temperature for Design {C}
+    ,                        !- Account for Dedicated Outdoor Air System
+    ,                        !- Dedicated Outdoor Air System Control Strategy
+    ,                        !- Dedicated Outdoor Air Low Setpoint Temperature for Design {C}
+    ;                        !- Dedicated Outdoor Air High Setpoint Temperature for Design {C}
 
   DesignSpecification:OutdoorAir,
     SZ DSOA SPACE5-1,        !- Name
@@ -1893,77 +1967,135 @@
     7.00,                    !- Design Loop Exit Temperature {C}
     4.00;                    !- Loop Design Temperature Difference {deltaC}
 
- Schedule:Compact,
+  Schedule:Compact,
     Htg-SetP-Sch,            !- Name
     Temperature,             !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
-    For: AllDays,            !- Field 2
-    Until: 24:00,5.0;        !- Field 3
+    For: SummerDesignDay,    !- Field 2
+    Until: 24:00,16.7,       !- Field 3
+    For: WinterDesignDay,    !- Field 5
+    Until: 24:00,22.2,       !- Field 6
+    For: WeekDays,           !- Field 8
+    Until: 6:00,16.7,        !- Field 9
+    Until: 20:00,22.2,       !- Field 11
+    Until: 24:00,16.7,       !- Field 13
+    For: WeekEnds Holiday,   !- Field 15
+    Until: 24:00,16.7,       !- Field 16
+    For: AllOtherDays,       !- Field 18
+    Until: 24:00,16.7;       !- Field 19
 
- Schedule:Compact,
+  Schedule:Compact,
     PlenumHtg-SetP-Sch,      !- Name
     Temperature,             !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
     For: AllDays,            !- Field 2
-    Until: 24:00,5.0;        !- Field 3
+    Until: 24:00,12.8;       !- Field 3
 
   Schedule:Compact,
     Clg-SetP-Sch,            !- Name
     Temperature,             !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
-    For: AllDays,            !- Field 2
-    Until: 24:00,10.0;       !- Field 3
+    For: SummerDesignDay,    !- Field 2
+    Until: 24:00,23.9,       !- Field 3
+    For: WinterDesignDay,    !- Field 5
+    Until: 24:00,29.4,       !- Field 6
+    For: WeekDays,           !- Field 8
+    Until: 6:00,29.4,        !- Field 9
+    Until: 20:00,23.9,       !- Field 11
+    Until: 24:00,29.4,       !- Field 13
+    For: WeekEnds Holiday,   !- Field 15
+    Until: 24:00,29.4,       !- Field 16
+    For: AllOtherDays,       !- Field 18
+    Until: 24:00,29.4;       !- Field 19
 
- Schedule:Compact,
+  Schedule:Compact,
     PlenumClg-SetP-Sch,      !- Name
     Temperature,             !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
     For: AllDays,            !- Field 2
-    Until: 24:00,10.0;       !- Field 3
+    Until: 24:00,40.0;       !- Field 3
 
- Schedule:Compact,
+  Schedule:Compact,
     Zone Control Type Sched, !- Name
     Control Type,            !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
-    For: AllDays,            !- Field 2
-    Until: 24:00,4;          !- Field 3
+    For: SummerDesignDay,    !- Field 2
+    Until: 24:00,2,          !- Field 3
+    For: WinterDesignDay,    !- Field 5
+    Until: 24:00,1,          !- Field 6
+    For: AllOtherDays,       !- Field 8
+    Until: 24:00,4;          !- Field 9
 
- Schedule:Compact,
+  Schedule:Compact,
     Min OA Sched,            !- Name
     Fraction,                !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
-    For: AllDays,            !- Field 2
-    Until: 24:00,0.0;        !- Field 3
+    For: Weekdays,           !- Field 2
+    Until: 6:00,0.02,        !- Field 3
+    Until: 20:00,1.0,        !- Field 5
+    Until: 24:00,0.02,       !- Field 7
+    For: AllOtherDays,       !- Field 9
+    Until: 24:00,0.02;       !- Field 10
 
- Schedule:Compact,
+  Schedule:Compact,
     FanAvailSched,           !- Name
     Fraction,                !- Schedule Type Limits Name
-    Through: 12/31,          !- Field 1
+    Through: 3/31,           !- Field 1
     For: AllDays,            !- Field 2
-    Until: 24:00,1.0;        !- Field 3
+    Until: 24:00,1.0,        !- Field 3
+    Through: 9/30,           !- Field 5
+    For: WeekDays,           !- Field 6
+    Until: 6:00,0.0,         !- Field 7
+    Until: 20:00,1.0,        !- Field 9
+    Until: 24:00,0.0,        !- Field 11
+    For: SummerDesignDay WinterDesignDay, !- Field 13
+    Until: 24:00,1.0,        !- Field 14
+    For: AllOtherDays,       !- Field 16
+    Until: 24:00,0.0,        !- Field 17
+    Through: 12/31,          !- Field 19
+    For: AllDays,            !- Field 20
+    Until: 24:00,1.0;        !- Field 21
 
- Schedule:Compact,
+  Schedule:Compact,
     CoolingCoilAvailSched,   !- Name
     Fraction,                !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
-    For: AllDays,            !- Field 2
-    Until: 24:00,1.0;        !- Field 3
+    For: WeekDays,           !- Field 2
+    Until: 6:00,0.0,         !- Field 3
+    Until: 20:00,1.0,        !- Field 5
+    Until: 24:00,0.0,        !- Field 7
+    For: SummerDesignDay WinterDesignDay, !- Field 9
+    Until: 24:00,1.0,        !- Field 10
+    For: AllOtherDays,       !- Field 12
+    Until: 24:00,0.0;        !- Field 13
 
- Schedule:Compact,
+  Schedule:Compact,
     CoolingPumpAvailSched,   !- Name
     Fraction,                !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
     For: AllDays,            !- Field 2
     Until: 24:00,1.0;        !- Field 3
-    
- Schedule:Compact,
+
+  Schedule:Compact,
     ReheatCoilAvailSched,    !- Name
     Fraction,                !- Schedule Type Limits Name
-    Through: 12/31,          !- Field 1
+    Through: 3/31,           !- Field 1
     For: AllDays,            !- Field 2
-    Until: 24:00,1.0;        !- Field 3
+    Until: 24:00,1.0,        !- Field 3
+    Through: 9/30,           !- Field 5
+    For: WeekDays,           !- Field 6
+    Until: 6:00,0.0,         !- Field 7
+    Until: 20:00,1.0,        !- Field 9
+    Until: 24:00,0.0,        !- Field 11
+    For: SummerDesignDay WinterDesignDay, !- Field 13
+    Until: 24:00,1.0,        !- Field 14
+    For: AllOtherDays,       !- Field 16
+    Until: 24:00,0.0,        !- Field 17
+    Through: 12/31,          !- Field 19
+    For: AllDays,            !- Field 20
+    Until: 24:00,1.0;        !- Field 21
 
- Schedule:Compact,
+  Schedule:Compact,
     CW Loop Temp Schedule,   !- Name
     Temperature,             !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
@@ -1975,30 +2107,49 @@
     Temperature,             !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
     For: AllDays,            !- Field 2
-    Until: 24:00,82.0;       !- Field 3
+    Until: 24:00,82;         !- Field 3
 
- Schedule:Compact,
+  Schedule:Compact,
     PlantOnSched,            !- Name
     Fraction,                !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
     For: AllDays,            !- Field 2
     Until: 24:00,1.0;        !- Field 3
 
- Schedule:Compact,
+  Schedule:Compact,
     Seasonal Reset Supply Air Temp Sch,  !- Name
     Temperature,             !- Schedule Type Limits Name
-    Through: 12/31,          !- Field 1
+    Through: 3/31,           !- Field 1
     For: AllDays,            !- Field 2
-    Until: 24:00,13.0;       !- Field 3
+    Until: 24:00,16.0,       !- Field 3
+    Through: 9/30,           !- Field 5
+    For: AllDays,            !- Field 6
+    Until: 24:00,13.0,       !- Field 7
+    Through: 12/31,          !- Field 9
+    For: AllDays,            !- Field 10
+    Until: 24:00,16.0;       !- Field 11
 
- Schedule:Compact,
+  Schedule:Compact,
+    Seasonal Reset Supply Air heating Temp Sch,  !- Name
+    Temperature,             !- Schedule Type Limits Name
+    Through: 3/31,           !- Field 1
+    For: AllDays,            !- Field 2
+    Until: 24:00,15.5,       !- Field 3
+    Through: 9/30,           !- Field 5
+    For: AllDays,            !- Field 6
+    Until: 24:00,12.5,       !- Field 7
+    Through: 12/31,          !- Field 9
+    For: AllDays,            !- Field 10
+    Until: 24:00,15.5;       !- Field 11
+
+  Schedule:Compact,
     OA Cooling Supply Air Temp Sch,  !- Name
     Temperature,             !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
     For: AllDays,            !- Field 2
-    Until: 24:00,11.5;       !- Field 33
+    Until: 24:00,11.5;       !- Field 3
 
- Schedule:Compact,
+  Schedule:Compact,
     OA Heating Supply Air Temp Sch,  !- Name
     Temperature,             !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
@@ -2181,222 +2332,92 @@
   ZoneHVAC:AirDistributionUnit,
     SPACE1-1 ATU,            !- Name
     SPACE1-1 In Node,        !- Air Distribution Unit Outlet Node Name
-    AirTerminal:SingleDuct:VAV:Reheat,  !- Air Terminal Object Type
+    AirTerminal:SingleDuct:UserDefined,  !- Air Terminal Object Type
     SPACE1-1 VAV Reheat;     !- Air Terminal Name
 
   ZoneHVAC:AirDistributionUnit,
     SPACE2-1 ATU,            !- Name
     SPACE2-1 In Node,        !- Air Distribution Unit Outlet Node Name
-    AirTerminal:SingleDuct:VAV:Reheat,  !- Air Terminal Object Type
+    AirTerminal:SingleDuct:UserDefined,  !- Air Terminal Object Type
     SPACE2-1 VAV Reheat;     !- Air Terminal Name
 
   ZoneHVAC:AirDistributionUnit,
     SPACE3-1 ATU,            !- Name
     SPACE3-1 In Node,        !- Air Distribution Unit Outlet Node Name
-    AirTerminal:SingleDuct:VAV:Reheat,  !- Air Terminal Object Type
+    AirTerminal:SingleDuct:UserDefined,  !- Air Terminal Object Type
     SPACE3-1 VAV Reheat;     !- Air Terminal Name
 
   ZoneHVAC:AirDistributionUnit,
     SPACE4-1 ATU,            !- Name
     SPACE4-1 In Node,        !- Air Distribution Unit Outlet Node Name
-    AirTerminal:SingleDuct:VAV:Reheat,  !- Air Terminal Object Type
+    AirTerminal:SingleDuct:UserDefined,  !- Air Terminal Object Type
     SPACE4-1 VAV Reheat;     !- Air Terminal Name
 
   ZoneHVAC:AirDistributionUnit,
     SPACE5-1 ATU,            !- Name
     SPACE5-1 In Node,        !- Air Distribution Unit Outlet Node Name
-    AirTerminal:SingleDuct:VAV:Reheat,  !- Air Terminal Object Type
+    AirTerminal:SingleDuct:UserDefined,  !- Air Terminal Object Type
     SPACE5-1 VAV Reheat;     !- Air Terminal Name
 
-  AirTerminal:SingleDuct:VAV:Reheat,
+  AirTerminal:SingleDuct:UserDefined,
     SPACE1-1 VAV Reheat,     !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    SPACE1-1 Zone Coil Air In Node,  !- Damper Air Outlet Node Name
-    SPACE1-1 ATU In Node,    !- Air Inlet Node Name
-    autosize,                !- Maximum Air Flow Rate {m3/s}
-    Constant,                !- Zone Minimum Air Flow Input Method
-    0.0,                     !- Constant Minimum Air Flow Fraction
-    ,                        !- Fixed Minimum Air Flow Rate {m3/s}
-    ,                        !- Minimum Air Flow Fraction Schedule Name
-    Coil:Heating:Water,      !- Reheat Coil Object Type
-    SPACE1-1 Zone Coil,      !- Reheat Coil Name
-    autosize,                !- Maximum Hot Water or Steam Flow Rate {m3/s}
-    0.0,                     !- Minimum Hot Water or Steam Flow Rate {m3/s}
-    SPACE1-1 In Node,        !- Air Outlet Node Name
-    0.001,                   !- Convergence Tolerance
-    NORMAL,                  !- Damper Heating Action
-    AUTOCALCULATE,           !- Maximum Flow per Zone Floor Area During Reheat {m3/s-m2}
-    AUTOCALCULATE;           !- Maximum Flow Fraction During Reheat
+    Space1 ATU Sim Programs, !- Overall Model Simulation Program Calling Manager Name
+    Space1 ATU Init Programs,!- Model Setup and Sizing Program Calling Manager Name
+    SPACE1-1 ATU In Node,    !- Primary Air Inlet Node Name
+    SPACE1-1 In Node,        !- Primary Air Outlet Node Name
+    ,                        !- Secondary Air Inlet Node Name
+    ,                        !- Secondary Air Outlet Node Name
+    1,                       !- Number of Plant Loop Connections
+    SPACE1-1 Zone Coil Water In Node,  !- Plant Connection 1 Inlet Node Name
+    SPACE1-1 Zone Coil Water Out Node;  !- Plant Connection 1 Outlet Node Name
 
-  AirTerminal:SingleDuct:VAV:Reheat,
+  AirTerminal:SingleDuct:UserDefined,
     SPACE2-1 VAV Reheat,     !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    SPACE2-1 Zone Coil Air In Node,  !- Damper Air Outlet Node Name
-    SPACE2-1 ATU In Node,    !- Air Inlet Node Name
-    autosize,                !- Maximum Air Flow Rate {m3/s}
-    Constant,                !- Zone Minimum Air Flow Input Method
-    0.0,                     !- Constant Minimum Air Flow Fraction
-    ,                        !- Fixed Minimum Air Flow Rate {m3/s}
-    ,                        !- Minimum Air Flow Fraction Schedule Name
-    Coil:Heating:Water,      !- Reheat Coil Object Type
-    SPACE2-1 Zone Coil,      !- Reheat Coil Name
-    autosize,                !- Maximum Hot Water or Steam Flow Rate {m3/s}
-    0.0,                     !- Minimum Hot Water or Steam Flow Rate {m3/s}
-    SPACE2-1 In Node,        !- Air Outlet Node Name
-    0.001,                   !- Convergence Tolerance
-    NORMAL,                  !- Damper Heating Action
-    AUTOCALCULATE,           !- Maximum Flow per Zone Floor Area During Reheat {m3/s-m2}
-    AUTOCALCULATE;           !- Maximum Flow Fraction During Reheat
+    Space2 ATU Sim Programs, !- Overall Model Simulation Program Calling Manager Name
+    Space2 ATU Init Programs,!- Model Setup and Sizing Program Calling Manager Name
+    SPACE2-1 ATU In Node,    !- Primary Air Inlet Node Name
+    SPACE2-1 In Node,        !- Primary Air Outlet Node Name
+    ,                        !- Secondary Air Inlet Node Name
+    ,                        !- Secondary Air Outlet Node Name
+    1,                       !- Number of Plant Loop Connections
+    SPACE2-1 Zone Coil Water In Node,  !- Plant Connection 1 Inlet Node Name
+    SPACE2-1 Zone Coil Water Out Node;  !- Plant Connection 1 Outlet Node Name
 
-  AirTerminal:SingleDuct:VAV:Reheat,
+  AirTerminal:SingleDuct:UserDefined,
     SPACE3-1 VAV Reheat,     !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    SPACE3-1 Zone Coil Air In Node,  !- Damper Air Outlet Node Name
-    SPACE3-1 ATU In Node,    !- Air Inlet Node Name
-    autosize,                !- Maximum Air Flow Rate {m3/s}
-    Constant,                !- Zone Minimum Air Flow Input Method
-    0.0,                     !- Constant Minimum Air Flow Fraction
-    ,                        !- Fixed Minimum Air Flow Rate {m3/s}
-    ,                        !- Minimum Air Flow Fraction Schedule Name
-    Coil:Heating:Water,      !- Reheat Coil Object Type
-    SPACE3-1 Zone Coil,      !- Reheat Coil Name
-    autosize,                !- Maximum Hot Water or Steam Flow Rate {m3/s}
-    0.0,                     !- Minimum Hot Water or Steam Flow Rate {m3/s}
-    SPACE3-1 In Node,        !- Air Outlet Node Name
-    0.001,                   !- Convergence Tolerance
-    NORMAL,                  !- Damper Heating Action
-    AUTOCALCULATE,           !- Maximum Flow per Zone Floor Area During Reheat {m3/s-m2}
-    AUTOCALCULATE;           !- Maximum Flow Fraction During Reheat
+    Space3 ATU Sim Programs, !- Overall Model Simulation Program Calling Manager Name
+    Space3 ATU Init Programs,!- Model Setup and Sizing Program Calling Manager Name
+    SPACE3-1 ATU In Node,    !- Primary Air Inlet Node Name
+    SPACE3-1 In Node,        !- Primary Air Outlet Node Name
+    ,                        !- Secondary Air Inlet Node Name
+    ,                        !- Secondary Air Outlet Node Name
+    1,                       !- Number of Plant Loop Connections
+    SPACE3-1 Zone Coil Water In Node,  !- Plant Connection 1 Inlet Node Name
+    SPACE3-1 Zone Coil Water Out Node;  !- Plant Connection 1 Outlet Node Name
 
-  AirTerminal:SingleDuct:VAV:Reheat,
+  AirTerminal:SingleDuct:UserDefined,
     SPACE4-1 VAV Reheat,     !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    SPACE4-1 Zone Coil Air In Node,  !- Damper Air Outlet Node Name
-    SPACE4-1 ATU In Node,    !- Air Inlet Node Name
-    autosize,                !- Maximum Air Flow Rate {m3/s}
-    Constant,                !- Zone Minimum Air Flow Input Method
-    0.0,                     !- Constant Minimum Air Flow Fraction
-    ,                        !- Fixed Minimum Air Flow Rate {m3/s}
-    ,                        !- Minimum Air Flow Fraction Schedule Name
-    Coil:Heating:Water,      !- Reheat Coil Object Type
-    SPACE4-1 Zone Coil,      !- Reheat Coil Name
-    autosize,                !- Maximum Hot Water or Steam Flow Rate {m3/s}
-    0.0,                     !- Minimum Hot Water or Steam Flow Rate {m3/s}
-    SPACE4-1 In Node,        !- Air Outlet Node Name
-    0.001,                   !- Convergence Tolerance
-    NORMAL,                  !- Damper Heating Action
-    AUTOCALCULATE,           !- Maximum Flow per Zone Floor Area During Reheat {m3/s-m2}
-    AUTOCALCULATE;           !- Maximum Flow Fraction During Reheat
+    Space4 ATU Sim Programs, !- Overall Model Simulation Program Calling Manager Name
+    Space4 ATU Init Programs,!- Model Setup and Sizing Program Calling Manager Name
+    SPACE4-1 ATU In Node,    !- Primary Air Inlet Node Name
+    SPACE4-1 In Node,        !- Primary Air Outlet Node Name
+    ,                        !- Secondary Air Inlet Node Name
+    ,                        !- Secondary Air Outlet Node Name
+    1,                       !- Number of Plant Loop Connections
+    SPACE4-1 Zone Coil Water In Node,  !- Plant Connection 1 Inlet Node Name
+    SPACE4-1 Zone Coil Water Out Node;  !- Plant Connection 1 Outlet Node Name
 
-  AirTerminal:SingleDuct:VAV:Reheat,
+  AirTerminal:SingleDuct:UserDefined,
     SPACE5-1 VAV Reheat,     !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    SPACE5-1 Zone Coil Air In Node,  !- Damper Air Outlet Node Name
-    SPACE5-1 ATU In Node,    !- Air Inlet Node Name
-    autosize,                !- Maximum Air Flow Rate {m3/s}
-    Constant,                !- Zone Minimum Air Flow Input Method
-    0.0,                     !- Constant Minimum Air Flow Fraction
-    ,                        !- Fixed Minimum Air Flow Rate {m3/s}
-    ,                        !- Minimum Air Flow Fraction Schedule Name
-    Coil:Heating:Water,      !- Reheat Coil Object Type
-    SPACE5-1 Zone Coil,      !- Reheat Coil Name
-    autosize,                !- Maximum Hot Water or Steam Flow Rate {m3/s}
-    0.0,                     !- Minimum Hot Water or Steam Flow Rate {m3/s}
-    SPACE5-1 In Node,        !- Air Outlet Node Name
-    0.001,                   !- Convergence Tolerance
-    NORMAL,                  !- Damper Heating Action
-    AUTOCALCULATE,           !- Maximum Flow per Zone Floor Area During Reheat {m3/s-m2}
-    AUTOCALCULATE;           !- Maximum Flow Fraction During Reheat
-
-  Coil:Heating:Water,
-    SPACE1-1 Zone Coil,      !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    autosize,                !- U-Factor Times Area Value {W/K}
-    autosize,                !- Maximum Water Flow Rate {m3/s}
-    SPACE1-1 Zone Coil Water In Node,  !- Water Inlet Node Name
-    SPACE1-1 Zone Coil Water Out Node,  !- Water Outlet Node Name
-    SPACE1-1 Zone Coil Air In Node,  !- Air Inlet Node Name
-    SPACE1-1 In Node,        !- Air Outlet Node Name
-    UFactorTimesAreaAndDesignWaterFlowRate,  !- Performance Input Method
-    autosize,                !- Rated Capacity {W}
-    82.2,                    !- Rated Inlet Water Temperature {C}
-    16.6,                    !- Rated Inlet Air Temperature {C}
-    71.1,                    !- Rated Outlet Water Temperature {C}
-    32.2,                    !- Rated Outlet Air Temperature {C}
-    ,                        !- Rated Ratio for Air and Water Convection
-    11;                      !- Design Water Temperature Difference {deltaC}
-
-  Coil:Heating:Water,
-    SPACE2-1 Zone Coil,      !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    autosize,                !- U-Factor Times Area Value {W/K}
-    autosize,                !- Maximum Water Flow Rate {m3/s}
-    SPACE2-1 Zone Coil Water In Node,  !- Water Inlet Node Name
-    SPACE2-1 Zone Coil Water Out Node,  !- Water Outlet Node Name
-    SPACE2-1 Zone Coil Air In Node,  !- Air Inlet Node Name
-    SPACE2-1 In Node,        !- Air Outlet Node Name
-    UFactorTimesAreaAndDesignWaterFlowRate,  !- Performance Input Method
-    autosize,                !- Rated Capacity {W}
-    82.2,                    !- Rated Inlet Water Temperature {C}
-    16.6,                    !- Rated Inlet Air Temperature {C}
-    71.1,                    !- Rated Outlet Water Temperature {C}
-    32.2,                    !- Rated Outlet Air Temperature {C}
-    ,                        !- Rated Ratio for Air and Water Convection
-    11;                      !- Design Water Temperature Difference {deltaC}
-
-  Coil:Heating:Water,
-    SPACE3-1 Zone Coil,      !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    autosize,                !- U-Factor Times Area Value {W/K}
-    autosize,                !- Maximum Water Flow Rate {m3/s}
-    SPACE3-1 Zone Coil Water In Node,  !- Water Inlet Node Name
-    SPACE3-1 Zone Coil Water Out Node,  !- Water Outlet Node Name
-    SPACE3-1 Zone Coil Air In Node,  !- Air Inlet Node Name
-    SPACE3-1 In Node,        !- Air Outlet Node Name
-    UFactorTimesAreaAndDesignWaterFlowRate,  !- Performance Input Method
-    autosize,                !- Rated Capacity {W}
-    82.2,                    !- Rated Inlet Water Temperature {C}
-    16.6,                    !- Rated Inlet Air Temperature {C}
-    71.1,                    !- Rated Outlet Water Temperature {C}
-    32.2,                    !- Rated Outlet Air Temperature {C}
-    ,                        !- Rated Ratio for Air and Water Convection
-    11;                      !- Design Water Temperature Difference {deltaC}
-
-  Coil:Heating:Water,
-    SPACE4-1 Zone Coil,      !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    autosize,                !- U-Factor Times Area Value {W/K}
-    autosize,                !- Maximum Water Flow Rate {m3/s}
-    SPACE4-1 Zone Coil Water In Node,  !- Water Inlet Node Name
-    SPACE4-1 Zone Coil Water Out Node,  !- Water Outlet Node Name
-    SPACE4-1 Zone Coil Air In Node,  !- Air Inlet Node Name
-    SPACE4-1 In Node,        !- Air Outlet Node Name
-    UFactorTimesAreaAndDesignWaterFlowRate,  !- Performance Input Method
-    autosize,                !- Rated Capacity {W}
-    82.2,                    !- Rated Inlet Water Temperature {C}
-    16.6,                    !- Rated Inlet Air Temperature {C}
-    71.1,                    !- Rated Outlet Water Temperature {C}
-    32.2,                    !- Rated Outlet Air Temperature {C}
-    ,                        !- Rated Ratio for Air and Water Convection
-    11;                      !- Design Water Temperature Difference {deltaC}
-
-  Coil:Heating:Water,
-    SPACE5-1 Zone Coil,      !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    autosize,                !- U-Factor Times Area Value {W/K}
-    autosize,                !- Maximum Water Flow Rate {m3/s}
-    SPACE5-1 Zone Coil Water In Node,  !- Water Inlet Node Name
-    SPACE5-1 Zone Coil Water Out Node,  !- Water Outlet Node Name
-    SPACE5-1 Zone Coil Air In Node,  !- Air Inlet Node Name
-    SPACE5-1 In Node,        !- Air Outlet Node Name
-    UFactorTimesAreaAndDesignWaterFlowRate,  !- Performance Input Method
-    autosize,                !- Rated Capacity {W}
-    82.2,                    !- Rated Inlet Water Temperature {C}
-    16.6,                    !- Rated Inlet Air Temperature {C}
-    71.1,                    !- Rated Outlet Water Temperature {C}
-    32.2,                    !- Rated Outlet Air Temperature {C}
-    ,                        !- Rated Ratio for Air and Water Convection
-    11;                      !- Design Water Temperature Difference {deltaC}
+    Space5 ATU Sim Programs, !- Overall Model Simulation Program Calling Manager Name
+    Space5 ATU Init Programs,!- Model Setup and Sizing Program Calling Manager Name
+    SPACE5-1 ATU In Node,    !- Primary Air Inlet Node Name
+    SPACE5-1 In Node,        !- Primary Air Outlet Node Name
+    ,                        !- Secondary Air Inlet Node Name
+    ,                        !- Secondary Air Outlet Node Name
+    1,                       !- Number of Plant Loop Connections
+    SPACE5-1 Zone Coil Water In Node,  !- Plant Connection 1 Inlet Node Name
+    SPACE5-1 Zone Coil Water Out Node;  !- Plant Connection 1 Outlet Node Name
 
   AirLoopHVAC:ReturnPath,
     ReturnAirPath1,          !- Name
@@ -2433,8 +2454,8 @@
 
   AirLoopHVAC,
     VAV Sys 1,               !- Name
-    VAV Sys 1 Controllers,   !- Controller List Name
-    ,    !- Availability Manager List Name
+    ,                        !- Controller List Name
+    VAV Sys 1 Avail List,    !- Availability Manager List Name
     autosize,                !- Design Supply Air Flow Rate {m3/s}
     VAV Sys 1 Branches,      !- Branch List Name
     ,                        !- Connector List Name
@@ -2443,12 +2464,14 @@
     Zone Eq In Node,         !- Demand Side Inlet Node Names
     VAV Sys 1 Outlet Node;   !- Supply Side Outlet Node Names
 
-  AirLoopHVAC:ControllerList,
-    VAV Sys 1 Controllers,   !- Name
-    Controller:WaterCoil,    !- Controller 1 Object Type
-    Central Cooling Coil Controller 1,  !- Controller 1 Name
-    Controller:WaterCoil,    !- Controller 2 Object Type
-    Central Heating Coil Controller 1;  !- Controller 2 Name
+  AvailabilityManagerAssignmentList,
+    VAV Sys 1 Avail List,    !- Name
+    AvailabilityManager:Scheduled,  !- Availability Manager 1 Object Type
+    VAV Sys 1 Avail;         !- Availability Manager 1 Name
+
+  AvailabilityManager:Scheduled,
+    VAV Sys 1 Avail,         !- Name
+    FanAvailSched;           !- Schedule Name
 
   BranchList,
     VAV Sys 1 Branches,      !- Name
@@ -2461,11 +2484,11 @@
     OA Sys 1,                !- Component 1 Name
     VAV Sys 1 Inlet Node,    !- Component 1 Inlet Node Name
     Mixed Air Node 1,        !- Component 1 Outlet Node Name
-    Coil:Cooling:Water,      !- Component 2 Object Type
+    Coil:UserDefined,        !- Component 2 Object Type
     Main Cooling Coil 1,     !- Component 2 Name
     Mixed Air Node 1,        !- Component 2 Inlet Node Name
     Main Cooling Coil 1 Outlet Node,  !- Component 2 Outlet Node Name
-    Coil:Heating:Water,      !- Component 3 Object Type
+    Coil:UserDefined,        !- Component 3 Object Type
     Main Heating Coil 1,     !- Component 3 Name
     Main Cooling Coil 1 Outlet Node,  !- Component 3 Inlet Node Name
     Main Heating Coil 1 Outlet Node,  !- Component 3 Outlet Node Name
@@ -2484,15 +2507,13 @@
     Controller:OutdoorAir,   !- Controller 1 Object Type
     OA Controller 1,         !- Controller 1 Name
     Controller:WaterCoil,    !- Controller 2 Object Type
-    OA CC Controller 1,      !- Controller 2 Name
-    Controller:WaterCoil,    !- Controller 3 Object Type
-    OA HC Controller 1;      !- Controller 3 Name
+    OA HC Controller 1;      !- Controller 2 Name
 
   AirLoopHVAC:OutdoorAirSystem:EquipmentList,
     OA Sys 1 Equipment,      !- Name
     Coil:Heating:Water,      !- Component 1 Object Type
     OA Heating Coil 1,       !- Component 1 Name
-    Coil:Cooling:Water,      !- Component 2 Object Type
+    Coil:UserDefined,        !- Component 2 Object Type
     OA Cooling Coil 1,       !- Component 2 Name
     OutdoorAir:Mixer,        !- Component 3 Object Type
     OA Mixing Box 1;         !- Component 3 Name
@@ -2512,27 +2533,193 @@
     16.6,                    !- Rated Inlet Air Temperature {C}
     71.1,                    !- Rated Outlet Water Temperature {C}
     32.2,                    !- Rated Outlet Air Temperature {C}
-    ,                        !- Rated Ratio for Air and Water Convection
-    11;                      !- Design Water Temperature Difference {deltaC}
+    ;                        !- Rated Ratio for Air and Water Convection
 
-  Coil:Cooling:Water,
+  Coil:UserDefined,
     OA Cooling Coil 1,       !- Name
-    CoolingCoilAvailSched,   !- Availability Schedule Name
-    autosize,                !- Design Water Flow Rate {m3/s}
-    autosize,                !- Design Air Flow Rate {m3/s}
-    autosize,                !- Design Inlet Water Temperature {C}
-    autosize,                !- Design Inlet Air Temperature {C}
-    autosize,                !- Design Outlet Air Temperature {C}
-    autosize,                !- Design Inlet Air Humidity Ratio {kgWater/kgDryAir}
-    autosize,                !- Design Outlet Air Humidity Ratio {kgWater/kgDryAir}
-    OA Cooling Coil 1 Water Inlet Node,  !- Water Inlet Node Name
-    OA Cooling Coil 1 Water Outlet Node,  !- Water Outlet Node Name
-    OA Heating Coil 1 Air Outlet Node,  !- Air Inlet Node Name
-    OA Mixing Box 1 Inlet Node,  !- Air Outlet Node Name
-    SimpleAnalysis,          !- Type of Analysis
-    CrossFlow,               !- Heat Exchanger Configuration
-    ,                        !- Condensate Collection Water Storage Tank Name
-    4.0;                     !- Design Water Temperature Difference {deltaC}
+    OA Cooling Coil Model Program Manager,  !- Overall Model Simulation Program Calling Manager Name
+    OA Cooling Coil Init Program Manager,  !- Model Setup and Sizing Program Calling Manager Name
+    1,                       !- Number of Air Connections
+    OA Heating Coil 1 Air Outlet Node,  !- Air Connection 1 Inlet Node Name
+    OA Mixing Box 1 Inlet Node,  !- Air Connection 1 Outlet Node Name
+    ,                        !- Air Connection 2 Inlet Node Name
+    ,                        !- Air Connection 2 Outlet Node Name
+    Yes,                     !- Plant Connection is Used
+    OA Cooling Coil 1 Water Inlet Node,  !- Plant Connection Inlet Node Name
+    OA Cooling Coil 1 Water Outlet Node;  !- Plant Connection Outlet Node Name
+
+  EnergyManagementSystem:ProgramCallingManager,
+    OA Cooling Coil Model Program Manager,  !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    OA_CWCoil_ModelInput,    !- Program Name 1
+    CW_Coil_Sim_Model,       !- Program Name 2
+    OA_CWCoil_ModelOuput;    !- Program Name 3
+
+  EnergyManagementSystem:Program,
+    OA_CWCoil_ModelInput,    !- Name
+    Set Air_Mdot       = OACoil_Air_Mdot,  !- Program Line 1
+    Set Air_Tsp        = OACoil_Air_Tsp,  !- Program Line 2
+    Set Water_Mdot     = OACoil_Water_Mdot,  !- <none>
+    Set Water_cp       = OACoil_Water_cp,  !- <none>
+    Set Air_Tinlet     = OACoil_Air_Tinlet,  !- <none>
+    Set Water_Tinlet   = OACoil_Water_Tinlet,  !- <none>
+    Set Air_Winlet     = OACoil_Air_Winlet,  !- <none>
+    Set Water_Mdot_Max = OACoil_Mdot_Max,  !- <none>
+    Set Coil_Eff       = 0.68;  !- <none>
+
+  EnergyManagementSystem:Program,
+    OA_CWCoil_ModelOuput,    !- Name
+    Set OACoil_Water_MdotRequest = Water_MdotRequest,  !- Program Line 1
+    Set OACoil_Air_Tout          = Air_Tout,  !- Program Line 2
+    Set OACoil_Air_Wout          = Air_Wout,  !- <none>
+    Set OACoil_tot_cool_Power    = Tot_Cool_Power,  !- <none>
+    Set OACoil_tot_cool_Energy   = Tot_Cool_Power * SystemTimestep * 3600,  !- <none>
+    Set OACoil_Air_MdotOut       = Air_Mdot,  !- <none>
+    Set OACoil_Water_Tout        = Water_Tout;  !- <none>
+
+  EnergyManagementSystem:ProgramCallingManager,
+    OA Cooling Coil Init Program Manager,  !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    InitOASimpleCoilModel;   !- Program Name 1
+
+  EnergyManagementSystem:Program,
+    InitOASimpleCoilModel,   !- Name
+    Set CWLoopExitTemp = 7.0,!- Program Line 1
+    Set CWLoopDeltaTemp = 0.5 * 4.0,  !- Program Line 2
+    Set CW_CP = @CPCW CWLoopExitTemp,  !- <none>
+    Set CW_rho = @RhoH2O CWLoopExitTemp,  !- <none>
+    Set Dummy = OA_Design_Tdb,  !- <none>
+    Set Dummy = OA_Design_W, !- <none>
+    Set Dummy = OA_Design_Vdot,  !- <none>
+    Set Houtdoor = @HFnTdbW OA_Design_Tdb OA_Design_W,  !- <none>
+    Set OA_rho = @RhoAirFnPbTdbW OA_Press OA_Design_Tdb OA_Design_W,  !- <none>
+    Set OA_mdot = OA_Design_Vdot * OA_rho,  !- <none>
+    Set Hleaving = @HFnTdbW 11.0 0.008,  !- <none>
+    Set OACoil_CoolDes_Qdot = OA_mdot * ( Houtdoor - Hleaving),  !- <none>
+    Set OACoil_Water_DesignVdot = OACoil_CoolDes_Qdot / (( CW_rho * CW_CP) * CWLoopDeltaTemp),  !- <none>
+    Set OACoil_Mdot_Min = 0.0,  !- <none>
+    Set OACoil_Mdot_Max = OACoil_Water_DesignVdot * CW_rho;  !- <none>
+
+  EnergyManagementSystem:OutputVariable,
+    OA CW Coil Total Cooling Rate,  !- Name
+    OACoil_tot_cool_Power,   !- EMS Variable Name
+    Averaged,                !- Type of Data in Variable
+    SystemTimestep,          !- Update Frequency
+    Oa_CWCoil_ModelOuput,    !- EMS Program or Subroutine Name
+    W;                       !- Units
+
+  EnergyManagementSystem:Actuator,
+    OACoil_Mdot_Min,         !- Name
+    OA Cooling Coil 1,       !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Minimum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    OACoil_Mdot_Max,         !- Name
+    OA Cooling Coil 1,       !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Maximum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    OACoil_Water_Tout,       !- Name
+    OA Cooling Coil 1,       !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    OACoil_Water_MdotRequest,!- Name
+    OA Cooling Coil 1,       !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    OACoil_Water_DesignVdot, !- Name
+    OA Cooling Coil 1,       !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Design Volume Flow Rate; !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    OACoil_Air_Tout,         !- Name
+    OA Cooling Coil 1,       !- Actuated Component Unique Name
+    Air Connection 1,        !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    OACoil_Air_Wout,         !- Name
+    OA Cooling Coil 1,       !- Actuated Component Unique Name
+    Air Connection 1,        !- Actuated Component Type
+    Outlet Humidity Ratio;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    OACoil_Air_MdotOut,      !- Name
+    OA Cooling Coil 1,       !- Actuated Component Unique Name
+    Air Connection 1,        !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Sensor,
+    OACoil_Air_Tsp,          !- Name
+    OA Mixing Box 1 Inlet Node,  !- Output:Variable or Output:Meter Index Key Name
+    System Node Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:InternalVariable,
+    OACoil_Air_Tinlet,       !- Name
+    OA Cooling Coil 1,       !- Internal Data Index Key Name
+    Inlet Temperature for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OACoil_Air_Mdot,         !- Name
+    OA Cooling Coil 1,       !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OACoil_Air_Winlet,       !- Name
+    OA Cooling Coil 1,       !- Internal Data Index Key Name
+    Inlet Humidity Ratio for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OACoil_Air_rho,          !- Name
+    OA Cooling Coil 1,       !- Internal Data Index Key Name
+    Inlet Density for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OACoil_Air_cp,           !- Name
+    OA Cooling Coil 1,       !- Internal Data Index Key Name
+    Inlet Specific Heat for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OACoil_Water_Tinlet,     !- Name
+    OA Cooling Coil 1,       !- Internal Data Index Key Name
+    Inlet Temperature for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OACoil_Water_Mdot,       !- Name
+    OA Cooling Coil 1,       !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OACoil_Water_rho,        !- Name
+    OA Cooling Coil 1,       !- Internal Data Index Key Name
+    Inlet Density for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OACoil_Water_cp,         !- Name
+    OA Cooling Coil 1,       !- Internal Data Index Key Name
+    Inlet Specific Heat for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OA_Design_Vdot,          !- Name
+    VAV SYS 1,               !- Internal Data Index Key Name
+    Air System Outdoor Air Design Volume Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OA_Design_Tdb,           !- Name
+    VAV SYS 1,               !- Internal Data Index Key Name
+    Air System Cooling Design Outdoor Air Temperature;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    OA_Design_W,             !- Name
+    VAV SYS 1,               !- Internal Data Index Key Name
+    Air System Cooling Design Outdoor Air Humidity Ratio;  !- Internal Data Type
 
   OutdoorAir:Mixer,
     OA Mixing Box 1,         !- Name
@@ -2541,42 +2728,434 @@
     Relief Air Outlet Node 1,!- Relief Air Stream Node Name
     VAV Sys 1 Inlet Node;    !- Return Air Stream Node Name
 
-  Coil:Cooling:Water,
-    Main Cooling Coil 1,     !- Name
-    CoolingCoilAvailSched,   !- Availability Schedule Name
-    autosize,                !- Design Water Flow Rate {m3/s}
-    autosize,                !- Design Air Flow Rate {m3/s}
-    autosize,                !- Design Inlet Water Temperature {C}
-    autosize,                !- Design Inlet Air Temperature {C}
-    autosize,                !- Design Outlet Air Temperature {C}
-    autosize,                !- Design Inlet Air Humidity Ratio {kgWater/kgDryAir}
-    autosize,                !- Design Outlet Air Humidity Ratio {kgWater/kgDryAir}
-    Main Cooling Coil 1 Water Inlet Node,  !- Water Inlet Node Name
-    Main Cooling Coil 1 Water Outlet Node,  !- Water Outlet Node Name
-    Mixed Air Node 1,        !- Air Inlet Node Name
-    Main Cooling Coil 1 Outlet Node,  !- Air Outlet Node Name
-    SimpleAnalysis,          !- Type of Analysis
-    CrossFlow,               !- Heat Exchanger Configuration
-    ,                        !- Condensate Collection Water Storage Tank Name
-    4.0;                     !- Design Water Temperature Difference {deltaC}
+  SetpointManager:MixedAir,
+    Mixed Air Temp Manager 2,!- Name
+    Temperature,             !- Control Variable
+    VAV Sys 1 Outlet Node,   !- Reference Setpoint Node Name
+    Main Heating Coil 1 Outlet Node,  !- Fan Inlet Node Name
+    VAV Sys 1 Outlet Node,   !- Fan Outlet Node Name
+    Main Cooling Coil 1 Outlet Node;  !- Setpoint Node or NodeList Name
 
-  Coil:Heating:Water,
+  Coil:UserDefined,
+    Main Cooling Coil 1,     !- Name
+    Main Cooling Coil Model Program Manager,  !- Overall Model Simulation Program Calling Manager Name
+    Main Cooling Coil Init Program Manager,  !- Model Setup and Sizing Program Calling Manager Name
+    1,                       !- Number of Air Connections
+    Mixed Air Node 1,        !- Air Connection 1 Inlet Node Name
+    Main Cooling Coil 1 Outlet Node,  !- Air Connection 1 Outlet Node Name
+    ,                        !- Air Connection 2 Inlet Node Name
+    ,                        !- Air Connection 2 Outlet Node Name
+    Yes,                     !- Plant Connection is Used
+    Main Cooling Coil 1 Water Inlet Node,  !- Plant Connection Inlet Node Name
+    Main Cooling Coil 1 Water Outlet Node;  !- Plant Connection Outlet Node Name
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Main Cooling Coil Model Program Manager,  !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    MainCWCoil1_ModelInput,  !- Program Name 1
+    CW_Coil_Sim_Model,       !- Program Name 2
+    MainCWCoil1_ModelOuput;  !- Program Name 3
+
+  EnergyManagementSystem:Program,
+    MainCWCoil1_ModelInput,  !- Name
+    Set Air_Mdot       = CWcoil1_Air_Mdot,  !- Program Line 1
+    Set Air_Tsp        = CWcoil1_Air_Tsp,  !- Program Line 2
+    Set Water_Mdot     = CWcoil1_Water_Mdot,  !- <none>
+    Set Water_cp       = CWcoil1_Water_cp,  !- <none>
+    SEt Air_Tinlet     = CWcoil1_Air_Tinlet,  !- <none>
+    Set Water_Tinlet   = CWcoil1_Water_Tinlet,  !- <none>
+    SEt Air_Winlet     = CWcoil1_Air_Winlet,  !- <none>
+    Set Water_Mdot_Max = CWcoil1_Mdot_Max,  !- <none>
+    Set Coil_Eff       = 0.7;!- <none>
+
+  EnergyManagementSystem:Program,
+    MainCWCoil1_ModelOuput,  !- Name
+    Set CWcoil1_Water_MdotRequest = Water_MdotRequest,  !- Program Line 1
+    Set CWcoil1_Air_Tout          = Air_Tout,  !- Program Line 2
+    Set CWcoil1_Air_Wout          = Air_Wout,  !- <none>
+    Set CWcoil1_tot_cool_Power    = Tot_Cool_Power,  !- <none>
+    Set CWcoil1_tot_cool_Energy   = Tot_Cool_Power * SystemTimestep * 3600,  !- <none>
+    Set CWcoil1_Air_MdotOut       = Air_Mdot,  !- <none>
+    Set CWcoil1_Water_Tout        = Water_Tout;  !- <none>
+
+  EnergyManagementSystem:GlobalVariable,
+    Air_Mdot,                !- Erl Variable 1 Name
+    Air_Tsp,                 !- Erl Variable 2 Name
+    Water_Mdot,              !- Erl Variable 3 Name
+    Water_cp,                !- <none>
+    Air_Tinlet,              !- <none>
+    Water_Tinlet,            !- <none>
+    Air_Winlet,              !- <none>
+    Water_Mdot_Max,          !- <none>
+    Coil_Eff,                !- <none>
+    Water_MdotRequest,       !- <none>
+    Air_Tout,                !- <none>
+    Tot_Cool_Power,          !- <none>
+    Air_Wout,                !- <none>
+    Water_Tout;              !- <none>
+
+  EnergyManagementSystem:Program,
+    CW_Coil_Sim_Model,       !- Name
+    IF Air_Mdot == 0.0,      !- Program Line 1
+    SET Air_Tout = Air_Tinlet,  !- Program Line 2
+    SET Air_Wout = Air_Winlet,  !- <none>
+    Set Air_MdotOut = Air_Mdot,  !- <none>
+    Set tot_cool_Power = 0.0,!- <none>
+    Set Water_Tout = Water_Tinlet,  !- <none>
+    Set Water_MdotRequest = 0.0,  !- <none>
+    RETURN,                  !- <none>
+    ENDIF,                   !- <none>
+    Set AirIn_Enth     = @HFnTdbW Air_Tinlet Air_Winlet,  !- <none>
+    Set Air_Wout_Limit = @WFnTdbRhPb Water_Tinlet 1 OA_Press,  !- <none>
+    Set AirOut_Enth_Limit = @HFnTdbW Water_Tinlet Air_Wout_Limit,  !- <none>
+    Set MaxQdot      = Coil_Eff * Air_Mdot * (AirIn_Enth - AirOut_Enth_Limit),  !- <none>
+    IF MaxQdot <= 0.0,       !- <none>
+    SET Air_Tout          = Air_Tinlet,  !- <none>
+    SET Air_Wout          = Air_Winlet,  !- <none>
+    Set Air_MdotOut       = Air_Mdot,  !- <none>
+    Set tot_cool_Power    = 0.0,  !- <none>
+    Set Water_Tout        = Water_Tinlet,  !- <none>
+    Set Water_MdotRequest = 0.0,  !- <none>
+    RETURN,                  !- <none>
+    ENDIF,                   !- <none>
+    Set AirIn_dewpoint = @TdpFnWpb Air_Winlet OA_Press,  !- <none>
+    IF  AirIn_dewpoint < Air_Tsp,  !- <none>
+    Set Air_Wout = Air_Winlet,  !- <none>
+    Set Air_HoutSP = @HFnTdbW Air_Tsp Air_Wout,  !- <none>
+    Set Qdot_SP    = Air_Mdot * (AirIn_Enth - Air_HoutSP),  !- <none>
+    IF Qdot_SP > MaxQdot,    !- <none>
+    Set Air_Hout = AirIn_Enth - (MaxQdot/Air_Mdot),  !- <none>
+    ELSE,                    !- <none>
+    Set Air_Hout = Air_HoutSP,  !- <none>
+    ENDIF,                   !- <none>
+    ELSEIF AirIn_dewpoint > Air_Tsp,  !- <none>
+    Set Air_WoutSP = @WFnTdbRhPb Air_Tsp 1 OA_Press,  !- <none>
+    Set Air_HoutSP = @HFnTdbW Air_Tsp Air_WoutSP,  !- <none>
+    Set Qdot_SP    = Air_Mdot * (AirIn_Enth - Air_HoutSP),  !- <none>
+    IF Qdot_SP > MaxQdot,    !- <none>
+    set Air_Hout = AirIn_Enth - (MaxQdot/Air_Mdot),  !- <none>
+    set Air_Tsat = @TsatFnHPb Air_Hout OA_Press,  !- <none>
+    SEt Air_Wout = @WFnTdbRhPb Air_Tsat 1 OA_Press,  !- <none>
+    ELSE,                    !- <none>
+    set Air_Hout = Air_HoutSP,  !- <none>
+    SEt Air_Wout = Air_WoutSP,  !- <none>
+    ENDIF,                   !- <none>
+    ENDIF,                   !- <none>
+    Set Air_Tout = @TdbFnHW Air_Hout Air_Wout,  !- <none>
+    Set ActualQdot  = Air_Mdot * (AirIn_Enth   - Air_Hout),  !- <none>
+    Set Water_partLoad = ActualQdot / MaxQdot,  !- <none>
+    Set Water_MdotRequest = Water_Mdot_Max * Water_PartLoad,  !- <none>
+    IF (Water_Mdot > 0.0),   !- <none>
+    Set CW_tempRise = ActualQdot/(Water_Mdot * Water_cp),  !- <none>
+    ELSE,                    !- <none>
+    Set CW_tempRise = ActualQdot/(Water_MdotRequest * Water_cp),  !- <none>
+    ENDIF,                   !- <none>
+    Set Water_Tout = Water_Tinlet + CW_tempRise,  !- <none>
+    Set tot_cool_Power = ActualQdot;  !- <none>
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Main Cooling Coil Init Program Manager,  !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    InitMainSimpleCoilModel; !- Program Name 1
+
+  EnergyManagementSystem:Program,
+    InitMainSimpleCoilModel, !- Name
+    Set CWLoopExitTemp = 7.0,!- Program Line 1
+    Set CWLoopDeltaTemp = 4.0,  !- Program Line 2
+    Set CW_CP = @CPCW CWLoopExitTemp,  !- <none>
+    Set CW_rho = @RhoH2O CWLoopExitTemp,  !- <none>
+    Set CWcoil1_Water_DesignVdot = Sys1_CoolDes_Qdot / (( CW_rho * CW_CP) * CWLoopDeltaTemp),  !- <none>
+    Set CWcoil1_Mdot_Min = 0.0,  !- <none>
+    Set CWcoil1_Mdot_Max = CWcoil1_Water_DesignVdot * CW_rho;  !- <none>
+
+  EnergyManagementSystem:OutputVariable,
+    Main CW Coil Total Cooling Rate,  !- Name
+    CWcoil1_tot_cool_Power,  !- EMS Variable Name
+    Averaged,                !- Type of Data in Variable
+    SystemTimestep,          !- Update Frequency
+    MainCWCoil1_ModelOuput,  !- EMS Program or Subroutine Name
+    W;                       !- Units
+
+  EnergyManagementSystem:Actuator,
+    CWcoil1_Mdot_Min,        !- Name
+    Main Cooling Coil 1,     !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Minimum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    CWcoil1_Mdot_Max,        !- Name
+    Main Cooling Coil 1,     !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Maximum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    CWcoil1_Water_Tout,      !- Name
+    Main Cooling Coil 1,     !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    CWcoil1_Water_MdotRequest,  !- Name
+    Main Cooling Coil 1,     !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    CWcoil1_Water_DesignVdot,!- Name
+    Main Cooling Coil 1,     !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Design Volume Flow Rate; !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    CWcoil1_Air_Tout,        !- Name
+    MAIN COOLING COIL 1,     !- Actuated Component Unique Name
+    Air Connection 1,        !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    CWcoil1_Air_Wout,        !- Name
+    MAIN COOLING COIL 1,     !- Actuated Component Unique Name
+    Air Connection 1,        !- Actuated Component Type
+    Outlet Humidity Ratio;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    CWcoil1_Air_MdotOut,     !- Name
+    MAIN COOLING COIL 1,     !- Actuated Component Unique Name
+    Air Connection 1,        !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Sensor,
+    CWcoil1_Air_Tsp,         !- Name
+    Main Cooling Coil 1 Outlet Node,  !- Output:Variable or Output:Meter Index Key Name
+    System Node Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    OA_Press,                !- Name
+    Environment,             !- Output:Variable or Output:Meter Index Key Name
+    Site Outdoor Air Barometric Pressure;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:InternalVariable,
+    CWcoil1_Air_Tinlet,      !- Name
+    MAIN COOLING COIL 1,     !- Internal Data Index Key Name
+    Inlet Temperature for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    CWcoil1_Air_Mdot,        !- Name
+    MAIN COOLING COIL 1,     !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    CWcoil1_Air_Winlet,      !- Name
+    MAIN COOLING COIL 1,     !- Internal Data Index Key Name
+    Inlet Humidity Ratio for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    CWcoil1_Air_rho,         !- Name
+    MAIN COOLING COIL 1,     !- Internal Data Index Key Name
+    Inlet Density for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    CWcoil1_Air_cp,          !- Name
+    MAIN COOLING COIL 1,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    CWcoil1_Water_Tinlet,    !- Name
+    MAIN COOLING COIL 1,     !- Internal Data Index Key Name
+    Inlet Temperature for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    CWcoil1_Water_Mdot,      !- Name
+    MAIN COOLING COIL 1,     !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    CWcoil1_Water_rho,       !- Name
+    MAIN COOLING COIL 1,     !- Internal Data Index Key Name
+    Inlet Density for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    CWcoil1_Water_cp,        !- Name
+    MAIN COOLING COIL 1,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Sys1_Design_Vdot,        !- Name
+    VAV SYS 1,               !- Internal Data Index Key Name
+    Intermediate Air System Main Supply Volume Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Sys1_CoolDes_Qdot,       !- Name
+    VAV SYS 1,               !- Internal Data Index Key Name
+    Air System Cooling Design Sensible Capacity;  !- Internal Data Type
+
+  Coil:UserDefined,
     Main Heating Coil 1,     !- Name
-    ReheatCoilAvailSched,    !- Availability Schedule Name
-    autosize,                !- U-Factor Times Area Value {W/K}
-    autosize,                !- Maximum Water Flow Rate {m3/s}
-    Main Heating Coil 1 Water Inlet Node,  !- Water Inlet Node Name
-    Main Heating Coil 1 Water Outlet Node,  !- Water Outlet Node Name
-    Main Cooling Coil 1 Outlet Node,  !- Air Inlet Node Name
-    Main Heating Coil 1 Outlet Node,  !- Air Outlet Node Name
-    UFactorTimesAreaAndDesignWaterFlowRate,  !- Performance Input Method
-    autosize,                !- Rated Capacity {W}
-    82.2,                    !- Rated Inlet Water Temperature {C}
-    16.6,                    !- Rated Inlet Air Temperature {C}
-    71.1,                    !- Rated Outlet Water Temperature {C}
-    32.2,                    !- Rated Outlet Air Temperature {C}
-    ,                        !- Rated Ratio for Air and Water Convection
-    11;                      !- Design Water Temperature Difference {deltaC}
+    Main Heating Coil Model Program Manager,  !- Overall Model Simulation Program Calling Manager Name
+    Main Heating Coil Init Program Manager,  !- Model Setup and Sizing Program Calling Manager Name
+    1,                       !- Number of Air Connections
+    Main Cooling Coil 1 Outlet Node,  !- Air Connection 1 Inlet Node Name
+    Main Heating Coil 1 Outlet Node,  !- Air Connection 1 Outlet Node Name
+    ,                        !- Air Connection 2 Inlet Node Name
+    ,                        !- Air Connection 2 Outlet Node Name
+    Yes,                     !- Plant Connection is Used
+    Main Heating Coil 1 Water Inlet Node,  !- Plant Connection Inlet Node Name
+    Main Heating Coil 1 Water Outlet Node;  !- Plant Connection Outlet Node Name
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Main Heating Coil Model Program Manager,  !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    MainHWCoil1_ModelInput,  !- Program Name 1
+    HW_Coil_Sim_Model,       !- Program Name 2
+    MainHWCoil1_ModelOuput;  !- Program Name 3
+
+  EnergyManagementSystem:Program,
+    MainHWCoil1_ModelInput,  !- Name
+    Set Air_Mdot       = HWcoil1_Air_Mdot,  !- Program Line 1
+    Set Air_Tsp        = HWcoil1_Air_Tsp - 0.5,  !- Program Line 2
+    Set Water_Mdot     = HWcoil1_Water_Mdot,  !- <none>
+    Set Water_cp       = HWcoil1_Water_cp,  !- <none>
+    SEt Air_Tinlet     = HWcoil1_Air_Tinlet,  !- <none>
+    Set Water_Tinlet   = HWcoil1_Water_Tinlet,  !- <none>
+    SEt Air_Winlet     = HWcoil1_Air_Winlet,  !- <none>
+    Set Water_Mdot_Max = HWcoil1_Mdot_Max,  !- <none>
+    Set Coil_Eff       = 0.7;!- <none>
+
+  EnergyManagementSystem:Program,
+    MainHWCoil1_ModelOuput,  !- Name
+    Set HWcoil1_Water_MdotRequest = Water_MdotRequest,  !- Program Line 1
+    Set HWcoil1_Air_Tout          = Air_Tout,  !- Program Line 2
+    Set HWcoil1_Air_Wout          = Air_Wout,  !- <none>
+    Set HWcoil1_tot_heat_Power    = Tot_heat_Power,  !- <none>
+    Set HWcoil1_tot_heat_Energy   = Tot_heat_Power * SystemTimestep * 3600,  !- <none>
+    Set HWcoil1_Air_MdotOut       = Air_Mdot,  !- <none>
+    Set HWcoil1_Water_Tout        = Water_Tout;  !- <none>
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Main Heating Coil Init Program Manager,  !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    InitMainSimpleHWCoilModel;  !- Program Name 1
+
+  EnergyManagementSystem:Program,
+    InitMainSimpleHWCoilModel,  !- Name
+    Set HWLoopExitTemp = 82.0,  !- Program Line 1
+    Set HWLoopDeltaTemp = 11.0,  !- Program Line 2
+    Set HW_CP = @CPCW HWLoopExitTemp,  !- <none>
+    Set HW_rho = @RhoH2O HWLoopExitTemp,  !- <none>
+    Set HWcoil1_Water_DesignVdot = Sys1_HeatDes_Qdot / (( HW_rho * HW_CP) * HWLoopDeltaTemp),  !- <none>
+    Set HWcoil1_Mdot_Min = 0.0,  !- <none>
+    Set HWcoil1_Mdot_Max = HWcoil1_Water_DesignVdot * HW_rho;  !- <none>
+
+  EnergyManagementSystem:OutputVariable,
+    Main HW Coil Total Heating Rate,  !- Name
+    HWcoil1_tot_heat_Power,  !- EMS Variable Name
+    Averaged,                !- Type of Data in Variable
+    SystemTimestep,          !- Update Frequency
+    MainHWCoil1_ModelOuput,  !- EMS Program or Subroutine Name
+    W;                       !- Units
+
+  EnergyManagementSystem:Actuator,
+    HWcoil1_Mdot_Min,        !- Name
+    Main Heating Coil 1,     !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Minimum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    HWcoil1_Mdot_Max,        !- Name
+    Main Heating Coil 1,     !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Maximum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    HWcoil1_Water_Tout,      !- Name
+    Main Heating Coil 1,     !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    HWcoil1_Water_MdotRequest,  !- Name
+    Main Heating Coil 1,     !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    HWcoil1_Water_DesignVdot,!- Name
+    Main Heating Coil 1,     !- Actuated Component Unique Name
+    Plant Connection,        !- Actuated Component Type
+    Design Volume Flow Rate; !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    HWcoil1_Air_Tout,        !- Name
+    MAIN Heating COIL 1,     !- Actuated Component Unique Name
+    Air Connection 1,        !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    HWcoil1_Air_Wout,        !- Name
+    MAIN Heating COIL 1,     !- Actuated Component Unique Name
+    Air Connection 1,        !- Actuated Component Type
+    Outlet Humidity Ratio;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    HWcoil1_Air_MdotOut,     !- Name
+    MAIN Heating COIL 1,     !- Actuated Component Unique Name
+    Air Connection 1,        !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Sensor,
+    HWcoil1_Air_Tsp,         !- Name
+    Main Heating Coil 1 Outlet Node,  !- Output:Variable or Output:Meter Index Key Name
+    System Node Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:InternalVariable,
+    HWcoil1_Air_Tinlet,      !- Name
+    MAIN Heating COIL 1,     !- Internal Data Index Key Name
+    Inlet Temperature for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    HWcoil1_Air_Mdot,        !- Name
+    MAIN Heating COIL 1,     !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    HWcoil1_Air_Winlet,      !- Name
+    MAIN Heating COIL 1,     !- Internal Data Index Key Name
+    Inlet Humidity Ratio for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    HWcoil1_Air_rho,         !- Name
+    MAIN Heating COIL 1,     !- Internal Data Index Key Name
+    Inlet Density for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    HWcoil1_Air_cp,          !- Name
+    MAIN Heating COIL 1,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Air Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    HWcoil1_Water_Tinlet,    !- Name
+    MAIN Heating COIL 1,     !- Internal Data Index Key Name
+    Inlet Temperature for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    HWcoil1_Water_Mdot,      !- Name
+    MAIN Heating COIL 1,     !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    HWcoil1_Water_rho,       !- Name
+    MAIN Heating COIL 1,     !- Internal Data Index Key Name
+    Inlet Density for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    HWcoil1_Water_cp,        !- Name
+    MAIN Heating COIL 1,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Plant Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Sys1_HeatDes_Qdot,       !- Name
+    VAV SYS 1,               !- Internal Data Index Key Name
+    Air System Heating Design Sensible Capacity;  !- Internal Data Type
 
   Fan:VariableVolume,
     Supply Fan 1,            !- Name
@@ -2608,27 +3187,16 @@
     autosize,                !- Maximum Actuated Flow {m3/s}
     0.0;                     !- Minimum Actuated Flow {m3/s}
 
-  Controller:WaterCoil,
-    OA CC Controller 1,      !- Name
-    Temperature,             !- Control Variable
-    Reverse,                 !- Action
-    FLOW,                    !- Actuator Variable
-    OA Mixing Box 1 Inlet Node,  !- Sensor Node Name
-    OA Cooling Coil 1 Water Inlet Node,  !- Actuator Node Name
-    0.002,                   !- Controller Convergence Tolerance {deltaC}
-    autosize,                !- Maximum Actuated Flow {m3/s}
-    0.0;                     !- Minimum Actuated Flow {m3/s}
-
-  Controller:WaterCoil,
-    Central Cooling Coil Controller 1,  !- Name
-    Temperature,             !- Control Variable
-    Reverse,                 !- Action
-    FLOW,                    !- Actuator Variable
-    Main Cooling Coil 1 Outlet Node,  !- Sensor Node Name
-    Main Cooling Coil 1 Water Inlet Node,  !- Actuator Node Name
-    0.002,                   !- Controller Convergence Tolerance {deltaC}
-    autosize,                !- Maximum Actuated Flow {m3/s}
-    0.0;                     !- Minimum Actuated Flow {m3/s}
+ ! Controller:WaterCoil,
+ !   OA CC Controller 1,      !- Name
+ !   Temperature,             !- Control Variable
+ !   Reverse,                 !- Action
+ !   FLOW,                    !- Actuator Variable
+ !   OA Mixing Box 1 Inlet Node,  !- Sensor Node Name
+ !   OA Cooling Coil 1 Water Inlet Node,  !- Actuator Node Name
+ !   0.002,                   !- Controller Convergence Tolerance {deltaC}
+ !   autosize,                !- Maximum Actuated Flow {m3/s}
+ !   0.0;                     !- Minimum Actuated Flow {m3/s}
 
   Controller:OutdoorAir,
     OA Controller 1,         !- Name
@@ -2649,16 +3217,19 @@
     FixedMinimum,            !- Minimum Limit Type
     Min OA Sched;            !- Minimum Outdoor Air Schedule Name
 
-  Controller:WaterCoil,
-    Central Heating Coil Controller 1,  !- Name
+  SetpointManager:Scheduled,
+    Supply Air Temp Manager heating,  !- Name
     Temperature,             !- Control Variable
-    Normal,                  !- Action
-    FLOW,                    !- Actuator Variable
-    Main Heating Coil 1 Outlet Node,  !- Sensor Node Name
-    Main Heating Coil 1 Water Inlet Node,  !- Actuator Node Name
-    0.002,                   !- Controller Convergence Tolerance {deltaC}
-    autosize,                !- Maximum Actuated Flow {m3/s}
-    0.0;                     !- Minimum Actuated Flow {m3/s}
+    Seasonal Reset Supply Air heating Temp Sch,  !- Schedule Name
+    Zone Eq In Node;         !- Setpoint Node or NodeList Name
+
+  SetpointManager:MixedAir,
+    Mixed Air Temp Manager Heating,  !- Name
+    Temperature,             !- Control Variable
+    Zone Eq In Node,         !- Reference Setpoint Node Name
+    Main Heating Coil 1 Outlet Node,  !- Fan Inlet Node Name
+    VAV Sys 1 Outlet Node,   !- Fan Outlet Node Name
+    Main Heating Coil 1 Outlet Node;  !- Setpoint Node or NodeList Name
 
   SetpointManager:Scheduled,
     Supply Air Temp Manager 1,  !- Name
@@ -2684,13 +3255,7 @@
     VAV Sys 1 Outlet Node,   !- Reference Setpoint Node Name
     Main Heating Coil 1 Outlet Node,  !- Fan Inlet Node Name
     VAV Sys 1 Outlet Node,   !- Fan Outlet Node Name
-    Main Branch SetPoint Node List;  !- Setpoint Node or NodeList Name
-
-  NodeList,
-    Main Branch SetPoint Node List,  !- Name
-    Mixed Air Node 1,        !- Node 1 Name
-    Main Cooling Coil 1 Outlet Node,  !- Node 2 Name
-    Main Heating Coil 1 Outlet Node;  !- Node 3 Name
+    Mixed Air Node 1;        !- Setpoint Node or NodeList Name
 
   PlantLoop,
     Hot Water Loop,          !- Name
@@ -2824,40 +3389,40 @@
   Branch,
     SPACE1-1 Reheat Branch,  !- Name
     ,                        !- Pressure Drop Curve Name
-    Coil:Heating:Water,      !- Component 1 Object Type
-    SPACE1-1 Zone Coil,      !- Component 1 Name
+    AirTerminal:SingleDuct:UserDefined,  !- Component 1 Object Type
+    SPACE1-1 VAV Reheat,     !- Component 1 Name
     SPACE1-1 Zone Coil Water In Node,  !- Component 1 Inlet Node Name
     SPACE1-1 Zone Coil Water Out Node;  !- Component 1 Outlet Node Name
 
   Branch,
     SPACE2-1 Reheat Branch,  !- Name
     ,                        !- Pressure Drop Curve Name
-    Coil:Heating:Water,      !- Component 1 Object Type
-    SPACE2-1 Zone Coil,      !- Component 1 Name
+    AirTerminal:SingleDuct:UserDefined,  !- Component 1 Object Type
+    SPACE2-1 VAV Reheat,     !- Component 1 Name
     SPACE2-1 Zone Coil Water In Node,  !- Component 1 Inlet Node Name
     SPACE2-1 Zone Coil Water Out Node;  !- Component 1 Outlet Node Name
 
   Branch,
     SPACE3-1 Reheat Branch,  !- Name
     ,                        !- Pressure Drop Curve Name
-    Coil:Heating:Water,      !- Component 1 Object Type
-    SPACE3-1 Zone Coil,      !- Component 1 Name
+    AirTerminal:SingleDuct:UserDefined,  !- Component 1 Object Type
+    SPACE3-1 VAV Reheat,     !- Component 1 Name
     SPACE3-1 Zone Coil Water In Node,  !- Component 1 Inlet Node Name
     SPACE3-1 Zone Coil Water Out Node;  !- Component 1 Outlet Node Name
 
   Branch,
     SPACE4-1 Reheat Branch,  !- Name
     ,                        !- Pressure Drop Curve Name
-    Coil:Heating:Water,      !- Component 1 Object Type
-    SPACE4-1 Zone Coil,      !- Component 1 Name
+    AirTerminal:SingleDuct:UserDefined,  !- Component 1 Object Type
+    SPACE4-1 VAV Reheat,     !- Component 1 Name
     SPACE4-1 Zone Coil Water In Node,  !- Component 1 Inlet Node Name
     SPACE4-1 Zone Coil Water Out Node;  !- Component 1 Outlet Node Name
 
   Branch,
     SPACE5-1 Reheat Branch,  !- Name
     ,                        !- Pressure Drop Curve Name
-    Coil:Heating:Water,      !- Component 1 Object Type
-    SPACE5-1 Zone Coil,      !- Component 1 Name
+    AirTerminal:SingleDuct:UserDefined,  !- Component 1 Object Type
+    SPACE5-1 VAV Reheat,     !- Component 1 Name
     SPACE5-1 Zone Coil Water In Node,  !- Component 1 Inlet Node Name
     SPACE5-1 Zone Coil Water Out Node;  !- Component 1 Outlet Node Name
 
@@ -2872,7 +3437,7 @@
   Branch,
     Main Heating Coil 1 Branch,  !- Name
     ,                        !- Pressure Drop Curve Name
-    Coil:Heating:Water,      !- Component 1 Object Type
+    Coil:UserDefined,        !- Component 1 Object Type
     Main Heating Coil 1,     !- Component 1 Name
     Main Heating Coil 1 Water Inlet Node,  !- Component 1 Inlet Node Name
     Main Heating Coil 1 Water Outlet Node;  !- Component 1 Outlet Node Name
@@ -3008,10 +3573,19 @@
     CW Demand Outlet Node,   !- Demand Side Outlet Node Name
     Cooling Demand Side Branches,  !- Demand Side Branch List Name
     Cooling Demand Side Connectors,  !- Demand Side Connector List Name
-    SequentialLoad;         !- Load Distribution Scheme
-    
+    SequentialLoad,          !- Load Distribution Scheme
+    CW Avail List;           !- Availability Manager List Name
 
+  AvailabilityManagerAssignmentList,
+    CW Avail List,           !- Name
+    AvailabilityManager:LowTemperatureTurnOff,  !- Availability Manager 1 Object Type
+    CW Low Temp Limit;       !- Availability Manager 1 Name
 
+  AvailabilityManager:LowTemperatureTurnOff,
+    CW Low Temp Limit,       !- Name
+    Outside Air Inlet Node 1,!- Sensor Node Name
+    2.0,                     !- Temperature {C}
+    CoolingPumpAvailSched;   !- Applicability Schedule Name
 
   SetpointManager:Scheduled,
     Chilled Water Loop Setpoint Manager,  !- Name
@@ -3064,7 +3638,7 @@
   Branch,
     Cooling Coil Branch,     !- Name
     ,                        !- Pressure Drop Curve Name
-    Coil:Cooling:Water,      !- Component 1 Object Type
+    Coil:UserDefined,        !- Component 1 Object Type
     Main Cooling Coil 1,     !- Component 1 Name
     Main Cooling Coil 1 Water Inlet Node,  !- Component 1 Inlet Node Name
     Main Cooling Coil 1 Water Outlet Node;  !- Component 1 Outlet Node Name
@@ -3072,7 +3646,7 @@
   Branch,
     OA Cooling Coil Branch,  !- Name
     ,                        !- Pressure Drop Curve Name
-    Coil:Cooling:Water,      !- Component 1 Object Type
+    Coil:UserDefined,        !- Component 1 Object Type
     OA Cooling Coil 1,       !- Component 1 Name
     OA Cooling Coil 1 Water Inlet Node,  !- Component 1 Inlet Node Name
     OA Cooling Coil 1 Water Outlet Node;  !- Component 1 Outlet Node Name
@@ -3127,7 +3701,7 @@
   Branch,
     Central Chiller Branch,  !- Name
     ,                        !- Pressure Drop Curve Name
-    Chiller:Electric,        !- Component 1 Object Type
+    PlantComponent:UserDefined,  !- Component 1 Object Type
     Central Chiller,         !- Component 1 Name
     Central Chiller Inlet Node,  !- Component 1 Inlet Node Name
     Central Chiller Outlet Node;  !- Component 1 Outlet Node Name
@@ -3185,37 +3759,117 @@
 
   PlantEquipmentList,
     Cooling Plant,           !- Name
-    Chiller:Electric,        !- Equipment 1 Object Type
+    PlantComponent:UserDefined,  !- Equipment 1 Object Type
     Central Chiller;         !- Equipment 1 Name
 
-  Chiller:Electric,
+  PlantComponent:UserDefined,
     Central Chiller,         !- Name
-    AirCooled,               !- Condenser Type
-    autosize,                !- Nominal Capacity {W}
-    3.2,                     !- Nominal COP {W/W}
-    Central Chiller Inlet Node,  !- Chilled Water Inlet Node Name
-    Central Chiller Outlet Node,  !- Chilled Water Outlet Node Name
-    Central Chiller Condenser Inlet Node,  !- Condenser Inlet Node Name
-    Central Chiller Condenser Outlet Node,  !- Condenser Outlet Node Name
-    0.0,                     !- Minimum Part Load Ratio
-    1.0,                     !- Maximum Part Load Ratio
-    0.65,                    !- Optimum Part Load Ratio
-    35.0,                    !- Design Condenser Inlet Temperature {C}
-    2.778,                   !- Temperature Rise Coefficient
-    6.67,                    !- Design Chilled Water Outlet Temperature {C}
-    autosize,                !- Design Chilled Water Flow Rate {m3/s}
-    autosize,                !- Design Condenser Fluid Flow Rate {m3/s}
-    0.9949,                  !- Coefficient 1 of Capacity Ratio Curve
-    -0.045954,               !- Coefficient 2 of Capacity Ratio Curve
-    -0.0013543,              !- Coefficient 3 of Capacity Ratio Curve
-    2.333,                   !- Coefficient 1 of Power Ratio Curve
-    -1.975,                  !- Coefficient 2 of Power Ratio Curve
-    0.6121,                  !- Coefficient 3 of Power Ratio Curve
-    0.03303,                 !- Coefficient 1 of Full Load Ratio Curve
-    0.6852,                  !- Coefficient 2 of Full Load Ratio Curve
-    0.2818,                  !- Coefficient 3 of Full Load Ratio Curve
-    5,                       !- Chilled Water Outlet Temperature Lower Limit {C}
-    LeavingSetpointModulated;!- Chiller Flow Mode
+    ,                        !- Main Model Program Calling Manager Name
+    1,                       !- Number of Plant Loop Connections
+    Central Chiller Inlet Node,  !- Plant Connection 1 Inlet Node Name
+    Central Chiller Outlet Node,  !- Plant Connection 1 Outlet Node Name
+    MeetsLoadWithNominalCapacityLowOutLimit,  !- Plant Connection 1 Loading Mode
+    NeedsFlowIfLoopOn,       !- Plant Connection 1 Loop Flow Request Mode
+    Chiller Initialization,  !- Plant Connection 1 Initialization Program Calling Manager Name
+    Chiller Simulation,      !- Plant Connection 1 Simulation Program Calling Manager Name
+    ,                        !- Plant Connection 2 Inlet Node Name
+    ,                        !- Plant Connection 2 Outlet Node Name
+    ,                        !- Plant Connection 2 Loading Mode
+    ,                        !- Plant Connection 2 Loop Flow Request Mode
+    ,                        !- Plant Connection 2 Initialization Program Calling Manager Name
+    ,                        !- Plant Connection 2 Simulation Program Calling Manager Name
+    ,                        !- Plant Connection 3 Inlet Node Name
+    ,                        !- Plant Connection 3 Outlet Node Name
+    ,                        !- Plant Connection 3 Loading Mode
+    ,                        !- Plant Connection 3 Loop Flow Request Mode
+    ,                        !- Plant Connection 3 Initialization Program Calling Manager Name
+    ,                        !- Plant Connection 3 Simulation Program Calling Manager Name
+    ,                        !- Plant Connection 4 Inlet Node Name
+    ,                        !- Plant Connection 4 Outlet Node Name
+    ,                        !- Plant Connection 4 Loading Mode
+    ,                        !- Plant Connection 4 Loop Flow Request Mode
+    ,                        !- Plant Connection 4 Initialization Program Calling Manager Name
+    ,                        !- Plant Connection 4 Simulation Program Calling Manager Name
+    Central Chiller Condenser Inlet Node,  !- Air Connection Inlet Node Name
+    Central Chiller Condenser Outlet Node,  !- Air Connection Outlet Node Name
+    ,                        !- Supply Inlet Water Storage Tank Name
+    ,                        !- Collection Outlet Water Storage Tank Name
+    ;                        !- Ambient Zone Name
+
+  PythonPlugin:Instance,
+    Chiller Initialization,  !- Name
+    Yes,                     !- Run During Warmup Days
+    PythonPluginUserDefined5ZoneAirCooled,  !- Python Module Name
+    InitChiller;             !- Plugin Class Name
+
+  PythonPlugin:Instance,
+    Chiller Simulation,      !- Name
+    Yes,                     !- Run During Warmup Days
+    PythonPluginUserDefined5ZoneAirCooled,  !- Python Module Name
+    SimChiller;              !- Plugin Class Name
+
+  PythonPlugin:Variables,
+    ChillerGlobalVars,       !- Name
+    Chiller_ElectEnergy;     !- Variable Name 1
+
+  PythonPlugin:OutputVariable,
+    Chiller Electricity Consumption,  !- Name
+    Chiller_ElectEnergy,     !- Python Plugin Variable Name
+    Metered,                 !- Type of Data in Variable
+    SystemTimestep,          !- Update Frequency
+    J,                       !- Units
+    Electricity,             !- Resource Type
+    HVAC,                    !- Group Type
+    Cooling,                 !- End-Use Category
+    Custom air cooled chiller;  !- End-Use Subcategory
+
+  EnergyManagementSystem:MeteredOutputVariable,
+    CWcoil1 tot cool Energy, !- Name
+    CWcoil1_tot_cool_Energy, !- EMS Variable Name
+    SystemTimestep,          !- Update Frequency
+    MainCWCoil1_ModelOuput,  !- EMS Program or Subroutine Name
+    ENERGYTRANSFER,          !- Resource Type
+    System,                  !- Group Type
+    COOLINGCOILS,            !- End-Use Category
+    ,                        !- End-Use Subcategory
+    J;                       !- Units
+
+  EnergyManagementSystem:MeteredOutputVariable,
+    HWcoil1 tot heat Energy, !- Name
+    HWcoil1_tot_heat_Energy, !- EMS Variable Name
+    SystemTimestep,          !- Update Frequency
+    MainHWCoil1_ModelOuput,  !- EMS Program or Subroutine Name
+    ENERGYTRANSFER,          !- Resource Type
+    System,                  !- Group Type
+    HEATINGCOILS,            !- End-Use Category
+    ,                        !- End-Use Subcategory
+    J;                       !- Units
+
+  EnergyManagementSystem:MeteredOutputVariable,
+    OACoil tot cool Energy,  !- Name
+    OACoil_tot_cool_Energy,  !- EMS Variable Name
+    SystemTimestep,          !- Update Frequency
+    OA_CWCoil_ModelOuput,    !- EMS Program or Subroutine Name
+    ENERGYTRANSFER,          !- Resource Type
+    System,                  !- Group Type
+    COOLINGCOILS,            !- End-Use Category
+    ,                        !- End-Use Subcategory
+    J;                       !- Units
+
+! input data
+
+  EnergyManagementSystem:InternalVariable,
+    CW_Cp,                   !- Name
+    Central Chiller,         !- Internal Data Index Key Name
+    Inlet Specific Heat for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    CW_rho,                  !- Name
+    Central Chiller,         !- Internal Data Index Key Name
+    Inlet Density for Plant Connection 1;  !- Internal Data Type
+
+! sizing and inits
+! model results
 
   SetpointManager:Scheduled,
     Central Chiller Setpoint Manager,  !- Name
@@ -3298,10 +3952,6 @@
 
   Output:Variable,*,Heating Coil Heating Rate,hourly;
 
-  Output:Variable,*,Cooling Coil Total Cooling Rate,hourly;
-
-  Output:Variable,*,Cooling Coil Sensible Cooling Rate,hourly;
-
   Output:Variable,*,Plant Supply Side Cooling Demand Rate,hourly;
 
   Output:Variable,*,Plant Supply Side Heating Demand Rate,hourly;
@@ -3310,21 +3960,27 @@
 
   Output:Variable,*,Boiler Heating Rate,hourly;
 
-  Output:Variable,*,Chiller Electricity Rate,hourly;
-
-  Output:Variable,*,Chiller Evaporator Cooling Rate,hourly;
-
-  Output:Variable,*,Chiller Evaporator Inlet Temperature,hourly;
-
-  Output:Variable,*,Chiller Evaporator Outlet Temperature,hourly;
-
-  Output:Variable,*,Chiller Evaporator Mass Flow Rate,hourly;
-
-  Output:Variable,*,Chiller Condenser Heat Transfer Rate,hourly;
-
   Output:Variable,*,Pump Mass Flow Rate,hourly;
 
   Output:Variable,*,Pump Outlet Temperature,hourly;
+
+  Output:Variable,*,Space 1 VAV Reheat Coil Total Heating Rate,hourly;
+
+  Output:Variable,*,Space 2 VAV Reheat Coil Total Heating Rate,hourly;
+
+  Output:Variable,*,Space 3 VAV Reheat Coil Total Heating Rate,hourly;
+
+  Output:Variable,*,Space 4 VAV Reheat Coil Total Heating Rate,hourly;
+
+  Output:Variable,*,Space 5 VAV Reheat Coil Total Heating Rate,hourly;
+
+  Output:Variable,*,OA CW Coil Total Cooling Rate,hourly;
+
+  Output:Variable,*,Main CW Coil Total Cooling Rate,hourly;
+
+  Output:Variable,*,Main HW Coil Total Heating Rate,hourly;
+
+  Output:Variable,Chiller Electricity Consumption,PythonPlugin:OutputVariable,hourly;
 
   Output:VariableDictionary,Regular;
 
@@ -3410,11 +4066,1186 @@
     HTML;                    !- Column Separator
 
   Output:Table:SummaryReports,
-    AllSummaryAndSizingPeriod; !- Report 1 Name
+    AllSummary;              !- Report 1 Name
 
   Output:Surfaces:List,Details;
 
-  Output:Surfaces:List,DecayCurvesFromComponentLoadsSummary;
+  EnergyManagementSystem:Sensor,
+    ATU_Avail_Sched,         !- Name
+    ReheatCoilAvailSched,    !- Output:Variable or Output:Meter Index Key Name
+    Schedule Value;          !- Output:Variable or Output:Meter Name
 
-  Output:Surfaces:List,ViewFactorInfo;
+  Output:EnergyManagementSystem,
+    Verbose,                 !- Actuator Availability Dictionary Reporting
+    Verbose,                 !- Internal Variable Availability Dictionary Reporting
+    ErrorsOnly;              !- EMS Runtime Language Debug Output Level
+
+  EnergyManagementSystem:GlobalVariable,
+    DeckAir_Tinlet,          !- Erl Variable 1 Name
+    DeckAir_Winlet,          !- Erl Variable 2 Name
+    Air_MdotOut,             !- Erl Variable 3 Name
+    Air_MdotIn,              !- <none>
+    TUAir_Tout,              !- <none>
+    TUAir_Wout,              !- <none>
+    DamperMin,               !- <none>
+    Qdot_Req_toCoolSP,       !- <none>
+    Qdot_Req_toHeatSP,       !- <none>
+    AirSupMdotDesign,        !- <none>
+    DamperPosition,          !- <none>
+    HWCoil_Mdot_Max,         !- <none>
+    HWCoil_Eff,              !- <none>
+    HWCoil_Mdot,             !- <none>
+    HWCoil_MdotRequest,      !- <none>
+    HWCoil_heat_Power,       !- <none>
+    HW_Tin,                  !- <none>
+    HW_Cp,                   !- <none>
+    HW_Tout,                 !- <none>
+    HW_MdotRequest,          !- <none>
+    Zone_T,                  !- <none>
+    Zone_W,                  !- <none>
+    Space1ATU_DesignAirMdot, !- <none>
+    Space2ATU_DesignAirMdot, !- <none>
+    Space3ATU_DesignAirMdot, !- <none>
+    Space4ATU_DesignAirMdot, !- <none>
+    Space5ATU_DesignAirMdot, !- <none>
+    Zone_Tsp_Cool,           !- <none>
+    Zone_Tsp_Heat,           !- <none>
+    tot_heat_Power;          !- <none>
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_HeatAirMdot,   !- Name
+    SPACE1-1,                !- Internal Data Index Key Name
+    Final Zone Design Heating Air Mass Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_CoolAirMdot,   !- Name
+    SPACE1-1,                !- Internal Data Index Key Name
+    Final Zone Design Cooling Air Mass Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:Actuator,
+    Space1ATU_PrimAir_Tout,  !- Name
+    SPACE1-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space1ATU_PrimAir_Wout,  !- Name
+    SPACE1-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Humidity Ratio;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space1ATU_PrimAir_MdotOut,  !- Name
+    SPACE1-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Mass Flow Rate;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space1ATU_PrimAir_MdotIn,!- Name
+    SPACE1-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Inlet Mass Flow Rate;    !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space1ATU_HW_Tout,       !- Name
+    SPACE1-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space1ATU_HW_MdotRequest,!- Name
+    SPACE1-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space1ATU_HW_MdotMin,    !- Name
+    SPACE1-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Minimum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space1ATU_HW_MdotMax,    !- Name
+    SPACE1-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Maximum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space1ATU_HW_DesignVdot, !- Name
+    SPACE1-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Design Volume Flow Rate; !- Actuated Component Control Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_PrimAir_Tinlet,!- Name
+    SPACE1-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Temperature for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_PrimAir_Winlet,!- Name
+    SPACE1-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Humidity Ratio for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_PrimAir_rho,   !- Name
+    SPACE1-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Density for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_PrimAir_cp,    !- Name
+    SPACE1-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_Qdot_ToHeatSP, !- Name
+    SPACE1-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Remaining Sensible Load to Heating Setpoint;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_Qdot_ToCoolSP, !- Name
+    SPACE1-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Remaining Sensible Load to Cooling Setpoint;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_HW_Tin,        !- Name
+    SPACE1-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Temperature for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_HW_MdotIn,     !- Name
+    SPACE1-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_HW_rho,        !- Name
+    SPACE1-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Density for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space1ATU_HW_cp,         !- Name
+    SPACE1-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:Sensor,
+    Space1_Tdb,              !- Name
+    SPACE1-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Air Temperature;    !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space1_W,                !- Name
+    SPACE1-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Air Humidity Ratio; !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space1_Tsp_cool,         !- Name
+    SPACE1-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Thermostat Cooling Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space1_Tsp_heat,         !- Name
+    SPACE1-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Thermostat Heating Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:OutputVariable,
+    Space 1 VAV Reheat Coil Total Heating Rate,  !- Name
+    Space1ATU_tot_heat_Power,!- EMS Variable Name
+    Averaged,                !- Type of Data in Variable
+    SystemTimestep,          !- Update Frequency
+    Space1ATU_ModelOutput,   !- EMS Program or Subroutine Name
+    W;                       !- Units
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Space1 ATU Init Programs,!- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    InitSpace1ATU;           !- Program Name 1
+
+  EnergyManagementSystem:Program,
+    InitSpace1ATU,           !- Name
+    Set Space1ATU_DesignAirMdot = @MAX Space1ATU_HeatAirMdot Space1ATU_CoolAirMdot,  !- Program Line 1
+    Set HWLoopExitTemp = 82.0,  !- Program Line 2
+    Set HWLoopDeltaTemp = 11.0,  !- <none>
+    Set HW_CP = @CPCW HWLoopExitTemp,  !- <none>
+    Set HW_rho = @RhoH2O HWLoopExitTemp,  !- <none>
+    Set HeatCentralSAT = 16.7,  !- <none>
+    Set HeatZoneSAT    = 50.0,  !- <none>
+    Set AvgSAT = (HeatCentralSAT + HeatZoneSAT) / 2,  !- <none>
+    Set HeatingZoneW      = 0.004,  !- <none>
+    Set HeatingAir_CP     = @CpAirFnW HeatingZoneW,  !- <none>
+    Set HWCoil_DesLoad = (HeatingAir_CP * Space1ATU_DesignAirMdot) * (HeatZoneSAT - HeatCentralSAT),  !- <none>
+    Set Space1ATU_HW_DesignVdot = HWCoil_DesLoad / (( HW_rho * HW_CP) * HWLoopDeltaTemp),  !- <none>
+    Set Space1ATU_HW_MdotMin = 0.0,  !- <none>
+    Set Space1ATU_HW_MdotMax = Space1ATU_HW_DesignVdot * HW_rho;  !- <none>
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Space1 ATU Sim Programs, !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    Space1ATU_ModelInput,    !- Program Name 1
+    ATU_Sim_Model,           !- Program Name 2
+    Space1ATU_ModelOutput;   !- Program Name 3
+
+  EnergyManagementSystem:Program,
+    Space1ATU_ModelInput,    !- Name
+    Set DeckAir_Tinlet    = Space1ATU_PrimAir_Tinlet,  !- Program Line 1
+    Set DeckAir_Winlet    = Space1ATU_PrimAir_Winlet,  !- Program Line 2
+    Set Zone_T            = Space1_Tdb,  !- <none>
+    Set Zone_W            = Space1_W,  !- <none>
+    Set Zone_Tsp_Cool     = Space1_Tsp_cool,  !- <none>
+    Set Zone_Tsp_Heat     = Space1_Tsp_heat,  !- <none>
+    Set AirSupMdotDesign  = Space1ATU_DesignAirMdot,  !- <none>
+    Set DamperMin         = 0.3,  !- <none>
+    Set Qdot_Req_toCoolSP = Space1ATU_Qdot_ToCoolSP,  !- <none>
+    Set Qdot_Req_toHeatSP = Space1ATU_Qdot_ToHeatSP,  !- <none>
+    Set HWCoil_Mdot_Max   = Space1ATU_HW_MdotMax,  !- <none>
+    Set HW_Tin            = Space1ATU_HW_Tin,  !- <none>
+    Set HW_Cp             = Space1ATU_HW_cp,  !- <none>
+    Set HWCoil_Eff        = 0.7,  !- <none>
+    Set HWCoil_Mdot       = Space1ATU_HW_MdotIn;  !- <none>
+
+  EnergyManagementSystem:Program,
+    Space1ATU_ModelOutput,   !- Name
+    Set Space1ATU_PrimAir_Tout = Air_Tout,  !- Program Line 1
+    Set Space1ATU_PrimAir_Wout = Air_Wout,  !- Program Line 2
+    Set Space1ATU_PrimAir_MdotOut = Air_MdotOut,  !- <none>
+    Set Space1ATU_PrimAir_MdotIn = Air_MdotOut,  !- <none>
+    Set Space1ATU_tot_heat_Power = HWCoil_heat_Power,  !- <none>
+    SEt Space1ATU_HW_MdotRequest = HW_MdotRequest,  !- <none>
+    Set Space1ATU_HW_Tout = HW_Tout;  !- <none>
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_HeatAirMdot,   !- Name
+    SPACE2-1,                !- Internal Data Index Key Name
+    Final Zone Design Heating Air Mass Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_CoolAirMdot,   !- Name
+    SPACE2-1,                !- Internal Data Index Key Name
+    Final Zone Design Cooling Air Mass Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:Actuator,
+    Space2ATU_PrimAir_Tout,  !- Name
+    SPACE2-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space2ATU_PrimAir_Wout,  !- Name
+    SPACE2-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Humidity Ratio;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space2ATU_PrimAir_MdotOut,  !- Name
+    SPACE2-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Mass Flow Rate;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space2ATU_PrimAir_MdotIn,!- Name
+    SPACE2-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Inlet Mass Flow Rate;    !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space2ATU_HW_Tout,       !- Name
+    SPACE2-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space2ATU_HW_MdotRequest,!- Name
+    SPACE2-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space2ATU_HW_MdotMin,    !- Name
+    SPACE2-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Minimum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space2ATU_HW_MdotMax,    !- Name
+    SPACE2-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Maximum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space2ATU_HW_DesignVdot, !- Name
+    SPACE2-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Design Volume Flow Rate; !- Actuated Component Control Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_PrimAir_Tinlet,!- Name
+    SPACE2-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Temperature for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_PrimAir_Winlet,!- Name
+    SPACE2-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Humidity Ratio for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_PrimAir_rho,   !- Name
+    SPACE2-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Density for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_PrimAir_cp,    !- Name
+    SPACE2-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_Qdot_ToHeatSP, !- Name
+    SPACE2-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Remaining Sensible Load to Heating Setpoint;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_Qdot_ToCoolSP, !- Name
+    SPACE2-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Remaining Sensible Load to Cooling Setpoint;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_HW_Tin,        !- Name
+    SPACE2-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Temperature for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_HW_MdotIn,     !- Name
+    SPACE2-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_HW_rho,        !- Name
+    SPACE2-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Density for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space2ATU_HW_cp,         !- Name
+    SPACE2-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:Sensor,
+    Space2_Tdb,              !- Name
+    SPACE2-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Air Temperature;    !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space2_W,                !- Name
+    SPACE2-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Air Humidity Ratio; !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space2_Tsp_cool,         !- Name
+    SPACE2-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Thermostat Cooling Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space2_Tsp_heat,         !- Name
+    SPACE2-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Thermostat Heating Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:OutputVariable,
+    Space 2 VAV Reheat Coil Total Heating Rate,  !- Name
+    Space2ATU_tot_heat_Power,!- EMS Variable Name
+    Averaged,                !- Type of Data in Variable
+    SystemTimestep,          !- Update Frequency
+    Space2ATU_ModelOutput,   !- EMS Program or Subroutine Name
+    W;                       !- Units
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Space2 ATU Init Programs,!- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    InitSpace2ATU;           !- Program Name 1
+
+  EnergyManagementSystem:Program,
+    InitSpace2ATU,           !- Name
+    Set Space2ATU_DesignAirMdot = @MAX Space2ATU_HeatAirMdot Space2ATU_CoolAirMdot,  !- Program Line 1
+    Set HWLoopExitTemp = 82.0,  !- Program Line 2
+    Set HWLoopDeltaTemp = 11.0,  !- <none>
+    Set HW_CP = @CPCW HWLoopExitTemp,  !- <none>
+    Set HW_rho = @RhoH2O HWLoopExitTemp,  !- <none>
+    Set HeatCentralSAT = 16.7,  !- <none>
+    Set HeatZoneSAT    = 50.0,  !- <none>
+    Set AvgSAT = (HeatCentralSAT + HeatZoneSAT) / 2,  !- <none>
+    Set HeatingZoneW      = 0.004,  !- <none>
+    Set HeatingAir_CP     = @CpAirFnW HeatingZoneW,  !- <none>
+    Set HWCoil_DesLoad = (HeatingAir_CP * Space2ATU_DesignAirMdot) * (HeatZoneSAT - HeatCentralSAT),  !- <none>
+    Set Space2ATU_HW_DesignVdot = HWCoil_DesLoad / (( HW_rho * HW_CP) * HWLoopDeltaTemp),  !- <none>
+    Set Space2ATU_HW_MdotMin = 0.0,  !- <none>
+    Set Space2ATU_HW_MdotMax = Space2ATU_HW_DesignVdot * HW_rho;  !- <none>
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Space2 ATU Sim Programs, !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    Space2ATU_ModelInput,    !- Program Name 1
+    ATU_Sim_Model,           !- Program Name 2
+    Space2ATU_ModelOutput;   !- Program Name 3
+
+  EnergyManagementSystem:Program,
+    Space2ATU_ModelInput,    !- Name
+    Set DeckAir_Tinlet    = Space2ATU_PrimAir_Tinlet,  !- Program Line 1
+    Set DeckAir_Winlet    = Space2ATU_PrimAir_Winlet,  !- Program Line 2
+    Set Zone_T            = Space2_Tdb,  !- <none>
+    Set Zone_W            = Space2_W,  !- <none>
+    Set Zone_Tsp_Cool     = Space2_Tsp_cool,  !- <none>
+    Set Zone_Tsp_Heat     = Space2_Tsp_heat,  !- <none>
+    Set AirSupMdotDesign  = Space2ATU_DesignAirMdot,  !- <none>
+    Set DamperMin         = 0.3,  !- <none>
+    Set Qdot_Req_toCoolSP = Space2ATU_Qdot_ToCoolSP,  !- <none>
+    Set Qdot_Req_toHeatSP = Space2ATU_Qdot_ToHeatSP,  !- <none>
+    Set HWCoil_Mdot_Max   = Space2ATU_HW_MdotMax,  !- <none>
+    Set HW_Tin            = Space2ATU_HW_Tin,  !- <none>
+    Set HW_Cp             = Space2ATU_HW_cp,  !- <none>
+    Set HWCoil_Eff        = 0.7,  !- <none>
+    Set HWCoil_Mdot       = Space2ATU_HW_MdotIn;  !- <none>
+
+  EnergyManagementSystem:Program,
+    Space2ATU_ModelOutput,   !- Name
+    Set Space2ATU_PrimAir_Tout = Air_Tout,  !- Program Line 1
+    Set Space2ATU_PrimAir_Wout = Air_Wout,  !- Program Line 2
+    Set Space2ATU_PrimAir_MdotOut = Air_MdotOut,  !- <none>
+    Set Space2ATU_PrimAir_MdotIn = Air_MdotOut,  !- <none>
+    Set Space2ATU_tot_heat_Power = HWCoil_heat_Power,  !- <none>
+    SEt Space2ATU_HW_MdotRequest = HW_MdotRequest,  !- <none>
+    Set Space2ATU_HW_Tout = HW_Tout;  !- <none>
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_HeatAirMdot,   !- Name
+    SPACE3-1,                !- Internal Data Index Key Name
+    Final Zone Design Heating Air Mass Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_CoolAirMdot,   !- Name
+    SPACE3-1,                !- Internal Data Index Key Name
+    Final Zone Design Cooling Air Mass Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:Actuator,
+    Space3ATU_PrimAir_Tout,  !- Name
+    SPACE3-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space3ATU_PrimAir_Wout,  !- Name
+    SPACE3-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Humidity Ratio;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space3ATU_PrimAir_MdotOut,  !- Name
+    SPACE3-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Mass Flow Rate;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space3ATU_PrimAir_MdotIn,!- Name
+    SPACE3-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Inlet Mass Flow Rate;    !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space3ATU_HW_Tout,       !- Name
+    SPACE3-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space3ATU_HW_MdotRequest,!- Name
+    SPACE3-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space3ATU_HW_MdotMin,    !- Name
+    SPACE3-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Minimum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space3ATU_HW_MdotMax,    !- Name
+    SPACE3-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Maximum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space3ATU_HW_DesignVdot, !- Name
+    SPACE3-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Design Volume Flow Rate; !- Actuated Component Control Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_PrimAir_Tinlet,!- Name
+    SPACE3-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Temperature for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_PrimAir_Winlet,!- Name
+    SPACE3-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Humidity Ratio for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_PrimAir_rho,   !- Name
+    SPACE3-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Density for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_PrimAir_cp,    !- Name
+    SPACE3-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_Qdot_ToHeatSP, !- Name
+    SPACE3-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Remaining Sensible Load to Heating Setpoint;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_Qdot_ToCoolSP, !- Name
+    SPACE3-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Remaining Sensible Load to Cooling Setpoint;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_HW_Tin,        !- Name
+    SPACE3-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Temperature for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_HW_MdotIn,     !- Name
+    SPACE3-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_HW_rho,        !- Name
+    SPACE3-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Density for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space3ATU_HW_cp,         !- Name
+    SPACE3-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:Sensor,
+    Space3_Tdb,              !- Name
+    SPACE3-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Air Temperature;    !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space3_W,                !- Name
+    SPACE3-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Air Humidity Ratio; !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space3_Tsp_cool,         !- Name
+    SPACE3-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Thermostat Cooling Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space3_Tsp_heat,         !- Name
+    SPACE3-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Thermostat Heating Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:OutputVariable,
+    Space 3 VAV Reheat Coil Total Heating Rate,  !- Name
+    Space3ATU_tot_heat_Power,!- EMS Variable Name
+    Averaged,                !- Type of Data in Variable
+    SystemTimestep,          !- Update Frequency
+    Space3ATU_ModelOutput,   !- EMS Program or Subroutine Name
+    W;                       !- Units
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Space3 ATU Init Programs,!- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    InitSpace3ATU;           !- Program Name 1
+
+  EnergyManagementSystem:Program,
+    InitSpace3ATU,           !- Name
+    Set Space3ATU_DesignAirMdot = @MAX Space3ATU_HeatAirMdot Space3ATU_CoolAirMdot,  !- Program Line 1
+    Set HWLoopExitTemp = 82.0,  !- Program Line 2
+    Set HWLoopDeltaTemp = 11.0,  !- <none>
+    Set HW_CP = @CPCW HWLoopExitTemp,  !- <none>
+    Set HW_rho = @RhoH2O HWLoopExitTemp,  !- <none>
+    Set HeatCentralSAT = 16.7,  !- <none>
+    Set HeatZoneSAT    = 50.0,  !- <none>
+    Set AvgSAT = (HeatCentralSAT + HeatZoneSAT) / 2,  !- <none>
+    Set HeatingZoneW      = 0.004,  !- <none>
+    Set HeatingAir_CP     = @CpAirFnW HeatingZoneW,  !- <none>
+    Set HWCoil_DesLoad = (HeatingAir_CP * Space3ATU_DesignAirMdot) * (HeatZoneSAT - HeatCentralSAT),  !- <none>
+    Set Space3ATU_HW_DesignVdot = HWCoil_DesLoad / (( HW_rho * HW_CP) * HWLoopDeltaTemp),  !- <none>
+    Set Space3ATU_HW_MdotMin = 0.0,  !- <none>
+    Set Space3ATU_HW_MdotMax = Space3ATU_HW_DesignVdot * HW_rho;  !- <none>
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Space3 ATU Sim Programs, !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    Space3ATU_ModelInput,    !- Program Name 1
+    ATU_Sim_Model,           !- Program Name 2
+    Space3ATU_ModelOutput;   !- Program Name 3
+
+  EnergyManagementSystem:Program,
+    Space3ATU_ModelInput,    !- Name
+    Set DeckAir_Tinlet    = Space3ATU_PrimAir_Tinlet,  !- Program Line 1
+    Set DeckAir_Winlet    = Space3ATU_PrimAir_Winlet,  !- Program Line 2
+    Set Zone_T            = Space3_Tdb,  !- <none>
+    Set Zone_W            = Space3_W,  !- <none>
+    Set Zone_Tsp_Cool     = Space3_Tsp_cool,  !- <none>
+    Set Zone_Tsp_Heat     = Space3_Tsp_heat,  !- <none>
+    Set AirSupMdotDesign  = Space3ATU_DesignAirMdot,  !- <none>
+    Set DamperMin         = 0.3,  !- <none>
+    Set Qdot_Req_toCoolSP = Space3ATU_Qdot_ToCoolSP,  !- <none>
+    Set Qdot_Req_toHeatSP = Space3ATU_Qdot_ToHeatSP,  !- <none>
+    Set HWCoil_Mdot_Max   = Space3ATU_HW_MdotMax,  !- <none>
+    Set HW_Tin            = Space3ATU_HW_Tin,  !- <none>
+    Set HW_Cp             = Space3ATU_HW_cp,  !- <none>
+    Set HWCoil_Eff        = 0.7,  !- <none>
+    Set HWCoil_Mdot       = Space3ATU_HW_MdotIn;  !- <none>
+
+  EnergyManagementSystem:Program,
+    Space3ATU_ModelOutput,   !- Name
+    Set Space3ATU_PrimAir_Tout = Air_Tout,  !- Program Line 1
+    Set Space3ATU_PrimAir_Wout = Air_Wout,  !- Program Line 2
+    Set Space3ATU_PrimAir_MdotOut = Air_MdotOut,  !- <none>
+    Set Space3ATU_PrimAir_MdotIn = Air_MdotOut,  !- <none>
+    Set Space3ATU_tot_heat_Power = HWCoil_heat_Power,  !- <none>
+    SEt Space3ATU_HW_MdotRequest = HW_MdotRequest,  !- <none>
+    Set Space3ATU_HW_Tout = HW_Tout;  !- <none>
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_HeatAirMdot,   !- Name
+    SPACE4-1,                !- Internal Data Index Key Name
+    Final Zone Design Heating Air Mass Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_CoolAirMdot,   !- Name
+    SPACE4-1,                !- Internal Data Index Key Name
+    Final Zone Design Cooling Air Mass Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:Actuator,
+    Space4ATU_PrimAir_Tout,  !- Name
+    SPACE4-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space4ATU_PrimAir_Wout,  !- Name
+    SPACE4-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Humidity Ratio;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space4ATU_PrimAir_MdotOut,  !- Name
+    SPACE4-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Mass Flow Rate;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space4ATU_PrimAir_MdotIn,!- Name
+    SPACE4-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Inlet Mass Flow Rate;    !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space4ATU_HW_Tout,       !- Name
+    SPACE4-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space4ATU_HW_MdotRequest,!- Name
+    SPACE4-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space4ATU_HW_MdotMin,    !- Name
+    SPACE4-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Minimum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space4ATU_HW_MdotMax,    !- Name
+    SPACE4-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Maximum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space4ATU_HW_DesignVdot, !- Name
+    SPACE4-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Design Volume Flow Rate; !- Actuated Component Control Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_PrimAir_Tinlet,!- Name
+    SPACE4-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Temperature for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_PrimAir_Winlet,!- Name
+    SPACE4-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Humidity Ratio for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_PrimAir_rho,   !- Name
+    SPACE4-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Density for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_PrimAir_cp,    !- Name
+    SPACE4-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_Qdot_ToHeatSP, !- Name
+    SPACE4-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Remaining Sensible Load to Heating Setpoint;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_Qdot_ToCoolSP, !- Name
+    SPACE4-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Remaining Sensible Load to Cooling Setpoint;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_HW_Tin,        !- Name
+    SPACE4-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Temperature for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_HW_MdotIn,     !- Name
+    SPACE4-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_HW_rho,        !- Name
+    SPACE4-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Density for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space4ATU_HW_cp,         !- Name
+    SPACE4-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:Sensor,
+    Space4_Tdb,              !- Name
+    SPACE4-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Air Temperature;    !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space4_W,                !- Name
+    SPACE4-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Air Humidity Ratio; !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space4_Tsp_cool,         !- Name
+    SPACE4-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Thermostat Cooling Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space4_Tsp_heat,         !- Name
+    SPACE4-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Thermostat Heating Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:OutputVariable,
+    Space 4 VAV Reheat Coil Total Heating Rate,  !- Name
+    Space4ATU_tot_heat_Power,!- EMS Variable Name
+    Averaged,                !- Type of Data in Variable
+    SystemTimestep,          !- Update Frequency
+    Space4ATU_ModelOutput,   !- EMS Program or Subroutine Name
+    W;                       !- Units
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Space4 ATU Init Programs,!- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    InitSpace4ATU;           !- Program Name 1
+
+  EnergyManagementSystem:Program,
+    InitSpace4ATU,           !- Name
+    Set Space4ATU_DesignAirMdot = @MAX Space4ATU_HeatAirMdot Space4ATU_CoolAirMdot,  !- Program Line 1
+    Set HWLoopExitTemp = 82.0,  !- Program Line 2
+    Set HWLoopDeltaTemp = 11.0,  !- <none>
+    Set HW_CP = @CPCW HWLoopExitTemp,  !- <none>
+    Set HW_rho = @RhoH2O HWLoopExitTemp,  !- <none>
+    Set HeatCentralSAT = 16.7,  !- <none>
+    Set HeatZoneSAT    = 50.0,  !- <none>
+    Set AvgSAT = (HeatCentralSAT + HeatZoneSAT) / 2,  !- <none>
+    Set HeatingZoneW      = 0.004,  !- <none>
+    Set HeatingAir_CP     = @CpAirFnW HeatingZoneW,  !- <none>
+    Set HWCoil_DesLoad = (HeatingAir_CP * Space4ATU_DesignAirMdot) * (HeatZoneSAT - HeatCentralSAT),  !- <none>
+    Set Space4ATU_HW_DesignVdot = HWCoil_DesLoad / (( HW_rho * HW_CP) * HWLoopDeltaTemp),  !- <none>
+    Set Space4ATU_HW_MdotMin = 0.0,  !- <none>
+    Set Space4ATU_HW_MdotMax = Space4ATU_HW_DesignVdot * HW_rho;  !- <none>
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Space4 ATU Sim Programs, !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    Space4ATU_ModelInput,    !- Program Name 1
+    ATU_Sim_Model,           !- Program Name 2
+    Space4ATU_ModelOutput;   !- Program Name 3
+
+  EnergyManagementSystem:Program,
+    Space4ATU_ModelInput,    !- Name
+    Set DeckAir_Tinlet    = Space4ATU_PrimAir_Tinlet,  !- Program Line 1
+    Set DeckAir_Winlet    = Space4ATU_PrimAir_Winlet,  !- Program Line 2
+    Set Zone_T            = Space4_Tdb,  !- <none>
+    Set Zone_W            = Space4_W,  !- <none>
+    Set Zone_Tsp_Cool     = Space4_Tsp_cool,  !- <none>
+    Set Zone_Tsp_Heat     = Space4_Tsp_heat,  !- <none>
+    Set AirSupMdotDesign  = Space4ATU_DesignAirMdot,  !- <none>
+    Set DamperMin         = 0.3,  !- <none>
+    Set Qdot_Req_toCoolSP = Space4ATU_Qdot_ToCoolSP,  !- <none>
+    Set Qdot_Req_toHeatSP = Space4ATU_Qdot_ToHeatSP,  !- <none>
+    Set HWCoil_Mdot_Max   = Space4ATU_HW_MdotMax,  !- <none>
+    Set HW_Tin            = Space4ATU_HW_Tin,  !- <none>
+    Set HW_Cp             = Space4ATU_HW_cp,  !- <none>
+    Set HWCoil_Eff        = 0.7,  !- <none>
+    Set HWCoil_Mdot       = Space4ATU_HW_MdotIn;  !- <none>
+
+  EnergyManagementSystem:Program,
+    Space4ATU_ModelOutput,   !- Name
+    Set Space4ATU_PrimAir_Tout = Air_Tout,  !- Program Line 1
+    Set Space4ATU_PrimAir_Wout = Air_Wout,  !- Program Line 2
+    Set Space4ATU_PrimAir_MdotOut = Air_MdotOut,  !- <none>
+    Set Space4ATU_PrimAir_MdotIn = Air_MdotOut,  !- <none>
+    Set Space4ATU_tot_heat_Power = HWCoil_heat_Power,  !- <none>
+    SEt Space4ATU_HW_MdotRequest = HW_MdotRequest,  !- <none>
+    Set Space4ATU_HW_Tout = HW_Tout;  !- <none>
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_HeatAirMdot,   !- Name
+    SPACE5-1,                !- Internal Data Index Key Name
+    Final Zone Design Heating Air Mass Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_CoolAirMdot,   !- Name
+    SPACE5-1,                !- Internal Data Index Key Name
+    Final Zone Design Cooling Air Mass Flow Rate;  !- Internal Data Type
+
+  EnergyManagementSystem:Actuator,
+    Space5ATU_PrimAir_Tout,  !- Name
+    SPACE5-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space5ATU_PrimAir_Wout,  !- Name
+    SPACE5-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Humidity Ratio;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space5ATU_PrimAir_MdotOut,  !- Name
+    SPACE5-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Outlet Mass Flow Rate;   !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space5ATU_PrimAir_MdotIn,!- Name
+    SPACE5-1 VAV Reheat,     !- Actuated Component Unique Name
+    Primary Air Connection,  !- Actuated Component Type
+    Inlet Mass Flow Rate;    !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space5ATU_HW_Tout,       !- Name
+    SPACE5-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Outlet Temperature;      !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space5ATU_HW_MdotRequest,!- Name
+    SPACE5-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Mass Flow Rate;          !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space5ATU_HW_MdotMin,    !- Name
+    SPACE5-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Minimum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space5ATU_HW_MdotMax,    !- Name
+    SPACE5-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Maximum Mass Flow Rate;  !- Actuated Component Control Type
+
+  EnergyManagementSystem:Actuator,
+    Space5ATU_HW_DesignVdot, !- Name
+    SPACE5-1 VAV REHEAT,     !- Actuated Component Unique Name
+    Plant Connection 1,      !- Actuated Component Type
+    Design Volume Flow Rate; !- Actuated Component Control Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_PrimAir_Tinlet,!- Name
+    SPACE5-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Temperature for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_PrimAir_Winlet,!- Name
+    SPACE5-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Humidity Ratio for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_PrimAir_rho,   !- Name
+    SPACE5-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Density for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_PrimAir_cp,    !- Name
+    SPACE5-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Primary Air Connection;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_Qdot_ToHeatSP, !- Name
+    SPACE5-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Remaining Sensible Load to Heating Setpoint;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_Qdot_ToCoolSP, !- Name
+    SPACE5-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Remaining Sensible Load to Cooling Setpoint;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_HW_Tin,        !- Name
+    SPACE5-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Temperature for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_HW_MdotIn,     !- Name
+    SPACE5-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Mass Flow Rate for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_HW_rho,        !- Name
+    SPACE5-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Density for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:InternalVariable,
+    Space5ATU_HW_cp,         !- Name
+    SPACE5-1 VAV REHEAT,     !- Internal Data Index Key Name
+    Inlet Specific Heat for Plant Connection 1;  !- Internal Data Type
+
+  EnergyManagementSystem:Sensor,
+    Space5_Tdb,              !- Name
+    SPACE5-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Air Temperature;    !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space5_W,                !- Name
+    SPACE5-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Air Humidity Ratio; !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space5_Tsp_cool,         !- Name
+    SPACE5-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Thermostat Cooling Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:Sensor,
+    Space5_Tsp_heat,         !- Name
+    SPACE5-1,                !- Output:Variable or Output:Meter Index Key Name
+    Zone Thermostat Heating Setpoint Temperature;  !- Output:Variable or Output:Meter Name
+
+  EnergyManagementSystem:OutputVariable,
+    Space 5 VAV Reheat Coil Total Heating Rate,  !- Name
+    Space5ATU_tot_heat_Power,!- EMS Variable Name
+    Averaged,                !- Type of Data in Variable
+    SystemTimestep,          !- Update Frequency
+    Space5ATU_ModelOutput,   !- EMS Program or Subroutine Name
+    W;                       !- Units
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Space5 ATU Init Programs,!- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    InitSpace5ATU;           !- Program Name 1
+
+  EnergyManagementSystem:Program,
+    InitSpace5ATU,           !- Name
+    Set Space5ATU_DesignAirMdot = @MAX Space5ATU_HeatAirMdot Space5ATU_CoolAirMdot,  !- Program Line 1
+    Set HWLoopExitTemp = 82.0,  !- Program Line 2
+    Set HWLoopDeltaTemp = 11.0,  !- <none>
+    Set HW_CP = @CPCW HWLoopExitTemp,  !- <none>
+    Set HW_rho = @RhoH2O HWLoopExitTemp,  !- <none>
+    Set HeatCentralSAT = 16.7,  !- <none>
+    Set HeatZoneSAT    = 50.0,  !- <none>
+    Set AvgSAT = (HeatCentralSAT + HeatZoneSAT) / 2,  !- <none>
+    Set HeatingZoneW      = 0.004,  !- <none>
+    Set HeatingAir_CP     = @CpAirFnW HeatingZoneW,  !- <none>
+    Set HWCoil_DesLoad = (HeatingAir_CP * Space4ATU_DesignAirMdot) * (HeatZoneSAT - HeatCentralSAT),  !- <none>
+    Set Space5ATU_HW_DesignVdot = HWCoil_DesLoad / (( HW_rho * HW_CP) * HWLoopDeltaTemp),  !- <none>
+    Set Space5ATU_HW_MdotMin = 0.0,  !- <none>
+    Set Space5ATU_HW_MdotMax = Space5ATU_HW_DesignVdot * HW_rho;  !- <none>
+
+  EnergyManagementSystem:ProgramCallingManager,
+    Space5 ATU Sim Programs, !- Name
+    UserDefinedComponentModel,  !- EnergyPlus Model Calling Point
+    Space5ATU_ModelInput,    !- Program Name 1
+    ATU_Sim_Model,           !- Program Name 2
+    Space5ATU_ModelOutput;   !- Program Name 3
+
+  EnergyManagementSystem:Program,
+    Space5ATU_ModelInput,    !- Name
+    Set DeckAir_Tinlet    = Space5ATU_PrimAir_Tinlet,  !- Program Line 1
+    Set DeckAir_Winlet    = Space5ATU_PrimAir_Winlet,  !- Program Line 2
+    Set Zone_T            = Space5_Tdb,  !- <none>
+    Set Zone_W            = Space5_W,  !- <none>
+    Set Zone_Tsp_Cool     = Space5_Tsp_cool,  !- <none>
+    Set Zone_Tsp_Heat     = Space5_Tsp_heat,  !- <none>
+    Set AirSupMdotDesign  = Space5ATU_DesignAirMdot,  !- <none>
+    Set DamperMin         = 0.3,  !- <none>
+    Set Qdot_Req_toCoolSP = Space5ATU_Qdot_ToCoolSP,  !- <none>
+    Set Qdot_Req_toHeatSP = Space5ATU_Qdot_ToHeatSP,  !- <none>
+    Set HWCoil_Mdot_Max   = Space5ATU_HW_MdotMax,  !- <none>
+    Set HW_Tin            = Space5ATU_HW_Tin,  !- <none>
+    Set HW_Cp             = Space5ATU_HW_cp,  !- <none>
+    Set HWCoil_Eff        = 0.7,  !- <none>
+    Set HWCoil_Mdot       = Space5ATU_HW_MdotIn;  !- <none>
+
+  EnergyManagementSystem:Program,
+    Space5ATU_ModelOutput,   !- Name
+    Set Space5ATU_PrimAir_Tout = Air_Tout,  !- Program Line 1
+    Set Space5ATU_PrimAir_Wout = Air_Wout,  !- Program Line 2
+    Set Space5ATU_PrimAir_MdotOut = Air_MdotOut,  !- <none>
+    Set Space5ATU_PrimAir_MdotIn = Air_MdotOut,  !- <none>
+    Set Space5ATU_tot_heat_Power = HWCoil_heat_Power,  !- <none>
+    SEt Space5ATU_HW_MdotRequest = HW_MdotRequest,  !- <none>
+    Set Space5ATU_HW_Tout = HW_Tout;  !- <none>
+
+!end terminal
+  !
+      !- call hot water coil model
+      !unload HW coil model results
+    ! run at full damper open (for good zone air mixing) and
+      !- call hot water coil model
+      !unload HW coil model results
+      !unload HW coil model results
+
+  EnergyManagementSystem:Program,
+    ATU_Sim_Model,           !- Name
+    IF (ATU_Avail_Sched == 0.0),  !- Program Line 1
+    Set Air_MdotOut     = 0.0,  !- Program Line 2
+    Set HW_MdotRequest  = 0.0,  !- <none>
+    Set HW_Tout    = HW_Tin, !- <none>
+    Set HWCoil_heat_Power    = 0.0,  !- <none>
+    Set Air_Tout             = DeckAir_Tinlet,  !- <none>
+    Set Air_Wout             = DeckAir_Winlet,  !- <none>
+    Set DamperPosition = DamperMin,  !- <none>
+    RETURN,                  !- <none>
+    ENDIF,                   !- <none>
+    Set Zone_H = @HFnTdbW Zone_T Zone_W,  !- <none>
+    Set Zone_H_AtCoolSp = @HFnTdbW Zone_Tsp_Cool Zone_W,  !- <none>
+    Set Zone_H_AtHeatSp = @HFnTdbW Zone_Tsp_Heat Zone_W,  !- <none>
+    Set SupAir_H = @HFnTdbW DeckAir_Tinlet DeckAir_Winlet,  !- <none>
+    IF Qdot_Req_toCoolSP < (0 - 10.0),  !- <none>
+    Set ABS_Qdot_Cool = @ABS Qdot_Req_toCoolSP,  !- <none>
+    Set Air_Mdot = ABS_Qdot_Cool / (Zone_H_AtCoolSp - SupAir_H),  !- <none>
+    Set Air_Mdot = @MIN AirSupMdotDesign Air_Mdot,  !- <none>
+    Set DamperPosition = Air_Mdot / AirSupMdotDesign,  !- <none>
+    IF DamperPosition < DamperMin,  !- <none>
+    Set Air_Mdot = DamperMin * AirSupMdotDesign,  !- <none>
+    Set HoutDesired = Zone_H_AtHeatSp - ABS_Qdot_Cool/Air_Mdot,  !- <none>
+    Set Air_Tsp = @TdbFnHW HoutDesired DeckAir_Winlet,  !- <none>
+    Set Water_Mdot    = HWCoil_Mdot,  !- <none>
+    Set Air_Tinlet    = DeckAir_Tinlet,  !- <none>
+    Set Air_Winlet    = DeckAir_Winlet,  !- <none>
+    Set Water_Tinlet  = HW_Tin,  !- <none>
+    Set Coil_Eff      = HWCoil_Eff,  !- <none>
+    Set Water_Mdot_Max = HWCoil_Mdot_Max,  !- <none>
+    Set Water_cp       = HW_Cp,  !- <none>
+    RUN HW_Coil_Sim_Model,   !- <none>
+    Set HW_MdotRequest      = Water_MdotRequest,  !- <none>
+    Set Air_Tout            = Air_Tout,  !- <none>
+    Set Air_Wout            = Air_Wout,  !- <none>
+    Set HWCoil_heat_Power   = Tot_heat_Power,  !- <none>
+    Set HW_Tout   = Water_Tout,  !- <none>
+    ELSE,                    !- <none>
+    Set HW_MdotRequest       = 0.0,  !- <none>
+    Set Air_Tout             = DeckAir_Tinlet,  !- <none>
+    Set Air_Wout             = DeckAir_Winlet,  !- <none>
+    Set HWCoil_heat_Power    = 0.0,  !- <none>
+    Set HW_Tout    = HW_Tin, !- <none>
+    Set Air_MdotOut = Air_Mdot,  !- <none>
+    ENDIF,                   !- <none>
+    ELSEIF Qdot_Req_toHeatSP > 10.0,  !- <none>
+    Set DamperPosition = 1.0,!- <none>
+    Set Air_Mdot = AirSupMdotDesign,  !- <none>
+    Set ABS_Qdot_heat = @ABS Qdot_Req_toHeatSP,  !- <none>
+    Set HoutDesired   = Zone_H_AtHeatSp + ABS_Qdot_Heat/Air_Mdot,  !- <none>
+    Set Air_Tsp = @TdbFnHW HoutDesired DeckAir_Winlet,  !- <none>
+    Set Water_Mdot    = HWCoil_Mdot,  !- <none>
+    Set Air_Tinlet    = DeckAir_Tinlet,  !- <none>
+    Set Air_Winlet    = DeckAir_Winlet,  !- <none>
+    Set Water_Tinlet  = HW_Tin,  !- <none>
+    Set Coil_Eff      = HWCoil_Eff,  !- <none>
+    Set Water_Mdot_Max = HWCoil_Mdot_Max,  !- <none>
+    Set Water_cp       = HW_Cp,  !- <none>
+    RUN HW_Coil_Sim_Model,   !- <none>
+    Set HW_MdotRequest      = Water_MdotRequest,  !- <none>
+    Set Air_Tout            = Air_Tout,  !- <none>
+    Set Air_Wout            = Air_Wout,  !- <none>
+    Set HWCoil_heat_Power   = Tot_heat_Power,  !- <none>
+    Set HW_Tout   = Water_Tout,  !- <none>
+    ELSE,                    !- <none>
+    Set DamperPosition = DamperMin,  !- <none>
+    Set Air_Mdot = DamperPosition * AirSupMdotDesign,  !- <none>
+    Set HoutDesired   = Zone_H_AtHeatSp,  !- <none>
+    Set Air_Tsp = @TdbFnHW HoutDesired DeckAir_Winlet,  !- <none>
+    Set Air_Tinlet    = DeckAir_Tinlet,  !- <none>
+    Set Air_Winlet    = DeckAir_Winlet,  !- <none>
+    Set Water_Tinlet  = HW_Tin,  !- <none>
+    Set Coil_Eff      = HWCoil_Eff,  !- <none>
+    Set Water_Mdot_Max = HWCoil_Mdot_Max,  !- <none>
+    Set Water_cp       = HW_Cp,  !- <none>
+    RUN HW_Coil_Sim_Model,   !- <none>
+    Set HW_MdotRequest      = Water_MdotRequest,  !- <none>
+    Set Air_Tout            = Air_Tout,  !- <none>
+    Set Air_Wout            = Air_Wout,  !- <none>
+    Set HWCoil_heat_Power   = Tot_heat_Power,  !- <none>
+    Set HW_Tout   = Water_Tout,  !- <none>
+    ENDIF,                   !- <none>
+    Set Air_MdotOut = Air_Mdot;  !- <none>
+
+  EnergyManagementSystem:Program,
+    HW_Coil_Sim_Model,       !- Name
+    IF Air_Mdot == 0.0,      !- Program Line 1
+    SET Air_Tout = Air_Tinlet,  !- Program Line 2
+    SET Air_Wout = Air_Winlet,  !- <none>
+    Set Air_MdotOut = Air_Mdot,  !- <none>
+    Set tot_heat_Power = 0.0,!- <none>
+    Set Water_Tout = Water_Tinlet,  !- <none>
+    Set Water_MdotRequest = 0.0,  !- <none>
+    RETURN,                  !- <none>
+    ENDIF,                   !- <none>
+    IF Air_Tinlet > Air_Tsp, !- <none>
+    SET Air_Tout          = Air_Tinlet,  !- <none>
+    SET Air_Wout          = Air_Winlet,  !- <none>
+    Set Air_MdotOut       = Air_Mdot,  !- <none>
+    Set tot_heat_Power    = 0.0,  !- <none>
+    Set Water_Tout        = Water_Tinlet,  !- <none>
+    Set Water_MdotRequest = 0.0,  !- <none>
+    RETURN,                  !- <none>
+    ENDIF,                   !- <none>
+    Set AirIn_Enth     = @HFnTdbW Air_Tinlet Air_Winlet,  !- <none>
+    Set AirOut_Enth_Limit = @HFnTdbW Water_Tinlet Air_Winlet,  !- <none>
+    Set MaxQdot      = Coil_Eff * Air_Mdot * (AirOut_Enth_Limit - AirIn_Enth ),  !- <none>
+    IF MaxQdot <= 0.0,       !- <none>
+    SET Air_Tout          = Air_Tinlet,  !- <none>
+    SET Air_Wout          = Air_Winlet,  !- <none>
+    Set Air_MdotOut       = Air_Mdot,  !- <none>
+    Set tot_heat_Power    = 0.0,  !- <none>
+    Set Water_Tout        = Water_Tinlet,  !- <none>
+    Set Water_MdotRequest = 0.0,  !- <none>
+    RETURN,                  !- <none>
+    ENDIF,                   !- <none>
+    Set Air_Wout = Air_Winlet,  !- <none>
+    Set Air_HoutSP = @HFnTdbW Air_Tsp Air_Wout,  !- <none>
+    Set Qdot_SP    = Air_Mdot * (Air_HoutSP - AirIn_Enth ),  !- <none>
+    IF Qdot_SP > MaxQdot,    !- <none>
+    Set Air_Hout = AirIn_Enth + (MaxQdot/Air_Mdot),  !- <none>
+    ELSE,                    !- <none>
+    Set Air_Hout = Air_HoutSP,  !- <none>
+    ENDIF,                   !- <none>
+    Set Air_Tout = @TdbFnHW Air_Hout Air_Wout,  !- <none>
+    Set ActualQdot  = Air_Mdot * (Air_Hout - AirIn_Enth),  !- <none>
+    Set Water_partLoad = ActualQdot / MaxQdot,  !- <none>
+    Set Water_MdotRequest = Water_Mdot_Max * Water_PartLoad,  !- <none>
+    Set HW_tempFall = ActualQdot/(Water_MdotRequest * Water_cp),  !- <none>
+    Set Water_Tout = Water_Tinlet - HW_tempFall,  !- <none>
+    Set tot_heat_Power = ActualQdot;  !- <none>
 
