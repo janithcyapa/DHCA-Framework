@@ -3796,6 +3796,33 @@
     ,                        !- Collection Outlet Water Storage Tank Name
     ;                        !- Ambient Zone Name
 
+  PythonPlugin:Instance,
+    Chiller Initialization,  !- Name
+    Yes,                     !- Run During Warmup Days
+    PythonPluginUserDefined5ZoneAirCooled,  !- Python Module Name
+    InitChiller;             !- Plugin Class Name
+
+  PythonPlugin:Instance,
+    Chiller Simulation,      !- Name
+    Yes,                     !- Run During Warmup Days
+    PythonPluginUserDefined5ZoneAirCooled,  !- Python Module Name
+    SimChiller;              !- Plugin Class Name
+
+  PythonPlugin:Variables,
+    ChillerGlobalVars,       !- Name
+    Chiller_ElectEnergy;     !- Variable Name 1
+
+  PythonPlugin:OutputVariable,
+    Chiller Electricity Consumption,  !- Name
+    Chiller_ElectEnergy,     !- Python Plugin Variable Name
+    Metered,                 !- Type of Data in Variable
+    SystemTimestep,          !- Update Frequency
+    J,                       !- Units
+    Electricity,             !- Resource Type
+    HVAC,                    !- Group Type
+    Cooling,                 !- End-Use Category
+    Custom air cooled chiller;  !- End-Use Subcategory
+
   EnergyManagementSystem:MeteredOutputVariable,
     CWcoil1 tot cool Energy, !- Name
     CWcoil1_tot_cool_Energy, !- EMS Variable Name
@@ -3952,6 +3979,8 @@
   Output:Variable,*,Main CW Coil Total Cooling Rate,hourly;
 
   Output:Variable,*,Main HW Coil Total Heating Rate,hourly;
+
+  Output:Variable,Chiller Electricity Consumption,PythonPlugin:OutputVariable,hourly;
 
   Output:VariableDictionary,Regular;
 
