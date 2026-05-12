@@ -2434,7 +2434,7 @@
   AirLoopHVAC,
     VAV Sys 1,               !- Name
     VAV Sys 1 Controllers,   !- Controller List Name
-    VAV Sys 1 Avail List,    !- Availability Manager List Name
+    ,    !- Availability Manager List Name
     autosize,                !- Design Supply Air Flow Rate {m3/s}
     VAV Sys 1 Branches,      !- Branch List Name
     ,                        !- Connector List Name
@@ -2449,15 +2449,6 @@
     Central Cooling Coil Controller 1,  !- Controller 1 Name
     Controller:WaterCoil,    !- Controller 2 Object Type
     Central Heating Coil Controller 1;  !- Controller 2 Name
-
-  AvailabilityManagerAssignmentList,
-    VAV Sys 1 Avail List,    !- Name
-    AvailabilityManager:Scheduled,  !- Availability Manager 1 Object Type
-    VAV Sys 1 Avail;         !- Availability Manager 1 Name
-
-  AvailabilityManager:Scheduled,
-    VAV Sys 1 Avail,         !- Name
-    FanAvailSched;           !- Schedule Name
 
   BranchList,
     VAV Sys 1 Branches,      !- Name
@@ -3017,19 +3008,10 @@
     CW Demand Outlet Node,   !- Demand Side Outlet Node Name
     Cooling Demand Side Branches,  !- Demand Side Branch List Name
     Cooling Demand Side Connectors,  !- Demand Side Connector List Name
-    SequentialLoad,          !- Load Distribution Scheme
-    CW Avail List;           !- Availability Manager List Name
+    SequentialLoad;         !- Load Distribution Scheme
+    
 
-  AvailabilityManagerAssignmentList,
-    CW Avail List,           !- Name
-    AvailabilityManager:LowTemperatureTurnOff,  !- Availability Manager 1 Object Type
-    CW Low Temp Limit;       !- Availability Manager 1 Name
 
-  AvailabilityManager:LowTemperatureTurnOff,
-    CW Low Temp Limit,       !- Name
-    Outside Air Inlet Node 1,!- Sensor Node Name
-    2.0,                     !- Temperature {C}
-    CoolingPumpAvailSched;   !- Applicability Schedule Name
 
   SetpointManager:Scheduled,
     Chilled Water Loop Setpoint Manager,  !- Name

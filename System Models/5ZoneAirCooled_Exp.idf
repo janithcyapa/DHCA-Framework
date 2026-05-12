@@ -1894,41 +1894,6 @@
     4.00;                    !- Loop Design Temperature Difference {deltaC}
 
  Schedule:Compact,
-    Htg-SetP-Sch,            !- Name
-    Temperature,             !- Schedule Type Limits Name
-    Through: 12/31,          !- Field 1
-    For: AllDays,            !- Field 2
-    Until: 24:00,5.0;        !- Field 3
-
- Schedule:Compact,
-    PlenumHtg-SetP-Sch,      !- Name
-    Temperature,             !- Schedule Type Limits Name
-    Through: 12/31,          !- Field 1
-    For: AllDays,            !- Field 2
-    Until: 24:00,5.0;        !- Field 3
-
-  Schedule:Compact,
-    Clg-SetP-Sch,            !- Name
-    Temperature,             !- Schedule Type Limits Name
-    Through: 12/31,          !- Field 1
-    For: AllDays,            !- Field 2
-    Until: 24:00,10.0;       !- Field 3
-
- Schedule:Compact,
-    PlenumClg-SetP-Sch,      !- Name
-    Temperature,             !- Schedule Type Limits Name
-    Through: 12/31,          !- Field 1
-    For: AllDays,            !- Field 2
-    Until: 24:00,10.0;       !- Field 3
-
- Schedule:Compact,
-    Zone Control Type Sched, !- Name
-    Control Type,            !- Schedule Type Limits Name
-    Through: 12/31,          !- Field 1
-    For: AllDays,            !- Field 2
-    Until: 24:00,4;          !- Field 3
-
- Schedule:Compact,
     Min OA Sched,            !- Name
     Fraction,                !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
@@ -2051,82 +2016,6 @@
     ,                        !- Zone Air Exhaust Node or NodeList Name
     SPACE5-1 Node,           !- Zone Air Node Name
     SPACE5-1 Out Node;       !- Zone Return Air Node or NodeList Name
-
-  ZoneControl:Thermostat,
-    SPACE1-1 Control,        !- Name
-    SPACE1-1,                !- Zone or ZoneList Name
-    Zone Control Type Sched, !- Control Type Schedule Name
-    ThermostatSetpoint:SingleCooling,  !- Control 1 Object Type
-    CoolingSetPoint,         !- Control 1 Name
-    ThermostatSetpoint:SingleHeating,  !- Control 2 Object Type
-    HeatingSetpoint,         !- Control 2 Name
-    ThermostatSetpoint:DualSetpoint,  !- Control 3 Object Type
-    DualSetPoint;            !- Control 3 Name
-
-  ZoneControl:Thermostat,
-    SPACE2-1 Control,        !- Name
-    SPACE2-1,                !- Zone or ZoneList Name
-    Zone Control Type Sched, !- Control Type Schedule Name
-    ThermostatSetpoint:SingleCooling,  !- Control 1 Object Type
-    CoolingSetPoint,         !- Control 1 Name
-    ThermostatSetpoint:SingleHeating,  !- Control 2 Object Type
-    HeatingSetpoint,         !- Control 2 Name
-    ThermostatSetpoint:DualSetpoint,  !- Control 3 Object Type
-    DualSetPoint;            !- Control 3 Name
-
-  ZoneControl:Thermostat,
-    SPACE3-1 Control,        !- Name
-    SPACE3-1,                !- Zone or ZoneList Name
-    Zone Control Type Sched, !- Control Type Schedule Name
-    ThermostatSetpoint:SingleCooling,  !- Control 1 Object Type
-    CoolingSetPoint,         !- Control 1 Name
-    ThermostatSetpoint:SingleHeating,  !- Control 2 Object Type
-    HeatingSetpoint,         !- Control 2 Name
-    ThermostatSetpoint:DualSetpoint,  !- Control 3 Object Type
-    DualSetPoint;            !- Control 3 Name
-
-  ZoneControl:Thermostat,
-    SPACE4-1 Control,        !- Name
-    SPACE4-1,                !- Zone or ZoneList Name
-    Zone Control Type Sched, !- Control Type Schedule Name
-    ThermostatSetpoint:SingleCooling,  !- Control 1 Object Type
-    CoolingSetPoint,         !- Control 1 Name
-    ThermostatSetpoint:SingleHeating,  !- Control 2 Object Type
-    HeatingSetpoint,         !- Control 2 Name
-    ThermostatSetpoint:DualSetpoint,  !- Control 3 Object Type
-    DualSetPoint;            !- Control 3 Name
-
-  ZoneControl:Thermostat,
-    SPACE5-1 Control,        !- Name
-    SPACE5-1,                !- Zone or ZoneList Name
-    Zone Control Type Sched, !- Control Type Schedule Name
-    ThermostatSetpoint:SingleCooling,  !- Control 1 Object Type
-    CoolingSetPoint,         !- Control 1 Name
-    ThermostatSetpoint:SingleHeating,  !- Control 2 Object Type
-    HeatingSetpoint,         !- Control 2 Name
-    ThermostatSetpoint:DualSetpoint,  !- Control 3 Object Type
-    DualSetPoint;            !- Control 3 Name
-
-  ThermostatSetpoint:SingleHeating,
-    HeatingSetpoint,         !- Name
-    Htg-SetP-Sch;            !- Setpoint Temperature Schedule Name
-
-  ThermostatSetpoint:SingleCooling,
-    CoolingSetpoint,         !- Name
-    Clg-SetP-Sch;            !- Setpoint Temperature Schedule Name
-
-  ThermostatSetpoint:SingleHeating,
-    PlenumHeatingSetpoint,   !- Name
-    PlenumHtg-SetP-Sch;      !- Setpoint Temperature Schedule Name
-
-  ThermostatSetpoint:SingleCooling,
-    PlenumCoolingSetpoint,   !- Name
-    PlenumClg-SetP-Sch;      !- Setpoint Temperature Schedule Name
-
-  ThermostatSetpoint:DualSetpoint,
-    DualSetPoint,            !- Name
-    Htg-SetP-Sch,            !- Heating Setpoint Temperature Schedule Name
-    Clg-SetP-Sch;            !- Cooling Setpoint Temperature Schedule Name
 
   ZoneHVAC:EquipmentList,
     SPACE1-1 Eq,             !- Name
@@ -2596,6 +2485,70 @@
     0.000,                   !- Fan Power Coefficient 5
     Main Heating Coil 1 Outlet Node,  !- Air Inlet Node Name
     VAV Sys 1 Outlet Node;   !- Air Outlet Node Name
+
+  EnergyManagementSystem:GlobalVariable,
+    SPACE1_AirMassFlow_Set;    !- Name
+
+  EnergyManagementSystem:Actuator,
+    SPACE1_VAV_AirFlow,           !- Name
+    SPACE1-1 VAV Reheat,          !- Actuated Component Unique Name
+    AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
+    Mass Flow Rate;               !- Control Type
+
+  EnergyManagementSystem:Actuator,
+    SPACE1_Reheat_WaterFlow,      !- Name
+    SPACE1-1 Zone Coil,           !- Actuated Component Unique Name
+    Coil:Heating:Water,           !- Component Type
+    Mass Flow Rate;               !- Control Type
+    
+  EnergyManagementSystem:Actuator,
+    SPACE2_VAV_AirFlow,           !- Name
+    SPACE2-1 VAV Reheat,          !- Actuated Component Unique Name
+    AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
+    Mass Flow Rate;               !- Control Type
+
+  EnergyManagementSystem:Actuator,
+    SPACE2_Reheat_WaterFlow,      !- Name
+    SPACE2-1 Zone Coil,           !- Actuated Component Unique Name
+    Coil:Heating:Water,           !- Component Type
+    Mass Flow Rate;               !- Control Type
+
+  EnergyManagementSystem:Actuator,
+    SPACE3_VAV_AirFlow,           !- Name
+    SPACE3-1 VAV Reheat,          !- Actuated Component Unique Name
+    AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
+    Mass Flow Rate;               !- Control Type
+
+  EnergyManagementSystem:Actuator,
+    SPACE3_Reheat_WaterFlow,      !- Name
+    SPACE3-1 Zone Coil,           !- Actuated Component Unique Name
+    Coil:Heating:Water,           !- Component Type
+    Mass Flow Rate;               !- Control Type
+
+  EnergyManagementSystem:Actuator,
+    SPACE4_VAV_AirFlow,           !- Name
+    SPACE4-1 VAV Reheat,          !- Actuated Component Unique Name
+    AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
+    Mass Flow Rate;               !- Control Type
+
+  EnergyManagementSystem:Actuator,
+    SPACE4_Reheat_WaterFlow,      !- Name
+    SPACE4-1 Zone Coil,           !- Actuated Component Unique Name
+    Coil:Heating:Water,           !- Component Type
+    Mass Flow Rate;               !- Control Type
+    
+  EnergyManagementSystem:Actuator,
+    SPACE5_VAV_AirFlow,           !- Name
+    SPACE5-1 VAV Reheat,          !- Actuated Component Unique Name
+    AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
+    Mass Flow Rate;               !- Control Type
+
+  EnergyManagementSystem:Actuator,
+    SPACE5_Reheat_WaterFlow,      !- Name
+    SPACE5-1 Zone Coil,           !- Actuated Component Unique Name
+    Coil:Heating:Water,           !- Component Type
+    Mass Flow Rate;               !- Control Type
+    
 
   Controller:WaterCoil,
     OA HC Controller 1,      !- Name
