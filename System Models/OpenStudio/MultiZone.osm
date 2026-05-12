@@ -1,10 +1,10 @@
 
 OS:Version,
-  {e0e116c8-ae66-41fa-a0ff-6de7a11a172b}, !- Handle
+  {ba03e460-311f-4ae1-afba-b48f9c627221}, !- Handle
   3.10.0;                                 !- Version Identifier
 
 OS:Site,
-  {fe78ef04-31f3-4bd7-9616-57ffb5513a24}, !- Handle
+  {1f84ffa1-eef6-4c06-b432-b7fa83ca17a4}, !- Handle
   Site 1,                                 !- Name
   ,                                       !- Latitude {deg}
   ,                                       !- Longitude {deg}
@@ -13,10 +13,10 @@ OS:Site,
   ;                                       !- Terrain
 
 OS:YearDescription,
-  {a607e7b2-3b6f-414d-bd6d-7f472b48186c}; !- Handle
+  {be45f5f2-3ad5-41d3-9bca-7f0ca313b94d}; !- Handle
 
 OS:ClimateZones,
-  {55eba93c-b17b-46e1-9b78-33a7ee46a322}, !- Handle
+  {34c27a85-55d5-4b71-843f-1ddbe83af6bb}, !- Handle
   ASHRAE,                                 !- Climate Zone Institution Name 1
   ANSI/ASHRAE Standard 169,               !- Climate Zone Document Name 1
   2006,                                   !- Climate Zone Document Year 1
@@ -27,7 +27,7 @@ OS:ClimateZones,
   ;                                       !- Climate Zone Value 2
 
 OS:Building,
-  {5e58844e-db5c-41f8-9f54-6a10e18264e1}, !- Handle
+  {7e92f203-3ca7-4b80-afd7-abe10373a0c9}, !- Handle
   Building 1,                             !- Name
   ,                                       !- Building Sector Type
   ,                                       !- North Axis {deg}
@@ -37,22 +37,22 @@ OS:Building,
   ;                                       !- Default Schedule Set Name
 
 OS:Facility,
-  {8d5f47c4-d5e8-4ac5-a9b2-be0923111aea}; !- Handle
+  {7b583e23-d96d-4497-8216-7bd648080fa9}; !- Handle
 
 OS:SimulationControl,
-  {d094a9e2-07d9-465d-a120-3dd4dae427d9}; !- Handle
+  {e678b398-3960-499b-b72e-b9beca49f864}; !- Handle
 
 OS:Sizing:Parameters,
-  {cba02a30-7383-469d-a5f8-d529b6e55815}, !- Handle
+  {3c1d889b-3c54-41e5-a6a7-1001e189806a}, !- Handle
   1.25,                                   !- Heating Sizing Factor
   1.15;                                   !- Cooling Sizing Factor
 
 OS:Timestep,
-  {7f6d5c3b-6875-4104-99c7-c279e1268b70}, !- Handle
+  {efa89c7e-215c-449c-a872-8813418b8b16}, !- Handle
   6;                                      !- Number of Timesteps per Hour
 
 OS:ShadowCalculation,
-  {f705780c-29e8-4c01-8446-c30b28f17ca9}, !- Handle
+  {f84ea1dd-ba21-42c7-bdbf-118d73ac090d}, !- Handle
   PolygonClipping,                        !- Shading Calculation Method
   ,                                       !- Shading Calculation Update Frequency Method
   20,                                     !- Shading Calculation Update Frequency
@@ -65,12 +65,12 @@ OS:ShadowCalculation,
   No;                                     !- Disable Self-Shading From Shading Zone Groups to Other Zones
 
 OS:HeatBalanceAlgorithm,
-  {b17a67db-4cd8-4335-b962-46be5054f78e}, !- Handle
+  {acdb3bd8-cc28-4909-ab8b-f3344b1ef7fa}, !- Handle
   ConductionTransferFunction,             !- Algorithm
   200;                                    !- Surface Temperature Upper Limit {C}
 
 OS:RunPeriod,
-  {35a665d4-477b-468f-972a-00300341a777}, !- Handle
+  {378abb90-9bfe-4d4b-85bb-42d222921b14}, !- Handle
   Run Period 1,                           !- Name
   1,                                      !- Begin Month
   1,                                      !- Begin Day of Month
@@ -84,7 +84,7 @@ OS:RunPeriod,
   ;                                       !- Number of Times Runperiod to be Repeated
 
 OS:LifeCycleCost:Parameters,
-  {28688130-12c8-41b6-9de8-ab273b298ec3}, !- Handle
+  {1ff1e50c-0748-4aa2-91d7-da5fde3b9da9}, !- Handle
   ,                                       !- Analysis Type
   ,                                       !- Discounting Convention
   ,                                       !- Inflation Approach
