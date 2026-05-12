@@ -1928,6 +1928,41 @@
     For: AllDays,            !- Field 2
     Until: 24:00,1.0;        !- Field 3
 
+  Schedule:Compact,
+    SPACE1-1 Min Fract,          !- Name
+    Fraction,                    !- Schedule Type Limits Name
+    Through: 12/31,
+    For: AllDays,
+    Until: 24:00,0.0;
+
+  Schedule:Compact,
+    SPACE2-1 Min Fract,          !- Name
+    Fraction,
+    Through: 12/31,
+    For: AllDays,
+    Until: 24:00,0.0;
+
+  Schedule:Compact,
+    SPACE3-1 Min Fract,          !- Name
+    Fraction,
+    Through: 12/31,
+    For: AllDays,
+    Until: 24:00,0.0;
+
+  Schedule:Compact,
+    SPACE4-1 Min Fract,          !- Name
+    Fraction,
+    Through: 12/31,
+    For: AllDays,
+    Until: 24:00,0.0;
+
+  Schedule:Compact,
+    SPACE5-1 Min Fract,          !- Name
+    Fraction,
+    Through: 12/31,
+    For: AllDays,
+    Until: 24:00,0.0;
+
  Schedule:Compact,
     CW Loop Temp Schedule,   !- Name
     Temperature,             !- Schedule Type Limits Name
@@ -2106,7 +2141,7 @@
     Constant,                !- Zone Minimum Air Flow Input Method
     0.0,                     !- Constant Minimum Air Flow Fraction
     ,                        !- Fixed Minimum Air Flow Rate {m3/s}
-    ,                        !- Minimum Air Flow Fraction Schedule Name
+    SPACE1-1 Min Fract,      !- Minimum Air Flow Fraction Schedule Name
     Coil:Heating:Water,      !- Reheat Coil Object Type
     SPACE1-1 Zone Coil,      !- Reheat Coil Name
     autosize,                !- Maximum Hot Water or Steam Flow Rate {m3/s}
@@ -2126,7 +2161,7 @@
     Constant,                !- Zone Minimum Air Flow Input Method
     0.0,                     !- Constant Minimum Air Flow Fraction
     ,                        !- Fixed Minimum Air Flow Rate {m3/s}
-    ,                        !- Minimum Air Flow Fraction Schedule Name
+    SPACE2-1 Min Fract,      !- Minimum Air Flow Fraction Schedule Name
     Coil:Heating:Water,      !- Reheat Coil Object Type
     SPACE2-1 Zone Coil,      !- Reheat Coil Name
     autosize,                !- Maximum Hot Water or Steam Flow Rate {m3/s}
@@ -2146,7 +2181,7 @@
     Constant,                !- Zone Minimum Air Flow Input Method
     0.0,                     !- Constant Minimum Air Flow Fraction
     ,                        !- Fixed Minimum Air Flow Rate {m3/s}
-    ,                        !- Minimum Air Flow Fraction Schedule Name
+    SPACE3-1 Min Fract,      !- Minimum Air Flow Fraction Schedule Name
     Coil:Heating:Water,      !- Reheat Coil Object Type
     SPACE3-1 Zone Coil,      !- Reheat Coil Name
     autosize,                !- Maximum Hot Water or Steam Flow Rate {m3/s}
@@ -2166,7 +2201,7 @@
     Constant,                !- Zone Minimum Air Flow Input Method
     0.0,                     !- Constant Minimum Air Flow Fraction
     ,                        !- Fixed Minimum Air Flow Rate {m3/s}
-    ,                        !- Minimum Air Flow Fraction Schedule Name
+    SPACE4-1 Min Fract,      !- Minimum Air Flow Fraction Schedule Name
     Coil:Heating:Water,      !- Reheat Coil Object Type
     SPACE4-1 Zone Coil,      !- Reheat Coil Name
     autosize,                !- Maximum Hot Water or Steam Flow Rate {m3/s}
@@ -2186,7 +2221,7 @@
     Constant,                !- Zone Minimum Air Flow Input Method
     0.0,                     !- Constant Minimum Air Flow Fraction
     ,                        !- Fixed Minimum Air Flow Rate {m3/s}
-    ,                        !- Minimum Air Flow Fraction Schedule Name
+    SPACE5-1 Min Fract,      !- Minimum Air Flow Fraction Schedule Name
     Coil:Heating:Water,      !- Reheat Coil Object Type
     SPACE5-1 Zone Coil,      !- Reheat Coil Name
     autosize,                !- Maximum Hot Water or Steam Flow Rate {m3/s}
@@ -2485,70 +2520,6 @@
     0.000,                   !- Fan Power Coefficient 5
     Main Heating Coil 1 Outlet Node,  !- Air Inlet Node Name
     VAV Sys 1 Outlet Node;   !- Air Outlet Node Name
-
-  EnergyManagementSystem:GlobalVariable,
-    SPACE1_AirMassFlow_Set;    !- Name
-
-  EnergyManagementSystem:Actuator,
-    SPACE1_VAV_AirFlow,           !- Name
-    SPACE1-1 VAV Reheat,          !- Actuated Component Unique Name
-    AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Air Mass Flow Rate;               !- Control Type
-
-  EnergyManagementSystem:Actuator,
-    SPACE1_Reheat_WaterFlow,      !- Name
-    SPACE1-1 Zone Coil,           !- Actuated Component Unique Name
-    Coil:Heating:Water,           !- Component Type
-    Water Mass Flow Rate;         !- Control Type
-    
-  EnergyManagementSystem:Actuator,
-    SPACE2_VAV_AirFlow,           !- Name
-    SPACE2-1 VAV Reheat,          !- Actuated Component Unique Name
-    AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Air Mass Flow Rate;               !- Control Type
-
-  EnergyManagementSystem:Actuator,
-    SPACE2_Reheat_WaterFlow,      !- Name
-    SPACE2-1 Zone Coil,           !- Actuated Component Unique Name
-    Coil:Heating:Water,           !- Component Type
-    Water Mass Flow Rate;         !- Control Type
-
-  EnergyManagementSystem:Actuator,
-    SPACE3_VAV_AirFlow,           !- Name
-    SPACE3-1 VAV Reheat,          !- Actuated Component Unique Name
-    AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Air Mass Flow Rate;               !- Control Type
-
-  EnergyManagementSystem:Actuator,
-    SPACE3_Reheat_WaterFlow,      !- Name
-    SPACE3-1 Zone Coil,           !- Actuated Component Unique Name
-    Coil:Heating:Water,           !- Component Type
-    Water Mass Flow Rate;         !- Control Type
-
-  EnergyManagementSystem:Actuator,
-    SPACE4_VAV_AirFlow,           !- Name
-    SPACE4-1 VAV Reheat,          !- Actuated Component Unique Name
-    AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Air Mass Flow Rate;               !- Control Type
-
-  EnergyManagementSystem:Actuator,
-    SPACE4_Reheat_WaterFlow,      !- Name
-    SPACE4-1 Zone Coil,           !- Actuated Component Unique Name
-    Coil:Heating:Water,           !- Component Type
-    Water Mass Flow Rate;         !- Control Type
-    
-  EnergyManagementSystem:Actuator,
-    SPACE5_VAV_AirFlow,           !- Name
-    SPACE5-1 VAV Reheat,          !- Actuated Component Unique Name
-    AirTerminal:SingleDuct:VAV:Reheat,!- Component Type
-    Air Mass Flow Rate;               !- Control Type
-
-  EnergyManagementSystem:Actuator,
-    SPACE5_Reheat_WaterFlow,      !- Name
-    SPACE5-1 Zone Coil,           !- Actuated Component Unique Name
-    Coil:Heating:Water,           !- Component Type
-    Water Mass Flow Rate;         !- Control Type
-    
 
   Controller:WaterCoil,
     OA HC Controller 1,      !- Name
