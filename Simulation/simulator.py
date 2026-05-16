@@ -257,6 +257,7 @@ def SetupStateLogger(sim):
                     self._handle_definitions[f"{z}_Cool_Rate"] = ("Cooling Coil Total Cooling Rate", f"{z} PTAC COOLING COIL")
                     self._handle_definitions[f"{z}_Heat_Rate"] = ("Heating Coil Heating Rate", f"{z} PTAC HEATING COIL")
                     self._handle_definitions[f"{z}_Fan_Power"] = ("Fan Electricity Rate", f"{z} PTAC SUPPLY FAN")
+                    self._handle_definitions[f"{z}_Hum_Actual_Rate"] = ("Other Equipment Latent Heat Gain Rate", f"{z} STANDALONE HUMIDIFIER")
 
                 self._var_handles = {key: -1 for key in self._handle_definitions.keys()}
                 self._hum_act_handles = {z: -1 for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]}
@@ -321,6 +322,18 @@ def SetupStateLogger(sim):
                         row[f"{z}_d_T_est"]   = np.nan
                         row[f"{z}_d_W_est"]   = np.nan
                         row[f"{z}_N_occ_est"] = np.nan
+                        
+            # --- INJECT MPC COMMANDS ---
+            if hasattr(self, 'current_mpc_commands'):
+                for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]:
+                    cmd = self.current_mpc_commands.get(z, {})
+                    row[f"{z}_Cmd_Fan_Flow"] = cmd.get("flow", np.nan)
+                    row[f"{z}_Cmd_Temp_Setpt"] = cmd.get("temp", np.nan)
+                    row[f"{z}_Cmd_OA_Flow"] = cmd.get("oa_flow", np.nan)
+                    row[f"{z}_Cmd_Humidifier"] = cmd.get("humidifier", np.nan)
+                    row[f"{z}_Cmd_Clg_Setpt"] = cmd.get("clg_stp", np.nan)
+                    row[f"{z}_Cmd_Htg_Setpt"] = cmd.get("htg_stp", np.nan)
+
 
             # --- SAVE DATA ---
             self.sim_log_data.append(row)
