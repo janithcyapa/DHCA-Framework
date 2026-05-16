@@ -44,6 +44,7 @@ def SetupSimulationEnv():
     # Data Science & Controls Infrastructure
     import pandas as pd
     import numpy as np
+    import control as ct
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
     from simple_pid import PID
@@ -137,20 +138,29 @@ def ModifySimulationModel(sim):
     # 2. Variable Tracking Specification Configuration
     specs = [
         {"name": "Other Equipment Latent Heat Gain Rate", "key": "*"},
-        {"name": "Zone Air Relative Humidity", "key": "*"},
         {"name": "Site Outdoor Air Relative Humidity", "key": "*"},
+        {"name": "Site Outdoor Air Humidity Ratio", "key": "*"},
+        {"name": "Zone Outdoor Air Drybulb Temperature", "key": "*"},
+        {"name": "Schedule Value", "key": "CO2-Outdoor-Actuated"},
+        
         {"name": "Cooling Coil Total Cooling Rate", "key": "*"},
         {"name": "Heating Coil Heating Rate", "key": "*"},
         {"name": "Fan Electricity Rate", "key": "*"},
+
         {"name": "System Node Temperature", "key": "*"},
         {"name": "System Node Relative Humidity", "key": "*"},
+        {"name": "System Node Humidity Ratio", "key": "*"},
         {"name": "System Node Mass Flow Rate", "key": "*"},
+        {"name": "System Node CO2 Concentration", "key": "*"},
+
         {"name": "Zone Mean Air Temperature", "key": "*"},
         {"name": "Zone Air CO2 Concentration", "key": "*"},
-        {"name": "System Node CO2 Concentration", "key": "*"},
+        {"name": "Zone Air Relative Humidity", "key": "*"},
+        {"name": "Zone Mean Radiant Temperature", "key": "*"},
+        {"name": "Zone Mean Air Humidity Ratio", "key": "*"},
+        {"name": "Zone Electric Equipment Total Heating Rate", "key": "*"},
         {"name": "Zone People Occupant Count", "key": "*"},
-        {"name": "Schedule Value", "key": "CO2-Outdoor-Actuated"},
-        {"name": "Zone Outdoor Air Drybulb Temperature", "key": "*"},
+        
     ]
     sim.ensure_output_variables(specs, activate=True)
 
@@ -230,28 +240,36 @@ def SetupStateLogger(sim):
                 print("[Log]    : 🔗 Registering output variable handles...")
                 self._handle_definitions = {
                    'T_out': ("Zone Outdoor Air Drybulb Temperature", "SPACE1-1"),
-                    'RH_out_%': ("Site Outdoor Air Relative Humidity", "Environment"),
-                    'CO2_out': ("Schedule Value", "CO2-Outdoor-Actuated"),
+                   'W_out': ("Site Outdoor Air Humidity Ratio", "Environment"),
+                   'RH_out_%': ("Site Outdoor Air Relative Humidity", "Environment"),
+                   'CO2_out': ("Schedule Value", "CO2-Outdoor-Actuated"),
                 }
 
                 for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]:
+                    # Zone States (x_i)
                     self._handle_definitions[f"{z}_T_in"] = ("Zone Mean Air Temperature", z)
+                    self._handle_definitions[f"{z}_T_m"] = ("Zone Mean Radiant Temperature", z)
+                    self._handle_definitions[f"{z}_W_in"] = ("Zone Mean Air Humidity Ratio", z)
                     self._handle_definitions[f"{z}_RH_%"] = ("Zone Air Relative Humidity", z)
                     self._handle_definitions[f"{z}_CO2_in"] = ("Zone Air CO2 Concentration", z)
+                    # Time-Varying Parameters (p_i)
                     self._handle_definitions[f"{z}_Occ"] = ("Zone People Occupant Count", z)
+                    self._handle_definitions[f"{z}_Q_equip"] = ("Zone Electric Equipment Total Heating Rate", z)
 
-                    self._handle_definitions[f"{z}_Cool_Rate"] = ("Cooling Coil Total Cooling Rate", f"{z} PTAC COOLING COIL")
-                    self._handle_definitions[f"{z}_Heat_Rate"] = ("Heating Coil Heating Rate", f"{z} PTAC HEATING COIL")
-                    self._handle_definitions[f"{z}_Fan_Power"] = ("Fan Electricity Rate", f"{z} PTAC SUPPLY FAN")
-
+                    # PTAC Supply Parameters (S) & Hardware
+                    self._handle_definitions[f"{z}_m_dot"] = ("System Node Mass Flow Rate", f"{z} PTAC SUPPLY INLET")
+                    self._handle_definitions[f"{z}_T_supply"] = ("System Node Temperature", f"{z} PTAC SUPPLY INLET")
+                    self._handle_definitions[f"{z}_Supply_RH_%"] = ("System Node Relative Humidity", f"{z} PTAC SUPPLY INLET")
+                    self._handle_definitions[f"{z}_W_supply"] = ("System Node Humidity Ratio", f"{z} PTAC SUPPLY INLET")
+                    self._handle_definitions[f"{z}_C_supply"] = ("System Node CO2 Concentration", f"{z} PTAC SUPPLY INLET")
+         
                     self._handle_definitions[f"{z}_Mix_T"] = ("System Node Temperature", f"{z} PTAC MIXED AIR OUTLET")
                     self._handle_definitions[f"{z}_Mix_RH_%"] = ("System Node Relative Humidity", f"{z} PTAC MIXED AIR OUTLET")
                     self._handle_definitions[f"{z}_Mix_C"] = ("System Node CO2 Concentration", f"{z} PTAC MIXED AIR OUTLET")
 
-                    self._handle_definitions[f"{z}_T_supply"] = ("System Node Temperature", f"{z} PTAC SUPPLY INLET")
-                    self._handle_definitions[f"{z}_Supply_RH_%"] = ("System Node Relative Humidity", f"{z} PTAC SUPPLY INLET")
-                    self._handle_definitions[f"{z}_C_supply"] = ("System Node CO2 Concentration", f"{z} PTAC SUPPLY INLET")
-                    self._handle_definitions[f"{z}_m_dot"] = ("System Node Mass Flow Rate", f"{z} PTAC SUPPLY INLET")
+                    self._handle_definitions[f"{z}_Cool_Rate"] = ("Cooling Coil Total Cooling Rate", f"{z} PTAC COOLING COIL")
+                    self._handle_definitions[f"{z}_Heat_Rate"] = ("Heating Coil Heating Rate", f"{z} PTAC HEATING COIL")
+                    self._handle_definitions[f"{z}_Fan_Power"] = ("Fan Electricity Rate", f"{z} PTAC SUPPLY FAN")
 
                 self._var_handles = {key: -1 for key in self._handle_definitions.keys()}
                 self._hum_act_handles = {z: -1 for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]}
@@ -260,10 +278,9 @@ def SetupStateLogger(sim):
             day = self.exchange.day_of_year(state)
             time_now = self.exchange.current_time(state)
             hours, mins = divmod(int(time_now * 60), 60)
-            hour = self.exchange.hour(state)
-            minute = self.exchange.minutes(state)
             BASE_YEAR = 2026
-            sim_datetime = datetime.datetime(BASE_YEAR, 1, 1) + datetime.timedelta(days=day - 1, hours=hour, minutes=minute)
+            sim_datetime = datetime.datetime(BASE_YEAR, 1, 1) + datetime.timedelta(days=day - 1, hours=hours, minutes=mins)            
+            
             row = {
                 # "timestamp": f"Day {day:03d} {hours:02d}:{mins:02d}",
                 "timestamp" : int(sim_datetime.timestamp()),
@@ -293,6 +310,22 @@ def SetupStateLogger(sim):
                     row[f"{z}_Hum_Rate"] = cmd_fraction * 2500.0
                 else:
                     row[f"{z}_Hum_Rate"] = 0.0
+            
+            # --- INJECT PREDICTIONS FROM RC MODEL ---
+            if hasattr(self, 'model_estimations'):
+                for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]:
+                    if z in self.model_estimations:
+                        est = self.model_estimations[z]
+                        row[f"{z}_T_in_pred"] = est.get("T_in_pred", np.nan)
+                        row[f"{z}_T_m_pred"] = est.get("T_m_pred", np.nan)
+                        row[f"{z}_W_in_pred"] = est.get("W_in_pred", np.nan)
+                        row[f"{z}_C_in_pred"] = est.get("C_in_pred", np.nan)
+                    else:
+                        # Fallback if no prediction is available for this zone yet
+                        row[f"{z}_T_in_pred"] = np.nan
+                        row[f"{z}_T_m_pred"]  = np.nan
+                        row[f"{z}_W_in_pred"] = np.nan
+                        row[f"{z}_C_in_pred"] = np.nan
 
             # --- SAVE DATA ---
             # Append to the historical log for post-simulation analysis
