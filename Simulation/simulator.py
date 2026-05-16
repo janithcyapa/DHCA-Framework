@@ -4,12 +4,14 @@ def SetupSimulationEnv():
     Initializes the simulation environment by installing necessary dependencies,
     configuring the EnergyPlus backend, and importing core utilities.
     """
+    import subprocess as _subprocess
+    import sys as _sys
+    import importlib.metadata
+
     print("[SimEnv] : 🚀 Starting Environment Initialization...")
 
     # 1. Package Installation
     print("[SimEnv] : 📦 Installing required pip packages...")
-    import subprocess as _subprocess
-    import sys as _sys
     _subprocess.check_call([
         _sys.executable, "-m", "pip", "install", "-q", 
         "energy-plus-utility @ git+https://github.com/janithcyapa/energy-plus-utility.git@main", 
@@ -17,43 +19,16 @@ def SetupSimulationEnv():
     ])
 
     # 2. Verification
-    import importlib.metadata
     ver = importlib.metadata.version("energy-plus-utility")
     print(f"[SimEnv] : ✅ Verified 'energy-plus-utility' version: {ver}")
-
 
     # 3. EnergyPlus System Configuration
     print("[SimEnv] : ⚙️ Configuring EnergyPlus backend binaries...")
     from eplus import prepare_colab_eplus
     prepare_colab_eplus(silent=True)
     print("[SimEnv] : 🎉 EnergyPlus environment is ready.")
-
-
-    # 4. Core Environment Imports
-    print("[SimEnv] : 📚 Loading core modules into global namespace...")
-
-    # Expose crucial libraries globally for the notebook cells
-    global os, sys, shutil, Path, datetime, io, requests, urllib, subprocess, gc, traceback, types
-    global pd, np, go, make_subplots, PID, EPlusUtil
-
-    # Standard Library Imports
-    import os, sys, shutil, io,datetime, requests, subprocess, gc, traceback, types
-    from pathlib import Path
-    import urllib.request
-  
-    # Data Science & Controls Infrastructure
-    import pandas as pd
-    import numpy as np
-    import control as ct
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-    from simple_pid import PID
-
-    # Domain Specific Utilities
-    from eplus.core import EPlusUtil
-
-    print("[SimEnv] : ✅ All dependencies successfully mapped and loaded.")
     print("[SimEnv] : 🌟 Environment Setup Complete! Ready for simulation.")
+
 
 # @title Set Simulation Model
 def SetSimulationModel(verbose=3):
@@ -61,6 +36,12 @@ def SetSimulationModel(verbose=3):
     Configures the EnergyPlus simulation model, fetches necessary assets,
     handles macro expansion for HVAC templates, and returns the simulator instance.
     """
+    import os
+    import shutil
+    import urllib.request
+    import subprocess
+    from eplus.core import EPlusUtil
+
     print("[SimEnv] : ⚙️ Setting up Simulation Model...")
     
     # 1. Environment and Path Initialization
@@ -118,6 +99,7 @@ def SetSimulationModel(verbose=3):
     print("[SimEnv] : 🎉 Simulation Model Environment completely configured and linked!")
     return sim
 
+
 # @title Modify Simulation Model
 def ModifySimulationModel(sim):
     """
@@ -160,7 +142,6 @@ def ModifySimulationModel(sim):
         {"name": "Zone Mean Air Humidity Ratio", "key": "*"},
         {"name": "Zone Electric Equipment Total Heating Rate", "key": "*"},
         {"name": "Zone People Occupant Count", "key": "*"},
-        
     ]
     sim.ensure_output_variables(specs, activate=True)
 
@@ -208,15 +189,21 @@ def ModifySimulationModel(sim):
     print("[SimEnv] : ✅ Standalone Humidifiers successfully injected globally.")
     print("[SimEnv] : 🌟 Model Modification Stage Complete!")
 
+
 # @title Setup State Logger
 def SetupStateLogger(sim):
     """
     Wraps the state logger definition, binds it to the simulation instance,
     and registers the EnergyPlus callback handler.
     """
+    import types
     print("[SimEnv] : 📡 Initializing and binding Diagnostic State Logger...")
 
     def state_logger(self, state):
+        import datetime
+        import traceback
+        import numpy as np
+
         try:
             if not self.exchange.api_data_fully_ready(state):
                 return
@@ -282,7 +269,6 @@ def SetupStateLogger(sim):
             sim_datetime = datetime.datetime(BASE_YEAR, 1, 1) + datetime.timedelta(days=day - 1, hours=hours, minutes=mins)            
             
             row = {
-                # "timestamp": f"Day {day:03d} {hours:02d}:{mins:02d}",
                 "timestamp" : int(sim_datetime.timestamp()),
                 "day": day, "hour": hours, "minute": mins, "time_decimal": time_now
             }
@@ -321,21 +307,16 @@ def SetupStateLogger(sim):
                         row[f"{z}_W_in_pred"] = est.get("W_in_pred", np.nan)
                         row[f"{z}_C_in_pred"] = est.get("C_in_pred", np.nan)
                     else:
-                        # Fallback if no prediction is available for this zone yet
                         row[f"{z}_T_in_pred"] = np.nan
                         row[f"{z}_T_m_pred"]  = np.nan
                         row[f"{z}_W_in_pred"] = np.nan
                         row[f"{z}_C_in_pred"] = np.nan
 
             # --- SAVE DATA ---
-            # Append to the historical log for post-simulation analysis
             self.sim_log_data.append(row)
-            
-            # Overwrite current data so controllers/EKF always pull the freshest single state
             self.sim_current_data = [row] 
 
         except Exception as e:
-            # IF ANYTHING CRASHES, YELL ABOUT IT.
             print(f"\n[Log]     : ❌ [FATAL CRASH] {e}")
             traceback.print_exc()
 
@@ -346,15 +327,22 @@ def SetupStateLogger(sim):
     sim.register_handlers("after_zone", [{"method_name": "state_logger"}])
     print("[SimEnv] : ✅ Diagnostic Logger globally registered and armed.")
 
+
 # @title Setup Occupancy Injector
 def SetupOccupancyInjector(sim):
     """
     Downloads historical occupancy schedules, pre-allocates localized scaling tracking structures,
     and hooks a reactive load actuator injection callback loop into EnergyPlus.
     """
+    import io
+    import types
+    import requests
+    import pandas as pd
+
     print("[SimEnv] : 👥 Initializing and binding Occupancy Injector Engine...")
     
     csv_url="https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/Simulation/System%20Models/Weather%20Files/Occupancy_Dataset.csv"
+    
     # 1. Fetch and Preload Temporal Occupancy Datasets
     print("[SimEnv] : 🌐 Fetching remote scheduling matrix from repository tracker...")
     try:
@@ -377,6 +365,10 @@ def SetupOccupancyInjector(sim):
 
     # 2. Define Runtime Actuator Injection Engine Callback Loop
     def people_injector(self, state):
+        import datetime
+        import traceback
+        import numpy as np
+
         try:
             if not self.exchange.api_data_fully_ready(state) or self.exchange.warmup_flag(state):
                 return
@@ -447,15 +439,19 @@ def SetupOccupancyInjector(sim):
     sim.register_handlers("begin", [{"method_name": "people_injector"}])
     print("[SimEnv] : ✅ Occupancy Injector globally registered and armed.")
 
+
 # @title Setup Actuator Controller
 def SetupActuatorController(sim):
     """
     Wraps the actuator execution block, binds it to the simulation instance,
     and hooks the runtime setpoint tracking loop into EnergyPlus before HVAC processing.
     """
+    import types
     print("[SimEnv] : 🎛️ Initializing and binding Actuator Controller Engine...")
 
     def actuator_controller(self, state):
+        import traceback
+
         try:
             if not self.exchange.api_data_fully_ready(state) or self.exchange.warmup_flag(state):
                 return
@@ -499,7 +495,6 @@ def SetupActuatorController(sim):
 
         except Exception as e:
             print(f"\n[Ctrl]    : ❌ [FATAL ACTUATOR CONTROLLER CRASH] {e}")
-            import traceback
             traceback.print_exc()
 
     # Dynamic system instance method binding configuration
@@ -511,17 +506,15 @@ def SetupActuatorController(sim):
     ])
     print("[SimEnv] : ✅ Actuator Controller globally registered and armed.")
 
+
 # @title Run Simulation
 def RunSimulation(sim, num_days=7, rate=1):
     """
     Inspects runtime handlers, automatically maps numerical target days to calendar 
     dates and minute intervals to hourly timesteps, then executes the EnergyPlus pipeline.
-    
-    Parameters:
-    - num_days: Integer from 1 to 365 (e.g., 7 for 1 week, 365 for full year)
-    - rate_min: Step interval frequency per hour
     """
     import datetime
+    from pathlib import Path
 
     print("[SimRun] : 🔍 Inspecting registered API callback pipelines...")
     pipelines = [
@@ -541,14 +534,6 @@ def RunSimulation(sim, num_days=7, rate=1):
     base_date = datetime.datetime(2002, 1, 1)
     end_date = base_date + datetime.timedelta(days=num_days - 1)
     end_month, end_day = end_date.month, end_date.day
-
-    # 2. Map Minute Sampling Rate to Hourly Timesteps 
-    # (e.g., 1 min interval = 60 steps/hr || 5 min interval = 12 steps/hr)
-
-
-    # 3. Protective Dry Run Execution
-    # print("[SimRun] : 🛑 Executing environment Dry Run...")
-    # sim.run_dry_run(include_ems_edd=True, reset=False, design_day=True)
 
     # 4. Inject Dynamic Configuration Parameters
     print(f"[SimRun] : 🗓️ Setting runtime window: Jan 01 to {end_date.strftime('%b %d')} ({num_days} Days total)")
@@ -579,6 +564,7 @@ def RunSimulation(sim, num_days=7, rate=1):
         else:
             print(f"[SimRun] : ⚠️ Error logging asset missing at expected destination: {err_path}")
     
+
 # @title Extract Simulation Data
 def ExtractSimulationData(sim, base_filename="Simulation_Log.csv"):
     """
@@ -587,7 +573,9 @@ def ExtractSimulationData(sim, base_filename="Simulation_Log.csv"):
     and exports data assets to CSV.
     """
     import time
+    import traceback
     from pathlib import Path
+    import pandas as pd
     
     print("[Data] : 📊 Initiating simulation trajectory data extraction...")
     
@@ -626,9 +614,9 @@ def ExtractSimulationData(sim, base_filename="Simulation_Log.csv"):
 
     except Exception as e:
         print(f"[Data] : ❌ Unexpected failure during dataset serialization: {e}")
-        import traceback
         traceback.print_exc()
         return None
+
 
 # @title Generate Simulation Plots
 def GenerateSimulationPlots(df_log, target_zone="SPACE1-1", layout_config=None):
@@ -641,7 +629,6 @@ def GenerateSimulationPlots(df_log, target_zone="SPACE1-1", layout_config=None):
     
     print(f"[Plot] : 📊 Initializing modular telemetry plotting engine for: {target_zone}")
     
-    # Use default layout if none is passed
     if layout_config is None:
         layout_config = GetDefaultPTACConfig()
         
@@ -652,14 +639,12 @@ def GenerateSimulationPlots(df_log, target_zone="SPACE1-1", layout_config=None):
         time_labels = [f"Day {int(d):02d} {int(h):02d}:{int(m):02d}"
                        for d, h, m in zip(df_plot['day'], df_plot['hour'], df_plot['minute'])]
     except KeyError:
-        # Fallback if baseline timing arrays are omitted
         time_labels = [f"Step {idx}" for idx in df_plot.index]
 
     # 2. Dynamically extract structural configurations
     subplots_def = layout_config.get("subplots", [])
     num_rows = len(subplots_def)
     
-    # Extract titles and target axis specs (handling secondary y tracks)
     subplot_titles = [sub.get("title", "").format(target_zone=target_zone) for sub in subplots_def]
     subplot_specs = [[{"secondary_y": sub.get("secondary_y", False)}] for sub in subplots_def]
 
@@ -676,8 +661,6 @@ def GenerateSimulationPlots(df_log, target_zone="SPACE1-1", layout_config=None):
     for row_idx, sub in enumerate(subplots_def, start=1):
         for trace in sub.get("traces", []):
             col_target = trace.get("col")
-            
-            # Dynamic fallback list checking layout (e.g., support alternate names)
             col_candidates = [col_target] if isinstance(col_target, str) else col_target
             active_col = None
             
@@ -691,7 +674,6 @@ def GenerateSimulationPlots(df_log, target_zone="SPACE1-1", layout_config=None):
                 print(f"[Plot] : ⚠️ Variable tracking match skipped: Trace '{trace.get('name')}' missing column vectors.")
                 continue
 
-            # Inject localized component specifications
             fig.add_trace(
                 go.Scatter(
                     x=df_plot.index,
@@ -709,7 +691,6 @@ def GenerateSimulationPlots(df_log, target_zone="SPACE1-1", layout_config=None):
                 secondary_y=trace.get("sec_y", False)
             )
 
-        # 5. Localized Axis Titles Styling Injection
         fig.update_yaxes(title_text=sub.get("y_title", ""), row=row_idx, col=1, secondary_y=False)
         if sub.get("secondary_y", False):
             fig.update_yaxes(
@@ -730,7 +711,7 @@ def GenerateSimulationPlots(df_log, target_zone="SPACE1-1", layout_config=None):
     )
 
     # 7. Adaptive Timeline Ticks Decimation Step (Prevents trace overlaps)
-    sample_step = max(1, len(df_plot) // 15)  # Auto-select up to 15 uniform timeline coordinates
+    sample_step = max(1, len(df_plot) // 15)  
     tick_idx = df_plot.index[::sample_step]
     tick_lbl = [time_labels[i] for i in range(0, len(time_labels), sample_step)]
     
@@ -739,6 +720,8 @@ def GenerateSimulationPlots(df_log, target_zone="SPACE1-1", layout_config=None):
     print("[Plot] : ✅ Canvas rendering complete. Dispatched dashboard view.")
     fig.show()
     return fig
+
+
 def GetDefaultPTACConfig():
     """
     Defines the baseline 6-row comprehensive configuration dictionary for zone 
@@ -816,22 +799,24 @@ def GetDefaultPTACConfig():
         ]
     }
 
+
 # @title Setup Predictive RC Model (With Debugging)
 def SetupPredictiveModel(sim, target_zone="SPACE1-1", debug_mode=True):
-
+    import types
     print(f"[SimEnv] : 🧠 Initializing Predictive RC Model Engine (DEBUG: {debug_mode})...")
 
     def zone_model(self, state):
+        import traceback
+        import control as ct
+        import numpy as np
+
         try:
-            # Silently exit if E+ isn't ready, but log it if we are in extreme debug mode
             if not self.exchange.api_data_fully_ready(state):
                 return
             if self.exchange.warmup_flag(state):
                 return
                 
             zone_id = target_zone
-
-            # Time Stamping
             day = self.exchange.day_of_year(state)
             time = self.exchange.current_time(state)
             abs_time = (day * 24.0) + time
@@ -863,12 +848,10 @@ def SetupPredictiveModel(sim, target_zone="SPACE1-1", debug_mode=True):
                     "C_s": self.exchange.get_variable_handle(state, "System Node CO2 Concentration", f"{zone_id} PTAC SUPPLY INLET"),
                 }
 
-                # --- VALIDATE HANDLES ---
                 if debug_mode:
-                    missing_handles = [k for k, v in handles.items() if v <= 0] # 0 or -1 usually indicates missing
+                    missing_handles = [k for k, v in handles.items() if v <= 0]
                     if missing_handles:
                         print(f"⚠️ [DEBUG-WARN] Missing IDF Outputs for {zone_id}: {missing_handles}")
-                        print("    Ensure these are defined in your Output:Variable list in the IDF!")
 
                 inv_R_env_ext = 0.0
                 R_env_gnd = None
@@ -937,13 +920,11 @@ def SetupPredictiveModel(sim, target_zone="SPACE1-1", debug_mode=True):
                     handles=handles, sys_ode=sys_ode
                 )
                 print(f"[Model]  : ✅ System Dynamics initialized for {zone_id}")
-
             else:
                 self.zones[zone_id].last_time = abs_time
 
             z = self.zones[zone_id]
             
-            # Runtime Variable Fetching
             m_dot_current = self.exchange.get_variable_value(state, z.handles["m_dot"])
             v_dot_current = m_dot_current / 1.204 
             u_current = [v_dot_current]
@@ -983,16 +964,13 @@ def SetupPredictiveModel(sim, target_zone="SPACE1-1", debug_mode=True):
                 print(f"[DEBUG-RC] dt_hours = {dt_hours:.4f} | time_vector = {time_vector}")
                 print(f"[DEBUG-RC] Initial States (X0): T_in={x_solver[0]:.2f}, T_m={x_solver[1]:.2f}, W_in={x_solver[2]:.5f}, CO2={x_solver[3]:.1f}")
                 print(f"[DEBUG-RC] Control Inputs (U): m_dot={m_dot_current:.4f}, V_dot={v_dot_current:.4f}")
-                print(f"[DEBUG-RC] Dynamic Params: T_out={current_params['T_out']:.2f}, N_occ={current_params['N_occ']}, Q_eq={current_params['Q_equip']:.1f}")
 
-            # Solve the ODE
             response = ct.input_output_response(z.sys_ode, time_vector, U=u_current, X0=x_solver, params=current_params)
             x_predicted_next = response.states[:, -1]
 
             if debug_mode:
                 print(f"[DEBUG-RC] Pred Next States: T_in_pred={x_predicted_next[0]:.2f}, T_m_pred={x_predicted_next[1]:.2f}")
 
-            # Save the estimation for the State Logger
             self.model_estimations[zone_id] = {
                 "T_in_pred": x_predicted_next[0],
                 "T_m_pred": x_predicted_next[1],
@@ -1009,6 +987,6 @@ def SetupPredictiveModel(sim, target_zone="SPACE1-1", debug_mode=True):
     sim.register_handlers("begin", [{"method_name": "zone_model"}])
     print(f"[SimEnv] : ✅ Predictive RC Model registered on 'begin' hook.")
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     pass
