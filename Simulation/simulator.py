@@ -302,15 +302,25 @@ def SetupStateLogger(sim):
                 for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]:
                     if z in self.model_estimations:
                         est = self.model_estimations[z]
+                        # Standard RC Predictions
                         row[f"{z}_T_in_pred"] = est.get("T_in_pred", np.nan)
-                        row[f"{z}_T_m_pred"] = est.get("T_m_pred", np.nan)
+                        row[f"{z}_T_m_pred"]  = est.get("T_m_pred", np.nan)
                         row[f"{z}_W_in_pred"] = est.get("W_in_pred", np.nan)
                         row[f"{z}_C_in_pred"] = est.get("C_in_pred", np.nan)
+                        
+                        # EKF-Specific State Estimations
+                        row[f"{z}_d_T_est"]   = est.get("d_T_est", np.nan)
+                        row[f"{z}_d_W_est"]   = est.get("d_W_est", np.nan)
+                        row[f"{z}_N_occ_est"] = est.get("N_occ_est", np.nan)
                     else:
                         row[f"{z}_T_in_pred"] = np.nan
                         row[f"{z}_T_m_pred"]  = np.nan
                         row[f"{z}_W_in_pred"] = np.nan
                         row[f"{z}_C_in_pred"] = np.nan
+                        
+                        row[f"{z}_d_T_est"]   = np.nan
+                        row[f"{z}_d_W_est"]   = np.nan
+                        row[f"{z}_N_occ_est"] = np.nan
 
             # --- SAVE DATA ---
             self.sim_log_data.append(row)
