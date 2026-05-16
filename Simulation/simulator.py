@@ -8,7 +8,13 @@ def SetupSimulationEnv():
 
     # 1. Package Installation
     print("[SimEnv] : 📦 Installing required pip packages...")
-    %pip install -q "energy-plus-utility @ git+https://github.com/janithcyapa/energy-plus-utility.git@main" control simple-pid
+    import subprocess as _subprocess
+    import sys as _sys
+    _subprocess.check_call([
+        _sys.executable, "-m", "pip", "install", "-q", 
+        "energy-plus-utility @ git+https://github.com/janithcyapa/energy-plus-utility.git@main", 
+        "control", "simple-pid"
+    ])
 
     # 2. Verification
     import importlib.metadata
