@@ -998,5 +998,213 @@ def SetupPredictiveModel(sim, target_zone="SPACE1-1", debug_mode=True):
     print(f"[SimEnv] : ✅ Predictive RC Model registered on 'begin' hook.")
 
 
+# @title Setup EKF Estimator
+def SetupEKFEstimator(sim, target_zone="SPACE1-1", debug_mode=True):
+    """
+    Initializes the Extended Kalman Filter (EKF) observer, binds it to the simulation instance,
+    and registers it to run at the 'begin' timestep hook.
+    """
+    import types
+    print(f"[SimEnv] : 🧠 Initializing EKF Estimator Engine (DEBUG: {debug_mode})...")
+
+    def zone_estimate_ekf(self, state):
+        import datetime
+        import traceback
+        import numpy as np
+
+        try:
+            # Wait for API to warm up
+            if not self.exchange.api_data_fully_ready(state) or self.exchange.warmup_flag(state):
+                return
+
+            zone_id = target_zone
+            day = self.exchange.day_of_year(state)
+            time = self.exchange.current_time(state)
+            abs_time = (day * 24.0) + time
+
+            # --- NOISE CONFIGURATION ---
+            SIMULATE_NOISE = False
+            SIMULATE_SUPPLY_NOISE = False
+
+            # Standard Deviations (1-Sigma)
+            sigma_T = 0.1      
+            sigma_W = 0.0001   
+            sigma_C = 25.0     
+
+            if not hasattr(self, 'zones_ekf'):
+                self.zones_ekf = {}
+            if not hasattr(self, 'model_estimations'):
+                self.model_estimations = {}
+
+            # --- Initialize Zone Handles & Covariance Matrices ---
+            if zone_id not in self.zones_ekf:
+                if debug_mode: print(f"[DEBUG-EKF] Initializing EKF for Zone : {zone_id}")
+
+                raw_params = self.get_zone_thermal_parameters()[zone_id]
+                
+                # Updated to PTAC Node Definitions
+                handles = {
+                    "T_in": self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", zone_id),
+                    "T_m": self.exchange.get_variable_handle(state, "Zone Mean Radiant Temperature", zone_id),
+                    "W_in": self.exchange.get_variable_handle(state, "Zone Mean Air Humidity Ratio", zone_id),
+                    "CO2_in": self.exchange.get_variable_handle(state, "Zone Air CO2 Concentration", zone_id),
+                    "N_occ": self.exchange.get_variable_handle(state, "Zone People Occupant Count", zone_id),
+                    "T_out": self.exchange.get_variable_handle(state, "Zone Outdoor Air Drybulb Temperature", zone_id),
+                    "Q_equip": self.exchange.get_variable_handle(state, "Zone Electric Equipment Total Heating Rate", zone_id),
+                    
+                    "m_dot": self.exchange.get_variable_handle(state, "System Node Mass Flow Rate", f"{zone_id} PTAC SUPPLY INLET"),
+                    "T_s": self.exchange.get_variable_handle(state, "System Node Temperature", f"{zone_id} PTAC SUPPLY INLET"),
+                    "W_s": self.exchange.get_variable_handle(state, "System Node Humidity Ratio", f"{zone_id} PTAC SUPPLY INLET"),
+                    "C_s": self.exchange.get_variable_handle(state, "System Node CO2 Concentration", f"{zone_id} PTAC SUPPLY INLET"),
+                }
+
+                inv_R_env_ext = 0.0
+                R_env_gnd = None
+                adj_zones = []
+
+                for b in raw_params["boundaries"]:
+                    target = b["target"]
+                    r_abs = float(b["R_absolute_K_W"])
+                    if target == "Ground": R_env_gnd = r_abs
+                    elif target == "Environment" or b["boundary_condition"] == "outdoors": inv_R_env_ext += (1.0 / r_abs)
+                    else: adj_zones.append({ "zone": target, "R_env": r_abs, "handle_T_in": self.exchange.get_variable_handle( state, "Zone Mean Air Temperature", target )})
+                R_env_ext = 1.0 / inv_R_env_ext if inv_R_env_ext > 0 else float('inf')
+
+                # State: [T_in, T_m, W_in, C_in, d_T, d_W, N_occ]
+                P_est = np.eye(7) * 1.0  
+                P_est[6,6] = 10
+
+                Q = np.diag([0.1, 5.0, 1e-6, 10.0, 50.0, 1e-5, 10])
+                if SIMULATE_NOISE: R = np.diag([sigma_T**2, sigma_W**2, sigma_C**2]) 
+                else: R = np.diag([0.01, 1e-8, 1.0])
+
+                H = np.zeros((3, 7))
+                H[0, 0], H[1, 2], H[2, 3]  = 1.0, 1.0, 1.0
+
+                self.zones_ekf[zone_id] = types.SimpleNamespace(
+                    last_time=abs_time, V_room=float(raw_params['V_room']),
+                    M_air=float(raw_params['M_air']), C_air=float(raw_params['C_air']),
+                    C_mass=float(raw_params['C_mass']), R_int=float(raw_params['R_int']),
+                    R_env_gnd=R_env_gnd, R_env_ext=R_env_ext, adj_zones=adj_zones,
+                    handles=handles, X_est=None, P_est=P_est, Q=Q, R=R, H=H
+                )
+                print(f"[Model]  : ✅ EKF initialized for {zone_id}")
+
+            z = self.zones_ekf[zone_id]
+
+            # --- 1. Gather Current Measurements & Inputs ---
+            t_in_meas = self.exchange.get_variable_value(state, z.handles["T_in"])
+            w_in_meas = self.exchange.get_variable_value(state, z.handles["W_in"])
+            c_in_meas = self.exchange.get_variable_value(state, z.handles["CO2_in"])
+
+            m_dot = self.exchange.get_variable_value(state, z.handles["m_dot"])
+            V_dot_s = m_dot / 1.204  # Conversion from PTAC mass flow to volume flow
+            
+            T_out = self.exchange.get_variable_value(state, z.handles["T_out"])
+            Q_equip = 0.0 # Blind to equipment heat in reality
+            T_s = self.exchange.get_variable_value(state, z.handles["T_s"])
+            W_s = self.exchange.get_variable_value(state, z.handles["W_s"])
+            C_s = self.exchange.get_variable_value(state, z.handles["C_s"])
+
+            if SIMULATE_NOISE:
+                t_in_meas += np.random.normal(0, sigma_T)
+                w_in_meas += np.random.normal(0, sigma_W)
+                c_in_meas += np.random.normal(0, sigma_C)
+            if SIMULATE_SUPPLY_NOISE:
+                T_s += np.random.normal(0, sigma_T)
+                W_s += np.random.normal(0, sigma_W)
+                C_s += np.random.normal(0, sigma_C)
+
+            rho_air, cp_air = 1.204, 1006.0
+            q_person, g_w_person, g_co2_person = 100.0, 5e-5, 1e-5
+
+            Z_meas = np.array([t_in_meas, w_in_meas, c_in_meas])
+
+            # Initial State
+            if z.X_est is None:
+                z.X_est = np.array([t_in_meas, t_in_meas, w_in_meas, c_in_meas, 0.0, 0.0, 0.0])
+                z.last_time = abs_time
+                return
+
+            dt_hours = self.exchange.system_time_step(state)
+            if dt_hours == 0: dt_hours = self.exchange.zone_time_step(state)
+            dt = dt_hours * 3600.0
+            if dt <= 0: return
+
+            T_in_e, T_m_e, W_in_e, C_in_e, d_T_e, d_W_e, N_occ_e = z.X_est
+
+            # --- 1.1 Prediction Step ---
+            q_env = (T_out - T_in_e) / z.R_env_ext if z.R_env_ext < float('inf') else 0.0
+            
+            _q_adj, inv_R_adj = 0.0, 0.0
+            for adj in z.adj_zones:
+                t_adj = self.exchange.get_variable_value(state, adj["handle_T_in"])
+                _q_adj += (t_adj) / float(adj["R_env"])
+                inv_R_adj += 1.0 / float(adj["R_env"])
+            q_adj = _q_adj - (T_in_e * inv_R_adj)
+            
+            q_mass = (T_m_e - T_in_e) / z.R_int
+            q_int = (N_occ_e * q_person) + Q_equip
+            q_s = rho_air * V_dot_s * cp_air * (T_s - T_in_e)
+
+            dT_in_dt = (q_env + q_adj + q_mass + q_int + q_s + d_T_e) / z.C_air
+            dT_m_dt = (T_in_e - T_m_e) / (z.C_mass * z.R_int)
+            dW_in_dt = (N_occ_e * g_w_person + rho_air * V_dot_s * (W_s - W_in_e) + d_W_e) / z.M_air
+            dC_in_dt = (N_occ_e * g_co2_person + V_dot_s * (C_s - C_in_e)) / z.V_room
+
+            X_pred = z.X_est + np.array([dT_in_dt, dT_m_dt, dW_in_dt, dC_in_dt, 0.0, 0.0, 0.0]) * dt
+
+            # --- 1.2 Covariance Prediction ---
+            df_dX = np.zeros((7, 7))
+            inv_R_ext = 1.0 / z.R_env_ext if z.R_env_ext < float('inf') else 0.0
+            inv_R_int = 1.0 / z.R_int if z.R_int < float('inf') else 0.0
+
+            df_dX[0, 0] = (-inv_R_ext - inv_R_adj - inv_R_int - (rho_air * cp_air * V_dot_s)) / z.C_air
+            df_dX[0, 1] = 1.0 / (z.C_air * z.R_int)
+            df_dX[0, 4] = 1.0 / z.C_air
+            df_dX[0, 6] = q_person / z.C_air
+
+            df_dX[1, 0] = 1.0 / (z.C_mass * z.R_int)
+            df_dX[1, 1] = -1.0 / (z.C_mass * z.R_int)
+
+            df_dX[2, 2] = -(rho_air * V_dot_s) / z.M_air
+            df_dX[2, 5] = 1.0 / z.M_air
+            df_dX[2, 6] = g_w_person / z.M_air
+
+            df_dX[3, 3] = -V_dot_s / z.V_room
+            df_dX[3, 6] = g_co2_person / z.V_room
+
+            F = np.eye(7) + df_dX * dt
+            P_pred = F @ z.P_est @ F.T + z.Q
+
+            # --- 2. Update Step ---
+            y = Z_meas - (z.H @ X_pred) 
+            S = z.H @ P_pred @ z.H.T + z.R 
+            K = P_pred @ z.H.T @ np.linalg.inv(S) 
+
+            z.X_est = X_pred + K @ y
+            z.P_est = (np.eye(7) - K @ z.H) @ P_pred
+            z.X_est[6] = max(0.0, z.X_est[6]) # Ensure positive occupancy
+
+            # --- Output Routing to Shared Global State Logger ---
+            self.model_estimations[zone_id] = {
+                "T_in_pred": z.X_est[0],
+                "T_m_pred": z.X_est[1],
+                "W_in_pred": z.X_est[2],
+                "C_in_pred": z.X_est[3],
+                "d_T_est": z.X_est[4],       # Unmeasured heat disturbance
+                "d_W_est": z.X_est[5],       # Unmeasured moisture disturbance
+                "N_occ_est": z.X_est[6]      # Estimated Occupants
+            }
+            z.last_time = abs_time
+
+        except Exception as e:
+            print(f"\n[Model]   : ❌ [FATAL EKF CRASH] {e}")
+            if debug_mode: traceback.print_exc()
+
+    sim.zone_estimate_ekf = types.MethodType(zone_estimate_ekf, sim)
+    sim.register_handlers("begin", [{"method_name": "zone_estimate_ekf"}])
+    print(f"[SimEnv] : ✅ EKF Model registered on 'begin' hook.")
+
 if __name__ == "__main__":
     pass
