@@ -48,7 +48,7 @@ def SetupSimulationEnv():
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
     from simple_pid import PID
-    
+
     # Domain Specific Utilities
     from eplus.core import EPlusUtil
 
@@ -816,6 +816,198 @@ def GetDefaultPTACConfig():
         ]
     }
 
+# @title Setup Predictive RC Model (With Debugging)
+def SetupPredictiveModel(sim, target_zone="SPACE1-1", debug_mode=True):
+
+    print(f"[SimEnv] : 🧠 Initializing Predictive RC Model Engine (DEBUG: {debug_mode})...")
+
+    def zone_model(self, state):
+        try:
+            # Silently exit if E+ isn't ready, but log it if we are in extreme debug mode
+            if not self.exchange.api_data_fully_ready(state):
+                return
+            if self.exchange.warmup_flag(state):
+                return
+                
+            zone_id = target_zone
+
+            # Time Stamping
+            day = self.exchange.day_of_year(state)
+            time = self.exchange.current_time(state)
+            abs_time = (day * 24.0) + time
+
+            if not hasattr(self, 'zones'):
+                self.zones = {}
+            if not hasattr(self, 'model_estimations'):
+                self.model_estimations = {}
+
+            if debug_mode:
+                print(f"\n--- [DEBUG-RC] Timestep Triggered | Day: {day} | Hour: {time:.2f} ---")
+
+            # --- Initialize Zone ---
+            if zone_id not in self.zones:
+                if debug_mode: print(f"[DEBUG-RC] First pass detected for {zone_id}. Generating handles...")
+                raw_params = self.get_zone_thermal_parameters()[zone_id]
+                
+                handles = {
+                    "T_in": self.exchange.get_variable_handle(state, "Zone Mean Air Temperature", zone_id),
+                    "T_m": self.exchange.get_variable_handle(state, "Zone Mean Radiant Temperature", zone_id),
+                    "W_in": self.exchange.get_variable_handle(state, "Zone Mean Air Humidity Ratio", zone_id),
+                    "CO2_in": self.exchange.get_variable_handle(state, "Zone Air CO2 Concentration", zone_id),
+                    "N_occ": self.exchange.get_variable_handle(state, "Zone People Occupant Count", zone_id),
+                    "T_out": self.exchange.get_variable_handle(state, "Zone Outdoor Air Drybulb Temperature", zone_id),
+                    "Q_equip": self.exchange.get_variable_handle(state, "Zone Electric Equipment Total Heating Rate", zone_id),
+                    "m_dot": self.exchange.get_variable_handle(state, "System Node Mass Flow Rate", f"{zone_id} PTAC SUPPLY INLET"),
+                    "T_s": self.exchange.get_variable_handle(state, "System Node Temperature", f"{zone_id} PTAC SUPPLY INLET"),
+                    "W_s": self.exchange.get_variable_handle(state, "System Node Humidity Ratio", f"{zone_id} PTAC SUPPLY INLET"),
+                    "C_s": self.exchange.get_variable_handle(state, "System Node CO2 Concentration", f"{zone_id} PTAC SUPPLY INLET"),
+                }
+
+                # --- VALIDATE HANDLES ---
+                if debug_mode:
+                    missing_handles = [k for k, v in handles.items() if v <= 0] # 0 or -1 usually indicates missing
+                    if missing_handles:
+                        print(f"⚠️ [DEBUG-WARN] Missing IDF Outputs for {zone_id}: {missing_handles}")
+                        print("    Ensure these are defined in your Output:Variable list in the IDF!")
+
+                inv_R_env_ext = 0.0
+                R_env_gnd = None
+                adj_zones = []
+
+                for b in raw_params["boundaries"]:
+                    target = b["target"]
+                    r_abs = float(b["R_absolute_K_W"])
+                    if target == "Ground": R_env_gnd = r_abs
+                    elif target == "Environment" or b["boundary_condition"] == "outdoors": inv_R_env_ext += (1.0 / r_abs)
+                    else: adj_zones.append({ "zone": target, "R_env": r_abs, "handle_T_in": self.exchange.get_variable_handle( state, "Zone Mean Air Temperature", target )})
+                R_env_ext = 1.0 / inv_R_env_ext if inv_R_env_ext > 0 else float('inf')
+
+                # --- Core Dynamics ---
+                def _dynamics(t, x, u, params):
+                    T_in, T_m, W_in, C_in = x 
+                    V_dot_s = float(u[0]) 
+
+                    rho_air, cp_air = 1.204, 1006.0
+                    q_person, g_w_person, g_co2_person = 100.0, 5e-5, 1e-5
+                    R_env_ext = float(params.get('R_env_ext', float('inf')))
+                    R_env_gnd = float(params.get('R_env_gnd', float('inf')))
+                    R_int = float(params['R_int'])
+                    C_air = float(params['C_air'])
+                    C_mass = float(params['C_mass'])
+                    M_air = float(params['M_air'])
+                    V_room = float(params['V_room'])
+
+                    T_s, W_s, C_s = params['T_s'], params['W_s'], params['C_s']
+                    N_occ, Q_equip, T_out = params['N_occ'], params['Q_equip'], params['T_out']
+                    d_T, d_W, d_C = params['d_T'], params['d_W'], params['d_C'] 
+                    
+                    q_env = (T_out - T_in) / R_env_ext if R_env_ext < float('inf') else 0.0
+                    q_gnd = (22.0 - T_in) / R_env_gnd if R_env_gnd < float('inf') else 0.0
+                    q_adj = sum([(float(adj['T_in']) - float(T_in)) / float(adj['R_env']) for adj in params['adj_zones']])
+                        
+                    q_mass = (T_m - T_in) / R_int
+                    q_int = (N_occ * q_person) + Q_equip
+                    q_s = rho_air * V_dot_s * cp_air * (T_s - T_in)
+                    
+                    dT_in_dt = (q_env + q_gnd + q_adj + q_mass + q_int + q_s + d_T) / C_air
+                    dT_m_dt = (T_in - T_m) / ( C_mass * R_int)
+                    
+                    dot_m_s = rho_air * V_dot_s
+                    dW_in_dt = (N_occ * g_w_person + dot_m_s * (W_s - W_in) + d_W) / M_air
+                    dC_in_dt = (N_occ * g_co2_person + V_dot_s * (C_s - C_in) + d_C) / V_room
+
+                    return np.array([dT_in_dt, dT_m_dt, dW_in_dt, dC_in_dt], dtype=float).flatten()
+
+                def _outputs(t, x, u, params):
+                    return [x[0], x[1], x[2], x[3]]
+
+                sys_ode = ct.NonlinearIOSystem(
+                    _dynamics, _outputs,
+                    inputs=['V_dot_s'],
+                    outputs=['T_in_obs','T_m_obs', 'W_in_obs', 'C_in_obs'],
+                    states=['T_in', 'T_m', 'W_in', 'C_in'],
+                    name=f'sys_{zone_id}'
+                )
+
+                self.zones[zone_id] = types.SimpleNamespace(
+                    last_time=abs_time, V_room=float(raw_params['V_room']),
+                    M_air=float(raw_params['M_air']), C_air=float(raw_params['C_air']),
+                    C_mass=float(raw_params['C_mass']), R_int=float(raw_params['R_int']),
+                    R_env_gnd=R_env_gnd, R_env_ext=R_env_ext, adj_zones=adj_zones,
+                    handles=handles, sys_ode=sys_ode
+                )
+                print(f"[Model]  : ✅ System Dynamics initialized for {zone_id}")
+
+            else:
+                self.zones[zone_id].last_time = abs_time
+
+            z = self.zones[zone_id]
+            
+            # Runtime Variable Fetching
+            m_dot_current = self.exchange.get_variable_value(state, z.handles["m_dot"])
+            v_dot_current = m_dot_current / 1.204 
+            u_current = [v_dot_current]
+            
+            current_adj_zones = [{
+                'T_in': self.exchange.get_variable_value(state, adj["handle_T_in"]),
+                'R_env': adj["R_env"]
+            } for adj in z.adj_zones]
+
+            current_params = {
+                'C_air': z.C_air, 'C_mass': z.C_mass,
+                'R_env_ext': z.R_env_ext, 'R_env_gnd':z.R_env_gnd,
+                'R_int': z.R_int, 'M_air': z.M_air, 'V_room': z.V_room,
+                'T_out': self.exchange.get_variable_value(state, z.handles["T_out"]), 
+                'N_occ': self.exchange.get_variable_value(state, z.handles["N_occ"]),
+                'Q_equip': self.exchange.get_variable_value(state, z.handles["Q_equip"]),
+                'T_s': self.exchange.get_variable_value(state, z.handles["T_s"]),
+                'W_s': self.exchange.get_variable_value(state, z.handles["W_s"]),
+                'C_s': self.exchange.get_variable_value(state, z.handles["C_s"]),
+                'd_T': 0.0, 'd_W': 0.0, 'd_C': 0.0,
+                'adj_zones': current_adj_zones 
+            }
+
+            x_solver = [
+                self.exchange.get_variable_value(state, z.handles["T_in"]),
+                self.exchange.get_variable_value(state, z.handles["T_m"]),
+                self.exchange.get_variable_value(state, z.handles["W_in"]),
+                self.exchange.get_variable_value(state, z.handles["CO2_in"])
+            ]
+
+            dt_hours = self.exchange.system_time_step(state)
+            if dt_hours == 0: 
+                dt_hours = self.exchange.zone_time_step(state)
+            time_vector = [0, dt_hours * 3600.0]
+
+            if debug_mode:
+                print(f"[DEBUG-RC] dt_hours = {dt_hours:.4f} | time_vector = {time_vector}")
+                print(f"[DEBUG-RC] Initial States (X0): T_in={x_solver[0]:.2f}, T_m={x_solver[1]:.2f}, W_in={x_solver[2]:.5f}, CO2={x_solver[3]:.1f}")
+                print(f"[DEBUG-RC] Control Inputs (U): m_dot={m_dot_current:.4f}, V_dot={v_dot_current:.4f}")
+                print(f"[DEBUG-RC] Dynamic Params: T_out={current_params['T_out']:.2f}, N_occ={current_params['N_occ']}, Q_eq={current_params['Q_equip']:.1f}")
+
+            # Solve the ODE
+            response = ct.input_output_response(z.sys_ode, time_vector, U=u_current, X0=x_solver, params=current_params)
+            x_predicted_next = response.states[:, -1]
+
+            if debug_mode:
+                print(f"[DEBUG-RC] Pred Next States: T_in_pred={x_predicted_next[0]:.2f}, T_m_pred={x_predicted_next[1]:.2f}")
+
+            # Save the estimation for the State Logger
+            self.model_estimations[zone_id] = {
+                "T_in_pred": x_predicted_next[0],
+                "T_m_pred": x_predicted_next[1],
+                "W_in_pred": x_predicted_next[2],
+                "C_in_pred": x_predicted_next[3]
+            }
+
+        except Exception as e:
+            print(f"\n[Model]   : ❌ [FATAL PREDICTION CRASH] {e}")
+            if debug_mode:
+                traceback.print_exc()
+
+    sim.zone_model = types.MethodType(zone_model, sim)
+    sim.register_handlers("begin", [{"method_name": "zone_model"}])
+    print(f"[SimEnv] : ✅ Predictive RC Model registered on 'begin' hook.")
 
 if __name__ == "__main__":
 
