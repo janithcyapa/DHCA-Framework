@@ -177,6 +177,11 @@ def ModifySimulationModel(sim):
     0.0,                      !- Fraction Radiant
     0.0;                      !- Fraction Lost
 
+    Schedule:Constant,
+    {z} Reheater Cmd,       
+    ,                         
+    0.0;
+
     OtherEquipment,
     {z} Standalone Reheater, 
     None,                     
