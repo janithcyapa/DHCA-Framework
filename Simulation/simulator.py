@@ -176,6 +176,20 @@ def ModifySimulationModel(sim):
     1.0,                      !- Fraction Latent (100% Moisture)
     0.0,                      !- Fraction Radiant
     0.0;                      !- Fraction Lost
+
+    OtherEquipment,
+    {z} Standalone Reheater, 
+    None,                     
+    {z},                      
+    {z} Reheater Cmd,       
+    EquipmentLevel,           
+    5000.0,                   !- Design Level {{W}} (5kW Reheat Capacity)
+    ,                         
+    ,                         
+    0.0,                      !- Fraction Latent (0% Moisture)
+    0.0,                      !- Fraction Radiant (0% Radiant, 100% Convective Air Heat)
+    0.0;                      !- Fraction Lost
+
     """
         idf_text += "\n" + humidifier_block
 
@@ -258,9 +272,11 @@ def SetupStateLogger(sim):
                     self._handle_definitions[f"{z}_Heat_Rate"] = ("Heating Coil Heating Rate", f"{z} PTAC HEATING COIL")
                     self._handle_definitions[f"{z}_Fan_Power"] = ("Fan Electricity Rate", f"{z} PTAC SUPPLY FAN")
                     self._handle_definitions[f"{z}_Hum_Actual_Rate"] = ("Other Equipment Latent Heat Gain Rate", f"{z} STANDALONE HUMIDIFIER")
+                    self._handle_definitions[f"{z}_Reheat_Actual_Rate"] = ("Other Equipment Convective Heating Rate", f"{z} STANDALONE REHEATER")
 
                 self._var_handles = {key: -1 for key in self._handle_definitions.keys()}
                 self._hum_act_handles = {z: -1 for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]}
+                self._reh_act_handles = {z: -1 for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]}
 
             # --- RUNTIME EXTRACTION ---
             day = self.exchange.day_of_year(state)
@@ -297,6 +313,18 @@ def SetupStateLogger(sim):
                     row[f"{z}_Hum_Rate"] = cmd_fraction * 2500.0
                 else:
                     row[f"{z}_Hum_Rate"] = 0.0
+
+            # 3. Fetch Reheaters
+            for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]:
+                if self._reh_act_handles[z] <= 0:
+                    self._reh_act_handles[z] = self.exchange.get_actuator_handle(state, "Schedule:Constant", "Schedule Value", f"{z} REHEATER CMD")
+
+                h_act = self._reh_act_handles[z]
+                if h_act > 0:
+                    cmd_fraction = self.exchange.get_actuator_value(state, h_act)
+                    row[f"{z}_Reheat_Rate"] = cmd_fraction * 5000.0  # 5kW Capacity mapping
+                else:
+                    row[f"{z}_Reheat_Rate"] = 0.0
             
             # --- INJECT PREDICTIONS FROM RC MODEL ---
             if hasattr(self, 'model_estimations'):
