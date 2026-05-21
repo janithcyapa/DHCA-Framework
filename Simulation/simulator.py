@@ -194,7 +194,6 @@ def ModifySimulationModel(sim):
     0.0,                      !- Fraction Latent (0% Moisture)
     0.0,                      !- Fraction Radiant (0% Radiant, 100% Convective Air Heat)
     0.0;                      !- Fraction Lost
-
     """
         idf_text += "\n" + humidifier_block
 
