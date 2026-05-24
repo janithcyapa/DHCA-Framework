@@ -11,8 +11,11 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         self.file_obj = None
         self.csv_writer = None
         self.handles = {}
+        self.handles = {}
         self.actuators = {}
-        self.zones = []
+        self.zones = {}
+        self.datasets = {}
+        self.start_day = None
 
     def initialize_system(self, state):
         """Helper method to setup handles and CSV once."""
@@ -29,6 +32,27 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         os.makedirs(os.path.dirname(self.csv_path), exist_ok=True)
         self.file_obj = open(self.csv_path, 'w', newline='')
         self.csv_writer = csv.writer(self.file_obj)
+
+        # 2.5 Load Datasets
+        for i in range(1, 6):
+            z_name = f"SPACE{i}-1"
+            csv_file = f"./SupplementaryData/combined_Room{i}.csv"
+            if os.path.exists(csv_file):
+                self.datasets[z_name] = []
+                with open(csv_file, 'r') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        plug_w = float(row['plug_load_energy [kWh]']) * 12000.0
+                        light_w = float(row['lighting_energy [kWh]']) * 12000.0
+                        occ = float(row['occupant_count [number]'])
+                        co2 = float(row['outdoor_co2 [ppm]']) if 'outdoor_co2 [ppm]' in row else 420.0
+                        self.datasets[z_name].append({
+                            'plug_W': plug_w,
+                            'light_W': light_w,
+                            'occupant_count': occ,
+                            'outdoor_co2': co2
+                        })
+                print(f" 📥 Loaded {len(self.datasets[z_name])} rows for {z_name}")
 
         headers = ["DayOfYear", "Hour", "Minute", "Out_Temp_C", "Out_RH_pct"]
         
@@ -87,6 +111,14 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             self.actuators[f"{z}_Reheat_SP"] = self.api.exchange.get_actuator_handle(
                 state, "System Node Setpoint", "Temperature Setpoint", f"{z} In Node")
 
+            # 5. Grab Dataset Override Actuators
+            self.actuators[f"{z}_People_SP"] = self.api.exchange.get_actuator_handle(
+                state, "People", "Number of People", f"{z} PEOPLE 1")
+            self.actuators[f"{z}_Equip_SP"] = self.api.exchange.get_actuator_handle(
+                state, "ElectricEquipment", "Electricity Rate", f"{z} ELECEQ 1")
+            self.actuators[f"{z}_Lights_SP"] = self.api.exchange.get_actuator_handle(
+                state, "Lights", "Electricity Rate", f"{z} LIGHTS 1")
+
         # 4.5. Get Central Equipment Handles
         headers.extend(["CC_Power_W", "HC_Power_W", "Fan_Power_W"])
         self.handles["CC_Power"] = self.api.exchange.get_variable_handle(state, "Cooling Coil Electricity Rate", "Main Cooling Coil 1")
@@ -100,6 +132,12 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             state, "System Node Setpoint", "Temperature Setpoint", "Main Heating Coil 1 Outlet Node")
         self.actuators["Fan_Flow"] = self.api.exchange.get_actuator_handle(
             state, "Fan", "Fan Air Mass Flow Rate", "Supply Fan 1")
+        
+        # 4.7 Outdoor CO2 and OA Mixer Actuators
+        self.actuators["CO2_Out_SP"] = self.api.exchange.get_actuator_handle(
+            state, "Schedule:Constant", "Schedule Value", "CO2-Outdoor-Schedule")
+        self.actuators["OA_Flow_SP"] = self.api.exchange.get_actuator_handle(
+            state, "Outdoor Air Controller", "Air Mass Flow Rate", "OA CONTROLLER 1")
 
         self.csv_writer.writerow(headers)
         self.file_obj.flush() # Force write headers immediately!
@@ -204,6 +242,30 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             "SPACE5-1": 12.0
         }
 
+        # Time Sync for Datasets
+        current_day = self.api.exchange.day_of_year(state)
+        current_time = self.api.exchange.current_time(state) # 0.0 to 24.0
+        
+        if self.start_day is None:
+            self.start_day = current_day
+
+        # 12 rows per hour for 5-min intervals
+        elapsed_hours = (current_day - self.start_day) * 24.0 + current_time
+        raw_idx = int(elapsed_hours * 12)
+
+        # Actuate Outdoor CO2 using Room1 dataset as baseline
+        if "SPACE1-1" in self.datasets:
+            df1 = self.datasets["SPACE1-1"]
+            idx1 = raw_idx % len(df1)
+            outdoor_co2 = df1[idx1]['outdoor_co2']
+            if self.actuators.get("CO2_Out_SP", -1) != -1:
+                self.api.exchange.set_actuator_value(state, self.actuators["CO2_Out_SP"], outdoor_co2)
+
+        # Actuate OA Controller Mass Flow Rate (dummy value for now, e.g. 0.2 kg/s)
+        # You can replace 0.2 with an MPC target for fresh air!
+        if self.actuators.get("OA_Flow_SP", -1) != -1:
+            self.api.exchange.set_actuator_value(state, self.actuators["OA_Flow_SP"], 0.2)
+
         # Override Central Cooling and Heating Coil Setpoints
         self.api.exchange.set_actuator_value(state, self.actuators["CC_Temp_SP"], 13.0)
         self.api.exchange.set_actuator_value(state, self.actuators["HC_Temp_SP"], 14.0)
@@ -211,6 +273,25 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         total_fan_flow = 0.0
 
         for z in self.zones:
+            # Inject Dataset Overrides
+            if z in self.datasets:
+                df = self.datasets[z]
+                idx = raw_idx % len(df)
+                
+                # Extract values
+                occ_count = df[idx]['occupant_count']
+                equip_w = df[idx]['plug_W']
+                light_w = df[idx]['light_W']
+                
+                # Set Actuators
+                handle_occ = self.actuators.get(f"{z}_People_SP", -1)
+                handle_eq = self.actuators.get(f"{z}_Equip_SP", -1)
+                handle_lt = self.actuators.get(f"{z}_Lights_SP", -1)
+                
+                if handle_occ != -1: self.api.exchange.set_actuator_value(state, handle_occ, occ_count)
+                if handle_eq != -1: self.api.exchange.set_actuator_value(state, handle_eq, equip_w)
+                if handle_lt != -1: self.api.exchange.set_actuator_value(state, handle_lt, light_w)
+
             mpc_commanded_flow = flow_targets.get(z, 0.1)
             total_fan_flow += mpc_commanded_flow
 
