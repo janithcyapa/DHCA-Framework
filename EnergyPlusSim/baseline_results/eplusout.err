@@ -1,0 +1,59 @@
+Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 19:32,
+   ** Warning ** PluginManager: Search path inputs requested adding epin variable to Python path, but epin variable was empty, skipping.
+   ************* PythonPlugin: Class HVAC_Coordinator imported from: /home/jazz/Projects/DHCA-Framework/EnergyPlusSim/controller.py
+   ************* Beginning Zone Sizing Calculations
+   ** Warning ** GetInternalHeatGains: People = SPACE1-1 PEOPLE 1
+   **   ~~~   ** Activity Level Schedule Name = ACTSCHD, schedule contains values that are < 70 and/or > 1000
+   **   ~~~   ** Values fall outside of typical w/person range for thermal comfort reporting.
+   ** Warning ** GetInternalHeatGains: People = SPACE2-1 PEOPLE 1
+   **   ~~~   ** Activity Level Schedule Name = ACTSCHD, schedule contains values that are < 70 and/or > 1000
+   **   ~~~   ** Values fall outside of typical w/person range for thermal comfort reporting.
+   ** Warning ** GetInternalHeatGains: People = SPACE3-1 PEOPLE 1
+   **   ~~~   ** Activity Level Schedule Name = ACTSCHD, schedule contains values that are < 70 and/or > 1000
+   **   ~~~   ** Values fall outside of typical w/person range for thermal comfort reporting.
+   ** Warning ** GetInternalHeatGains: People = SPACE4-1 PEOPLE 1
+   **   ~~~   ** Activity Level Schedule Name = ACTSCHD, schedule contains values that are < 70 and/or > 1000
+   **   ~~~   ** Values fall outside of typical w/person range for thermal comfort reporting.
+   ** Warning ** GetInternalHeatGains: People = SPACE5-1 PEOPLE 1
+   **   ~~~   ** Activity Level Schedule Name = ACTSCHD, schedule contains values that are < 70 and/or > 1000
+   **   ~~~   ** Values fall outside of typical w/person range for thermal comfort reporting.
+   ** Warning ** Calculated design heating load for zone=SPACE5-1 is zero.
+   **   ~~~   ** Check Sizing:Zone and ZoneControl:Thermostat inputs.
+   ************* Beginning System Sizing Calculations
+   ************* Testing Individual Branch Integrity
+   ************* All Branches passed integrity testing
+   ************* Testing Individual Supply Air Path Integrity
+   ************* All Supply Air Paths passed integrity testing
+   ************* Testing Individual Return Air Path Integrity
+   ************* All Return Air Paths passed integrity testing
+   ************* No node connection errors were found.
+   ************* Beginning Simulation
+   ** Warning ** Enthalpy out of range (PsyTsatFnHPb)
+   **   ~~~   **  Routine=CalcMultiSpeedDXCoil:newdewpointconditions,
+   **   ~~~   **  Environment=MPC_SUMMER_TEST, at Simulation time=07/06 21:30 - 21:45
+   **   ~~~   **  Enthalpy=-349112.79237 Pressure= 99675.00
+   **   ~~~   **  Initial Resultant Temperature= -59.98
+   ** Warning ** Temperature out of range [-100. to 200.] (PsyPsatFnTemp)
+   **   ~~~   **  Routine=CalcMultiSpeedDXCoil:newdewpointconditions,
+   **   ~~~   **  Environment=MPC_SUMMER_TEST, at Simulation time=07/06 21:30 - 21:45
+   **   ~~~   **  Input Temperature=-364.63
+   ************* Simulation Error Summary *************
+   *************
+   ************* ===== Recurring Error Summary =====
+   ************* The following recurring error messages occurred.
+   *************
+   *************  ** Warning ** Enthalpy out of range (PsyTsatFnHPb)
+   *************  **   ~~~   **   This error occurred 6 total times;
+   *************  **   ~~~   **   during Warmup 0 times;
+   *************  **   ~~~   **   during Sizing 0 times.
+   *************  **   ~~~   **   Max=-342554.536421 J/kg  Min=-349112.792371 J/kg
+   *************
+   *************  ** Warning ** Temperature out of range [-100. to 200.] (PsyPsatFnTemp)
+   *************  **   ~~~   **   This error occurred 12 total times;
+   *************  **   ~~~   **   during Warmup 0 times;
+   *************  **   ~~~   **   during Sizing 0 times.
+   *************  **   ~~~   **   Max=-358.121109 C  Min=-365.226990 C
+   *************
+   ************* EnergyPlus Warmup Error Summary. During Warmup: 0 Warning; 0 Severe Errors.
+   ************* EnergyPlus Sizing Error Summary. During Sizing: 6 Warning; 0 Severe Errors.
+   ************* EnergyPlus Completed Successfully-- 24 Warning; 0 Severe Errors; Elapsed Time=00hr 00min  4.37sec

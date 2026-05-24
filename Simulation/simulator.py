@@ -116,10 +116,12 @@ def ModifySimulationModel(sim):
         activate=True,
         reset=True
     )
-
+    
     # 2. Variable Tracking Specification Configuration
     specs = [
         {"name": "Other Equipment Latent Heat Gain Rate", "key": "*"},
+        {"name": "Other Equipment Convective Heating Rate", "key": "*"},
+
         {"name": "Site Outdoor Air Relative Humidity", "key": "*"},
         {"name": "Site Outdoor Air Humidity Ratio", "key": "*"},
         {"name": "Zone Outdoor Air Drybulb Temperature", "key": "*"},
@@ -267,7 +269,9 @@ def SetupStateLogger(sim):
                     self._handle_definitions[f"{z}_Supply_RH_%"] = ("System Node Relative Humidity", f"{z} PTAC SUPPLY INLET")
                     self._handle_definitions[f"{z}_W_supply"] = ("System Node Humidity Ratio", f"{z} PTAC SUPPLY INLET")
                     self._handle_definitions[f"{z}_C_supply"] = ("System Node CO2 Concentration", f"{z} PTAC SUPPLY INLET")
-         
+
+                    self._handle_definitions[f"{z}_m_dot"] = ("System Node Mass Flow Rate", f"{z} PTAC SUPPLY INLET")
+                    self._handle_definitions[f"{z}_OA_Flow_Actual"] = ("System Node Mass Flow Rate", f"{z} PTAC OUTSIDE AIR INLET")
                     self._handle_definitions[f"{z}_Mix_T"] = ("System Node Temperature", f"{z} PTAC MIXED AIR OUTLET")
                     self._handle_definitions[f"{z}_Mix_RH_%"] = ("System Node Relative Humidity", f"{z} PTAC MIXED AIR OUTLET")
                     self._handle_definitions[f"{z}_Mix_C"] = ("System Node CO2 Concentration", f"{z} PTAC MIXED AIR OUTLET")
@@ -276,7 +280,7 @@ def SetupStateLogger(sim):
                     self._handle_definitions[f"{z}_Heat_Rate"] = ("Heating Coil Heating Rate", f"{z} PTAC HEATING COIL")
                     self._handle_definitions[f"{z}_Fan_Power"] = ("Fan Electricity Rate", f"{z} PTAC SUPPLY FAN")
                     self._handle_definitions[f"{z}_Hum_Actual_Rate"] = ("Other Equipment Latent Heat Gain Rate", f"{z} STANDALONE HUMIDIFIER")
-                    self._handle_definitions[f"{z}_Reheat_Actual_Rate"] = ("Other Equipment Convective Heating Rate", f"{z} STANDALONE REHEATER")
+                    self._handle_definitions[f"{z}_Reheat_Actual_Rate"] = ("Other Equipment Convective Heating Rate", f"{z} STANDALONE REHEATER") 
 
                 self._var_handles = {key: -1 for key in self._handle_definitions.keys()}
                 self._hum_act_handles = {z: -1 for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]}
@@ -308,27 +312,21 @@ def SetupStateLogger(sim):
 
             # 2. Fetch Humidifiers
             for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]:
-                if self._hum_act_handles[z] <= 0:
-                    self._hum_act_handles[z] = self.exchange.get_actuator_handle(state, "Schedule:Constant", "Schedule Value", f"{z} HUMIDIFIER CMD")
-
-                h_act = self._hum_act_handles[z]
-                if h_act > 0:
-                    cmd_fraction = self.exchange.get_actuator_value(state, h_act)
-                    row[f"{z}_Hum_Rate"] = cmd_fraction * 2500.0
+                
+                # --- Read Humidifier ---
+                h_hum = self.exchange.get_actuator_handle(state, "OtherEquipment", "Power Level", f"{z} STANDALONE HUMIDIFIER")
+                if h_hum > 0:
+                    # It's already in Watts, log it directly!
+                    row[f"{z}_Hum_Actual_Rate_1"] = self.exchange.get_actuator_value(state, h_hum)
                 else:
-                    row[f"{z}_Hum_Rate"] = 0.0
+                    row[f"{z}_Hum_Actual_Rate_1"] = 0.0
 
-            # 3. Fetch Reheaters
-            for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]:
-                if self._reh_act_handles[z] <= 0:
-                    self._reh_act_handles[z] = self.exchange.get_actuator_handle(state, "Schedule:Constant", "Schedule Value", f"{z} REHEATER CMD")
-
-                h_act = self._reh_act_handles[z]
-                if h_act > 0:
-                    cmd_fraction = self.exchange.get_actuator_value(state, h_act)
-                    row[f"{z}_Reheat_Rate"] = cmd_fraction * 5000.0  # 5kW Capacity mapping
+                # --- Read Reheater ---
+                h_reh = self.exchange.get_actuator_handle(state, "OtherEquipment", "Power Level", f"{z} STANDALONE REHEATER")
+                if h_reh > 0:
+                    row[f"{z}_Reheat_Actual_Rate_1"] = self.exchange.get_actuator_value(state, h_reh)
                 else:
-                    row[f"{z}_Reheat_Rate"] = 0.0
+                    row[f"{z}_Reheat_Actual_Rate_1"] = 0.0
             
             # --- INJECT PREDICTIONS FROM RC MODEL ---
             if hasattr(self, 'model_estimations'):
@@ -356,16 +354,31 @@ def SetupStateLogger(sim):
                         row[f"{z}_N_occ_est"] = np.nan
                         
             # --- INJECT MPC COMMANDS ---
+
             if hasattr(self, 'current_mpc_commands'):
                 for z in ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]:
                     cmd = self.current_mpc_commands.get(z, {})
+                    # 1. Log the raw commands
                     row[f"{z}_Cmd_Fan_Flow"] = cmd.get("flow", np.nan)
-                    row[f"{z}_Cmd_Temp_Setpt"] = cmd.get("temp", np.nan)
                     row[f"{z}_Cmd_OA_Flow"] = cmd.get("oa_flow", np.nan)
-                    row[f"{z}_Cmd_Humidifier"] = cmd.get("humidifier", np.nan)
                     row[f"{z}_Cmd_Clg_Setpt"] = cmd.get("clg_stp", np.nan)
                     row[f"{z}_Cmd_Htg_Setpt"] = cmd.get("htg_stp", np.nan)
+                    
+                    # 2. FIX: Convert Fractional Commands (0-1) to Watts for the Plotly Dashboard
+                    hum_cmd_frac = cmd.get("humidifier", np.nan)
+                    reh_cmd_frac = cmd.get("reheater", np.nan)
+                    row[f"{z}_Cmd_Humidifier_W"] = hum_cmd_frac * HUMIDIFIER_CAPACITY_W if not np.isnan(hum_cmd_frac) else np.nan
+                    row[f"{z}_Cmd_Reheater_W"] = reh_cmd_frac * REHEATER_CAPACITY_W if not np.isnan(reh_cmd_frac) else np.nan
 
+                    # 3. FIX: Fetch the ACTUAL Outdoor Air Flow from EnergyPlus
+                    # Ensure you have 'Output:Variable, *, System Node Mass Flow Rate, hourly;' in your IDF
+                    oa_node_name = f"{z} PTAC OUTSIDE AIR INLET"
+                    oa_handle = self.exchange.get_variable_handle(state, "System Node Mass Flow Rate", oa_node_name)
+                    
+                    if oa_handle > 0:
+                        row[f"{z}_OA_Flow_Actual"] = self.exchange.get_variable_value(state, oa_handle)
+                    else:
+                        row[f"{z}_OA_Flow_Actual"] = np.nan # If handle fails, log NaN to prevent crashes
 
             # --- SAVE DATA ---
             self.sim_log_data.append(row)
