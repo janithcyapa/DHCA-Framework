@@ -264,7 +264,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         # Actuate OA Controller Mass Flow Rate (dummy value for now, e.g. 0.2 kg/s)
         # You can replace 0.2 with an MPC target for fresh air!
         if self.actuators.get("OA_Flow_SP", -1) != -1:
-            self.api.exchange.set_actuator_value(state, self.actuators["OA_Flow_SP"], 0.2)
+            self.api.exchange.set_actuator_value(state, self.actuators["OA_Flow_SP"], 1.0)
 
         # Override Central Cooling and Heating Coil Setpoints
         self.api.exchange.set_actuator_value(state, self.actuators["CC_Temp_SP"], 13.0)
