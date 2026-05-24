@@ -38,6 +38,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
         # 3.5. Get Central Air Loop Node Handles
         central_nodes = {
+            "Outdoor_Air": "Outside Air Inlet Node 1",
             "Mixer_Inlet": "VAV Sys 1 Inlet Node",
             "Mixed_Air": "Mixed Air Node 1",
             "CC_Out": "Main Cooling Coil 1 Outlet Node",
@@ -45,15 +46,18 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             "Fan_Out": "VAV Sys 1 Outlet Node"
         }
         for name, node in central_nodes.items():
-            headers.append(f"{name}_Flow_kg_s")
+            headers.extend([f"{name}_Temp_C", f"{name}_RH_pct", f"{name}_Flow_kg_s"])
+            self.handles[f"{name}_Temp"] = self.api.exchange.get_variable_handle(state, "System Node Temperature", node)
+            self.handles[f"{name}_RH"] = self.api.exchange.get_variable_handle(state, "System Node Relative Humidity", node)
             self.handles[f"{name}_Flow"] = self.api.exchange.get_variable_handle(state, "System Node Mass Flow Rate", node)
 
         # 4. Get Zone & VAV Handles
         for z in self.zones:
-            headers.extend([f"{z}_Temp_C", f"{z}_RH_pct", f"{z}_VAV_Flow_kg_s"])
+            headers.extend([f"{z}_Temp_C", f"{z}_RH_pct", f"{z}_VAV_Flow_kg_s", f"{z}_Reheater_W"])
             self.handles[f"{z}_Temp"] = self.api.exchange.get_variable_handle(state, "Zone Mean Air Temperature", z)
             self.handles[f"{z}_RH"] = self.api.exchange.get_variable_handle(state, "Zone Air Relative Humidity", z)
             self.handles[f"{z}_VAV_Flow"] = self.api.exchange.get_variable_handle(state, "System Node Mass Flow Rate", f"{z} In Node")
+            self.handles[f"{z}_Reheater"] = self.api.exchange.get_variable_handle(state, "Heating Coil NaturalGas Rate", f"{z} Zone Coil")
 
             node_name = f"{z} ATU IN NODE"
             
@@ -72,6 +76,12 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             self.actuators[f"{z}_Flow_SP"] = handle_sp
             self.actuators[f"{z}_Flow_MAX"] = handle_max
             self.actuators[f"{z}_Flow_MIN"] = handle_min
+
+        # 4.5. Get Central Equipment Handles
+        headers.extend(["CC_Power_W", "HC_Power_W", "Fan_Power_W"])
+        self.handles["CC_Power"] = self.api.exchange.get_variable_handle(state, "Cooling Coil Electricity Rate", "Main Cooling Coil 1")
+        self.handles["HC_Power"] = self.api.exchange.get_variable_handle(state, "Heating Coil NaturalGas Rate", "Main heating Coil 1")
+        self.handles["Fan_Power"] = self.api.exchange.get_variable_handle(state, "Fan Electricity Rate", "Supply Fan 1")
 
         self.csv_writer.writerow(headers)
         self.file_obj.flush() # Force write headers immediately!
@@ -123,7 +133,9 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         row.append(round(self.api.exchange.get_variable_value(state, self.handles['Out_RH']), 2))
 
         # Extract Central Nodes
-        for name in ["Mixer_Inlet", "Mixed_Air", "CC_Out", "HC_Out", "Fan_Out"]:
+        for name in ["Outdoor_Air", "Mixer_Inlet", "Mixed_Air", "CC_Out", "HC_Out", "Fan_Out"]:
+            row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{name}_Temp"]), 2))
+            row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{name}_RH"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{name}_Flow"]), 4))
 
 
@@ -132,6 +144,11 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_Temp"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_RH"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_VAV_Flow"]), 4))
+            row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_Reheater"]), 2))
+
+        # Extract Central Equipment
+        for eq in ["CC_Power", "HC_Power", "Fan_Power"]:
+            row.append(round(self.api.exchange.get_variable_value(state, self.handles[eq]), 2))
 
         # Write and force save
         self.csv_writer.writerow(row)
@@ -147,10 +164,17 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         if self.api.exchange.warmup_flag(state): return 0
         if not self.is_initialized: return 0
 
-        # Your MPC commanded airflow
-        mpc_commanded_flow = 0.9
+        # Your MPC commanded airflow (different per zone)
+        flow_targets = {
+            "SPACE1-1": 0.08,
+            "SPACE2-1": 0.10,
+            "SPACE3-1": 0.12,
+            "SPACE4-1": 0.14,
+            "SPACE5-1": 0.16
+        }
 
         for z in self.zones:
+            mpc_commanded_flow = flow_targets.get(z, 0.1)
             handle_sp = self.actuators.get(f"{z}_Flow_SP", -1)
             handle_max = self.actuators.get(f"{z}_Flow_MAX", -1)
             handle_min = self.actuators.get(f"{z}_Flow_MIN", -1) # Get Min

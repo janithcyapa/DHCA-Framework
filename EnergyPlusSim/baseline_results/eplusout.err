@@ -1,4 +1,4 @@
-Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 19:32,
+Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 20:03,
    ** Warning ** PluginManager: Search path inputs requested adding epin variable to Python path, but epin variable was empty, skipping.
    ************* PythonPlugin: Class HVAC_Coordinator imported from: /home/jazz/Projects/DHCA-Framework/EnergyPlusSim/controller.py
    ************* Beginning Zone Sizing Calculations
@@ -28,32 +28,22 @@ Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 19:32,
    ************* All Return Air Paths passed integrity testing
    ************* No node connection errors were found.
    ************* Beginning Simulation
-   ** Warning ** Enthalpy out of range (PsyTsatFnHPb)
-   **   ~~~   **  Routine=CalcMultiSpeedDXCoil:newdewpointconditions,
-   **   ~~~   **  Environment=MPC_SUMMER_TEST, at Simulation time=07/06 21:30 - 21:45
-   **   ~~~   **  Enthalpy=-349112.79237 Pressure= 99675.00
-   **   ~~~   **  Initial Resultant Temperature= -59.98
-   ** Warning ** Temperature out of range [-100. to 200.] (PsyPsatFnTemp)
-   **   ~~~   **  Routine=CalcMultiSpeedDXCoil:newdewpointconditions,
-   **   ~~~   **  Environment=MPC_SUMMER_TEST, at Simulation time=07/06 21:30 - 21:45
-   **   ~~~   **  Input Temperature=-364.63
+   ** Warning ** Calculated Relative Humidity out of range (PsyRhFnTdbWPb) 
+   **   ~~~   **  Routine=NodeReportingCalc:MAIN COOLING COIL 1 OUTLET NODE
+   **   ~~~   **  Environment=MPC_SUMMER_TEST, at Simulation time=07/01 00:00 - 00:04
+   **   ~~~   **  Dry-Bulb= 14.01 Humidity Ratio= 1.061E-002 Calculated Relative Humidity [%]= 103.56
+   **   ~~~   ** Relative Humidity being reset to 100.0%
    ************* Simulation Error Summary *************
    *************
    ************* ===== Recurring Error Summary =====
    ************* The following recurring error messages occurred.
    *************
-   *************  ** Warning ** Enthalpy out of range (PsyTsatFnHPb)
-   *************  **   ~~~   **   This error occurred 6 total times;
+   *************  ** Warning ** Calculated Relative Humidity out of range (PsyRhFnTdbWPb)
+   *************  **   ~~~   **   This error occurred 2036 total times;
    *************  **   ~~~   **   during Warmup 0 times;
    *************  **   ~~~   **   during Sizing 0 times.
-   *************  **   ~~~   **   Max=-342554.536421 J/kg  Min=-349112.792371 J/kg
-   *************
-   *************  ** Warning ** Temperature out of range [-100. to 200.] (PsyPsatFnTemp)
-   *************  **   ~~~   **   This error occurred 12 total times;
-   *************  **   ~~~   **   during Warmup 0 times;
-   *************  **   ~~~   **   during Sizing 0 times.
-   *************  **   ~~~   **   Max=-358.121109 C  Min=-365.226990 C
+   *************  **   ~~~   **   Max=125.925237 %  Min=101.008865 %
    *************
    ************* EnergyPlus Warmup Error Summary. During Warmup: 0 Warning; 0 Severe Errors.
    ************* EnergyPlus Sizing Error Summary. During Sizing: 6 Warning; 0 Severe Errors.
-   ************* EnergyPlus Completed Successfully-- 24 Warning; 0 Severe Errors; Elapsed Time=00hr 00min  4.37sec
+   ************* EnergyPlus Completed Successfully-- 2042 Warning; 0 Severe Errors; Elapsed Time=00hr 00min  0.63sec

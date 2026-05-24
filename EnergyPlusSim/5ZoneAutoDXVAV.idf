@@ -2843,6 +2843,11 @@
   Output:Variable, *, Zone Mean Air Temperature, Timestep;
   Output:Variable, *, Zone Air Relative Humidity, Timestep;
   Output:Variable, *, System Node Mass Flow Rate, Timestep;
+  Output:Variable, *, System Node Temperature, Timestep;
+  Output:Variable, *, System Node Relative Humidity, Timestep;
+  Output:Variable, *, Heating Coil NaturalGas Rate, Timestep;
+  Output:Variable, *, Cooling Coil Electricity Rate, Timestep;
+  Output:Variable, *, Fan Electricity Rate, Timestep;
 
 
   OutputControl:Table:Style,
