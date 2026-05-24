@@ -77,12 +77,24 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             self.actuators[f"{z}_Flow_SP"] = handle_sp
             self.actuators[f"{z}_Flow_MAX"] = handle_max
             self.actuators[f"{z}_Flow_MIN"] = handle_min
+            
+            # 4. Grab Reheater Temperature Setpoint
+            self.actuators[f"{z}_Reheat_SP"] = self.api.exchange.get_actuator_handle(
+                state, "System Node Setpoint", "Temperature Setpoint", f"{z} In Node")
 
         # 4.5. Get Central Equipment Handles
         headers.extend(["CC_Power_W", "HC_Power_W", "Fan_Power_W"])
         self.handles["CC_Power"] = self.api.exchange.get_variable_handle(state, "Cooling Coil Electricity Rate", "Main Cooling Coil 1")
         self.handles["HC_Power"] = self.api.exchange.get_variable_handle(state, "Heating Coil NaturalGas Rate", "Main heating Coil 1")
         self.handles["Fan_Power"] = self.api.exchange.get_variable_handle(state, "Fan Electricity Rate", "Supply Fan 1")
+
+        # 4.6. Central Equipment Actuators
+        self.actuators["CC_Temp_SP"] = self.api.exchange.get_actuator_handle(
+            state, "System Node Setpoint", "Temperature Setpoint", "Main Cooling Coil 1 Outlet Node")
+        self.actuators["HC_Temp_SP"] = self.api.exchange.get_actuator_handle(
+            state, "System Node Setpoint", "Temperature Setpoint", "Main Heating Coil 1 Outlet Node")
+        self.actuators["Fan_Flow"] = self.api.exchange.get_actuator_handle(
+            state, "Fan", "Fan Air Mass Flow Rate", "Supply Fan 1")
 
         self.csv_writer.writerow(headers)
         self.file_obj.flush() # Force write headers immediately!
@@ -174,15 +186,44 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             "SPACE5-1": 0.16
         }
 
+        # Dummy Reheater Temperature Targets in C
+        reheat_targets = {
+            "SPACE1-1": 32.0,
+            "SPACE2-1": 33.0,
+            "SPACE3-1": 34.0,
+            "SPACE4-1": 35.0,
+            "SPACE5-1": 36.0
+        }
+
+        # Override Central Cooling and Heating Coil Setpoints
+        self.api.exchange.set_actuator_value(state, self.actuators["CC_Temp_SP"], 13.0)
+        self.api.exchange.set_actuator_value(state, self.actuators["HC_Temp_SP"], 14.0)
+
+        total_fan_flow = 0.0
+
         for z in self.zones:
             mpc_commanded_flow = flow_targets.get(z, 0.1)
+            total_fan_flow += mpc_commanded_flow
+
+            # Flow Actuation
             handle_sp = self.actuators.get(f"{z}_Flow_SP", -1)
             handle_max = self.actuators.get(f"{z}_Flow_MAX", -1)
-            handle_min = self.actuators.get(f"{z}_Flow_MIN", -1) # Get Min
+            handle_min = self.actuators.get(f"{z}_Flow_MIN", -1)
             
             # THE TRIPLE CLAMP: Squeeze the node solver from all sides
             if handle_sp != -1 and handle_max != -1 and handle_min != -1:
                 self.api.exchange.set_actuator_value(state, handle_max, mpc_commanded_flow) # Set Max first
                 self.api.exchange.set_actuator_value(state, handle_min, mpc_commanded_flow) # Set Min second
                 self.api.exchange.set_actuator_value(state, handle_sp, mpc_commanded_flow)  # Set SP last
+
+            # Reheater Actuation
+            handle_reheat = self.actuators.get(f"{z}_Reheat_SP", -1)
+            if handle_reheat != -1:
+                self.api.exchange.set_actuator_value(state, handle_reheat, reheat_targets.get(z, 22.0))
+
+        # Calculate fan by combination of total from all the zones
+        handle_fan = self.actuators.get("Fan_Flow", -1)
+        if handle_fan != -1:
+            self.api.exchange.set_actuator_value(state, handle_fan, total_fan_flow)
+
         return 0

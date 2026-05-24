@@ -1,4 +1,4 @@
-Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 20:11,
+Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 20:21,
    ** Warning ** PluginManager: Search path inputs requested adding epin variable to Python path, but epin variable was empty, skipping.
    ************* PythonPlugin: Class HVAC_Coordinator imported from: /home/jazz/Projects/DHCA-Framework/EnergyPlusSim/controller.py
    ************* Beginning Zone Sizing Calculations
@@ -30,8 +30,8 @@ Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 20:11,
    ************* Beginning Simulation
    ** Warning ** Calculated Relative Humidity out of range (PsyRhFnTdbWPb) 
    **   ~~~   **  Routine=NodeReportingCalc:MAIN COOLING COIL 1 OUTLET NODE
-   **   ~~~   **  Environment=MPC_SUMMER_TEST, at Simulation time=07/01 00:00 - 00:04
-   **   ~~~   **  Dry-Bulb= 14.01 Humidity Ratio= 1.061E-002 Calculated Relative Humidity [%]= 103.56
+   **   ~~~   **  Environment=MPC_SUMMER_TEST, at Simulation time=07/01 00:00 - 00:15
+   **   ~~~   **  Dry-Bulb= 13.00 Humidity Ratio= 1.042E-002 Calculated Relative Humidity [%]= 108.76
    **   ~~~   ** Relative Humidity being reset to 100.0%
    ************* Simulation Error Summary *************
    *************
@@ -39,11 +39,11 @@ Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 20:11,
    ************* The following recurring error messages occurred.
    *************
    *************  ** Warning ** Calculated Relative Humidity out of range (PsyRhFnTdbWPb)
-   *************  **   ~~~   **   This error occurred 2036 total times;
+   *************  **   ~~~   **   This error occurred 2453 total times;
    *************  **   ~~~   **   during Warmup 0 times;
    *************  **   ~~~   **   during Sizing 0 times.
-   *************  **   ~~~   **   Max=125.925237 %  Min=101.008865 %
+   *************  **   ~~~   **   Max=132.193749 %  Min=101.001127 %
    *************
    ************* EnergyPlus Warmup Error Summary. During Warmup: 0 Warning; 0 Severe Errors.
    ************* EnergyPlus Sizing Error Summary. During Sizing: 6 Warning; 0 Severe Errors.
-   ************* EnergyPlus Completed Successfully-- 2042 Warning; 0 Severe Errors; Elapsed Time=00hr 00min  0.63sec
+   ************* EnergyPlus Completed Successfully-- 2459 Warning; 0 Severe Errors; Elapsed Time=00hr 00min  6.54sec
