@@ -179,7 +179,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
         # Your MPC commanded airflow (different per zone)
         flow_targets = {
-            "SPACE1-1": 0.08,
+            "SPACE1-1": 0.18,
             "SPACE2-1": 0.10,
             "SPACE3-1": 0.12,
             "SPACE4-1": 0.14,
@@ -188,11 +188,11 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
         # Dummy Reheater Temperature Targets in C
         reheat_targets = {
-            "SPACE1-1": 32.0,
-            "SPACE2-1": 33.0,
-            "SPACE3-1": 34.0,
-            "SPACE4-1": 35.0,
-            "SPACE5-1": 36.0
+            "SPACE1-1": 12.0,
+            "SPACE2-1": 12.0,
+            "SPACE3-1": 12.0,
+            "SPACE4-1": 12.0,
+            "SPACE5-1": 12.0
         }
 
         # Override Central Cooling and Heating Coil Setpoints
@@ -220,10 +220,5 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             handle_reheat = self.actuators.get(f"{z}_Reheat_SP", -1)
             if handle_reheat != -1:
                 self.api.exchange.set_actuator_value(state, handle_reheat, reheat_targets.get(z, 22.0))
-
-        # Calculate fan by combination of total from all the zones
-        handle_fan = self.actuators.get("Fan_Flow", -1)
-        if handle_fan != -1:
-            self.api.exchange.set_actuator_value(state, handle_fan, total_fan_flow)
 
         return 0
