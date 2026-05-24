@@ -1,4 +1,4 @@
-Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 21:42
+Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 22:01
 ! <Version>, Version ID
  Version, 25.1
 ! <Timesteps per Hour>, #TimeSteps, Minutes per TimeStep {minutes}
@@ -121,57 +121,57 @@ Zone Volume Capacitance Multiplier,   1.000 ,   1.000,   1.000,   1.000
 ! <Cooling Sizing Factor Information>, Sizing Factor ID, Value
  Cooling Sizing Factor Information, Global,   1.0000    
 ! <Zone Sizing Information>, Zone Name, Load Type, Calc Des Load {W}, User Des Load {W}, Calc Des Air Flow Rate {m3/s}, User Des Air Flow Rate {m3/s}, Design Day Name, Date/Time of Peak, Temperature at Peak {C}, Humidity Ratio at Peak {kgWater/kgDryAir}, Floor Area {m2}, # Occupants, Calc Outdoor Air Flow Rate {m3/s}, Calc DOAS Heat Addition Rate {W}
- Zone Sizing Information, SPACE1-1, Cooling, 7488.62514, 7488.62514, 0.78914, 0.78914, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 15:15:00, 31.33950, 1.46160E-002, 99.16000, 11.00000, 0.10229, 0.00000
- Zone Sizing Information, SPACE1-1, Heating, 1718.22983, 1718.22983, 4.99472E-002, 0.10229, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 01:30:00, -17.30000, 8.38927E-004, 99.16000, 11.00000, 0.10229, 0.00000
- Zone Sizing Information, SPACE2-1, Cooling, 3839.05925, 3839.05925, 0.40456, 0.40456, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 09:00:00, 25.61500, 1.46056E-002, 42.73500, 5.00000, 4.53094E-002, 0.00000
- Zone Sizing Information, SPACE2-1, Heating, 649.45757, 649.45757, 1.88791E-002, 4.53094E-002, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 01:30:00, -17.30000, 8.38927E-004, 42.73500, 5.00000, 4.53094E-002, 0.00000
- Zone Sizing Information, SPACE3-1, Cooling, 5942.13740, 5942.13740, 0.62618, 0.62618, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 07:15:00, 22.21775, 1.45995E-002, 96.48000, 11.00000, 0.10093, 0.00000
- Zone Sizing Information, SPACE3-1, Heating, 1576.81155, 1576.81155, 4.58364E-002, 0.10093, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 01:30:00, -17.30000, 8.38927E-004, 96.48000, 11.00000, 0.10093, 0.00000
- Zone Sizing Information, SPACE4-1, Cooling, 4456.41385, 4456.41385, 0.46961, 0.46961, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 17:30:00, 29.46700, 1.46126E-002, 42.73500, 5.00000, 4.53094E-002, 0.00000
- Zone Sizing Information, SPACE4-1, Heating, 649.45757, 649.45757, 1.88791E-002, 4.53094E-002, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 01:30:00, -17.30000, 8.38927E-004, 42.73500, 5.00000, 4.53094E-002, 0.00000
- Zone Sizing Information, SPACE5-1, Cooling, 4425.21414, 4425.21414, 0.46633, 0.46633, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 16:45:00, 30.21600, 1.46140E-002, 182.49000, 20.00000, 0.18710, 0.00000
- Zone Sizing Information, SPACE5-1, Heating, 0.00000, 0.00000, 0.00000, 0.18710, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 00:15:00, -17.30000, 8.38927E-004, 182.49000, 20.00000, 0.18710, 0.00000
+ Zone Sizing Information, SPACE1-1, Cooling, 8191.43447, 8191.43447, 0.86343, 0.86343, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 15:15:00, 31.33950, 1.46160E-002, 99.16000, 11.00000, 0.10229, 0.00000
+ Zone Sizing Information, SPACE1-1, Heating, 886.71616, 886.71616, 2.57803E-002, 0.10229, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 24:00:00, -17.30000, 8.38927E-004, 99.16000, 11.00000, 0.10229, 0.00000
+ Zone Sizing Information, SPACE2-1, Cooling, 4161.70816, 4161.70816, 0.43867, 0.43867, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 09:00:00, 25.61500, 1.46056E-002, 42.73500, 5.00000, 4.53094E-002, 0.00000
+ Zone Sizing Information, SPACE2-1, Heating, 268.01503, 268.01503, 7.79216E-003, 4.53094E-002, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 24:00:00, -17.30000, 8.38927E-004, 42.73500, 5.00000, 4.53094E-002, 0.00000
+ Zone Sizing Information, SPACE3-1, Cooling, 6645.85249, 6645.85249, 0.70053, 0.70053, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 07:15:00, 22.21775, 1.45995E-002, 96.48000, 11.00000, 0.10093, 0.00000
+ Zone Sizing Information, SPACE3-1, Heating, 744.97369, 744.97369, 2.16592E-002, 0.10093, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 24:00:00, -17.30000, 8.38927E-004, 96.48000, 11.00000, 0.10093, 0.00000
+ Zone Sizing Information, SPACE4-1, Cooling, 4778.82012, 4778.82012, 0.50372, 0.50372, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 17:30:00, 29.46700, 1.46126E-002, 42.73500, 5.00000, 4.53094E-002, 0.00000
+ Zone Sizing Information, SPACE4-1, Heating, 268.01503, 268.01503, 7.79216E-003, 4.53094E-002, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 24:00:00, -17.30000, 8.38927E-004, 42.73500, 5.00000, 4.53094E-002, 0.00000
+ Zone Sizing Information, SPACE5-1, Cooling, 5690.38548, 5690.38548, 0.59983, 0.59983, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 16:45:00, 30.21600, 1.46140E-002, 182.49000, 20.00000, 0.18710, 0.00000
+ Zone Sizing Information, SPACE5-1, Heating, 0.00000, 0.00000, 0.00000, 0.18710, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 22:30:00, -17.30000, 8.38927E-004, 182.49000, 20.00000, 0.18710, 0.00000
 ! <System Sizing Information>, System Name, Load Type, Peak Load Kind, User Design Capacity [W], Calc Des Air Flow Rate [m3/s], User Des Air Flow Rate [m3/s], Design Day Name, Date/Time of Peak
- System Sizing Information, VAV SYS 1, Cooling, Sensible, 29224.64, 2.75582, 2.75582, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 15:45:00
+ System Sizing Information, VAV SYS 1, Cooling, Sensible, 32537.04, 3.10618, 3.10618, CHICAGO_IL_USA ANNUAL COOLING 1% DESIGN CONDITIONS DB/MCWB, 7/3 15:45:00
  System Sizing Information, VAV SYS 1, Heating, Sensible, 20060.57, 0.48095, 0.48095, CHICAGO_IL_USA ANNUAL HEATING 99% DESIGN CONDITIONS DB, 1/8 00:15:00
 ! <Component Sizing Information>, Component Type, Component Name, Input Field Description, Value
- Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.78914
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.86343
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, User-Specified Maximum Air Flow Rate [m3/s], 2.00000
- Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, Design Size Constant Minimum Air Flow Fraction, 7.89144E-002
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, Design Size Constant Minimum Air Flow Fraction, 8.63432E-002
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, User-Specified Constant Minimum Air Flow Fraction, 0.00000
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, Design Size Minimum Air Flow Rate [m3/s], 0.00000
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, Design Size Maximum Flow Fraction during Reheat [], 5.11466E-002
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, Design Size Maximum Flow per Zone Floor Area during Reheat [ m3/s-m2 ], 1.03160E-003
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, User-Specified Maximum Flow per Zone Floor Area during Reheat [m3/s-m2], 2.03200E-003
  Component Sizing Information, Coil:Heating:Fuel, SPACE1-1 ZONE COIL, Design Size Nominal Capacity [W], 3896.37428
- Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE2-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.40456
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE2-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.43867
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE2-1 VAV REHEAT, User-Specified Maximum Air Flow Rate [m3/s], 2.00000
- Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE2-1 VAV REHEAT, Design Size Constant Minimum Air Flow Fraction, 4.04556E-002
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE2-1 VAV REHEAT, Design Size Constant Minimum Air Flow Fraction, 4.38672E-002
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE2-1 VAV REHEAT, User-Specified Constant Minimum Air Flow Fraction, 0.00000
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE2-1 VAV REHEAT, Design Size Minimum Air Flow Rate [m3/s], 0.00000
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE2-1 VAV REHEAT, Design Size Maximum Flow Fraction during Reheat [], 2.26547E-002
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE2-1 VAV REHEAT, Design Size Maximum Flow per Zone Floor Area during Reheat [ m3/s-m2 ], 1.06024E-003
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE2-1 VAV REHEAT, User-Specified Maximum Flow per Zone Floor Area during Reheat [m3/s-m2], 2.03200E-003
  Component Sizing Information, Coil:Heating:Fuel, SPACE2-1 ZONE COIL, Design Size Nominal Capacity [W], 1725.84458
- Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE3-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.62618
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE3-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.70053
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE3-1 VAV REHEAT, User-Specified Maximum Air Flow Rate [m3/s], 2.00000
- Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE3-1 VAV REHEAT, Design Size Constant Minimum Air Flow Fraction, 6.26179E-002
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE3-1 VAV REHEAT, Design Size Constant Minimum Air Flow Fraction, 7.00532E-002
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE3-1 VAV REHEAT, User-Specified Constant Minimum Air Flow Fraction, 0.00000
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE3-1 VAV REHEAT, Design Size Minimum Air Flow Rate [m3/s], 0.00000
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE3-1 VAV REHEAT, Design Size Maximum Flow Fraction during Reheat [], 5.04659E-002
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE3-1 VAV REHEAT, Design Size Maximum Flow per Zone Floor Area during Reheat [ m3/s-m2 ], 1.04614E-003
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE3-1 VAV REHEAT, User-Specified Maximum Flow per Zone Floor Area during Reheat [m3/s-m2], 2.03200E-003
  Component Sizing Information, Coil:Heating:Fuel, SPACE3-1 ZONE COIL, Design Size Nominal Capacity [W], 3844.51673
- Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE4-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.46961
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE4-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.50372
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE4-1 VAV REHEAT, User-Specified Maximum Air Flow Rate [m3/s], 2.00000
- Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE4-1 VAV REHEAT, Design Size Constant Minimum Air Flow Fraction, 4.69612E-002
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE4-1 VAV REHEAT, Design Size Constant Minimum Air Flow Fraction, 5.03719E-002
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE4-1 VAV REHEAT, User-Specified Constant Minimum Air Flow Fraction, 0.00000
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE4-1 VAV REHEAT, Design Size Minimum Air Flow Rate [m3/s], 0.00000
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE4-1 VAV REHEAT, Design Size Maximum Flow Fraction during Reheat [], 2.26547E-002
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE4-1 VAV REHEAT, Design Size Maximum Flow per Zone Floor Area during Reheat [ m3/s-m2 ], 1.06024E-003
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE4-1 VAV REHEAT, User-Specified Maximum Flow per Zone Floor Area during Reheat [m3/s-m2], 2.03200E-003
  Component Sizing Information, Coil:Heating:Fuel, SPACE4-1 ZONE COIL, Design Size Nominal Capacity [W], 1725.84458
- Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE5-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.46633
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE5-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.59983
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE5-1 VAV REHEAT, User-Specified Maximum Air Flow Rate [m3/s], 2.00000
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE5-1 VAV REHEAT, Design Size Constant Minimum Air Flow Fraction, 6.95287E-002
  Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE5-1 VAV REHEAT, User-Specified Constant Minimum Air Flow Fraction, 0.00000
@@ -199,7 +199,7 @@ Zone Volume Capacitance Multiplier,   1.000 ,   1.000,   1.000,   1.000
  Component Sizing Information, Coil:Cooling:DX:TwoSpeed, MAIN COOLING COIL 1, User-Specified Low Speed Gross Rated Sensible Heat Ratio, 0.80000
 ! <DX Cooling Coil AHRI 2023 Standard Rating Information>, Component Type, Component Name, Standard Rating (Net) Cooling Capacity {W}, Standard Rating Net COP2 {W/W}, EER2 {Btu/W-h}, SEER2 User {Btu/W-h}, SEER2 Standard {Btu/W-h}, IEER 2022 {Btu/W-h}
  DX Cooling Coil AHRI 2023 Standard Rating Information, Coil:Cooling:DX:TwoSpeed, MAIN COOLING COIL 1, 156233.6, 2.41, 8.23, 0.00, 0.00, 11.2
- Component Sizing Information, Coil:Heating:Fuel, MAIN HEATING COIL 1, Design Size Nominal Capacity [W], 414.44881
+ Component Sizing Information, Coil:Heating:Fuel, MAIN HEATING COIL 1, Design Size Nominal Capacity [W], 0.00000
  Component Sizing Information, Fan:VariableVolume, SUPPLY FAN 1, Design Size Maximum Flow Rate [m3/s], 10.00000
  Component Sizing Information, Fan:VariableVolume, SUPPLY FAN 1, Design Electric Power Consumption [W], 8571.42857
 ! <Environment>,Environment Name,Environment Type, Start Date, End Date, Start DayOfWeek, Duration {#days}, Source:Start DayOfWeek,  Use Daylight Saving, Use Holidays, Apply Weekend Holiday Rule,  Use Rain Values, Use Snow Values, Sky Temperature Model
@@ -210,12 +210,12 @@ Environment,MPC_SUMMER_TEST,WeatherFileRunPeriod,07/01/2014,07/08/2014,Tuesday,8
 Environment:Daylight Saving,No,RunPeriod Object
 Environment:WarmupDays,  6
 ! <Warmup Convergence Information>,Zone Name,Environment Type/Name,Average Warmup Temperature Difference {deltaC},Std Dev Warmup Temperature Difference {deltaC},Max Temperature Pass/Fail Convergence,Min Temperature Pass/Fail Convergence,Average Warmup Load Difference {W},Std Dev Warmup Load Difference {W},Heating Load Pass/Fail Convergence,Cooling Load Pass/Fail Convergence
- Warmup Convergence Information,PLENUM-1,RunPeriod: MPC_SUMMER_TEST,0.1734110678,0.1587439488,Pass,Pass,3.0108841479,11.8034129695,Pass,Pass
- Warmup Convergence Information,SPACE1-1,RunPeriod: MPC_SUMMER_TEST,0.2316469551,0.2861849751,Pass,Pass,7.9560970046E-002,9.6892811241E-002,Pass,Pass
- Warmup Convergence Information,SPACE2-1,RunPeriod: MPC_SUMMER_TEST,0.2051618535,0.2593924262,Pass,Pass,8.0614802636E-002,0.1018509123,Pass,Pass
- Warmup Convergence Information,SPACE3-1,RunPeriod: MPC_SUMMER_TEST,0.1201165778,0.1129453926,Pass,Pass,5.6017373453E-002,7.1618824740E-002,Pass,Pass
- Warmup Convergence Information,SPACE4-1,RunPeriod: MPC_SUMMER_TEST,1.1989758358,2.1297082655,Pass,Pass,1.6187661831,7.2533839347,Pass,Pass
- Warmup Convergence Information,SPACE5-1,RunPeriod: MPC_SUMMER_TEST,9.3125059326E-002,0.1446282134,Pass,Pass,0.1422424040,0.3531644953,Pass,Pass
+ Warmup Convergence Information,PLENUM-1,RunPeriod: MPC_SUMMER_TEST,0.1849353084,0.1664328479,Pass,Pass,2.7377157997,10.8546219354,Pass,Pass
+ Warmup Convergence Information,SPACE1-1,RunPeriod: MPC_SUMMER_TEST,0.3095744108,0.3716852109,Pass,Pass,8.3988882613E-002,9.3808448392E-002,Pass,Pass
+ Warmup Convergence Information,SPACE2-1,RunPeriod: MPC_SUMMER_TEST,0.2386254381,0.3049641348,Pass,Pass,8.1500338774E-002,9.8648303054E-002,Pass,Pass
+ Warmup Convergence Information,SPACE3-1,RunPeriod: MPC_SUMMER_TEST,0.1398870037,0.1455226728,Pass,Pass,6.0742040232E-002,8.0733092631E-002,Pass,Pass
+ Warmup Convergence Information,SPACE4-1,RunPeriod: MPC_SUMMER_TEST,1.2529626494,2.1417542186,Pass,Pass,1.2438594919,4.5056779242,Pass,Pass
+ Warmup Convergence Information,SPACE5-1,RunPeriod: MPC_SUMMER_TEST,0.1126751016,0.1816677490,Pass,Pass,0.1497463276,0.3652932653,Pass,Pass
 ! <Program Control Information:Threads/Parallel Sims>, Threading Supported,Maximum Number of Threads, Env Set Threads (OMP_NUM_THREADS), EP Env Set Threads (EP_OMP_NUM_THREADS), IDF Set Threads, Number of Threads Used (Interior Radiant Exchange), Number Nominal Surfaces, Number Parallel Sims
 Program Control:Threads/Parallel Sims, No,1, N/A, N/A, N/A, N/A, N/A, N/A
 End of Data

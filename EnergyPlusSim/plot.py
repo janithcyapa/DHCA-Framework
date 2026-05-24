@@ -69,6 +69,12 @@ for z, color in zip(ZONES, ZONE_COLORS):
     ), row=2, col=1)
 
 # --- Row 3: Zone CO2 ---
+fig.add_trace(go.Scatter(
+    x=df['Datetime'], y=df['Outdoor_Air_CO2_ppm'],
+    name='Outdoor CO₂', mode='lines',
+    line=dict(color='white', width=2, dash='dot')
+), row=3, col=1)
+
 for z, color in zip(ZONES, ZONE_COLORS):
     col_name = f'{z}_CO2_ppm'
     if col_name in df.columns:

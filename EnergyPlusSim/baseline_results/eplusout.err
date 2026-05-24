@@ -1,22 +1,7 @@
-Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 21:42,
+Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 22:01,
    ** Warning ** PluginManager: Search path inputs requested adding epin variable to Python path, but epin variable was empty, skipping.
    ************* PythonPlugin: Class HVAC_Coordinator imported from: /home/jazz/Projects/DHCA-Framework/EnergyPlusSim/controller.py
    ************* Beginning Zone Sizing Calculations
-   ** Warning ** GetInternalHeatGains: People = SPACE1-1 PEOPLE 1
-   **   ~~~   ** Activity Level Schedule Name = ACTSCHD, schedule contains values that are < 70 and/or > 1000
-   **   ~~~   ** Values fall outside of typical w/person range for thermal comfort reporting.
-   ** Warning ** GetInternalHeatGains: People = SPACE2-1 PEOPLE 1
-   **   ~~~   ** Activity Level Schedule Name = ACTSCHD, schedule contains values that are < 70 and/or > 1000
-   **   ~~~   ** Values fall outside of typical w/person range for thermal comfort reporting.
-   ** Warning ** GetInternalHeatGains: People = SPACE3-1 PEOPLE 1
-   **   ~~~   ** Activity Level Schedule Name = ACTSCHD, schedule contains values that are < 70 and/or > 1000
-   **   ~~~   ** Values fall outside of typical w/person range for thermal comfort reporting.
-   ** Warning ** GetInternalHeatGains: People = SPACE4-1 PEOPLE 1
-   **   ~~~   ** Activity Level Schedule Name = ACTSCHD, schedule contains values that are < 70 and/or > 1000
-   **   ~~~   ** Values fall outside of typical w/person range for thermal comfort reporting.
-   ** Warning ** GetInternalHeatGains: People = SPACE5-1 PEOPLE 1
-   **   ~~~   ** Activity Level Schedule Name = ACTSCHD, schedule contains values that are < 70 and/or > 1000
-   **   ~~~   ** Values fall outside of typical w/person range for thermal comfort reporting.
    ** Warning ** Calculated design heating load for zone=SPACE5-1 is zero.
    **   ~~~   ** Check Sizing:Zone and ZoneControl:Thermostat inputs.
    ************* Beginning System Sizing Calculations
@@ -29,9 +14,8 @@ Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 21:42,
    ************* No node connection errors were found.
    ************* Beginning Simulation
    ** Warning ** Calculated Relative Humidity out of range (PsyRhFnTdbWPb) 
-   **   ~~~   **  Routine=NodeReportingCalc:MAIN COOLING COIL 1 OUTLET NODE
-   **   ~~~   **  Environment=MPC_SUMMER_TEST, at Simulation time=07/01 00:00 - 00:04
-   **   ~~~   **  Dry-Bulb= 13.00 Humidity Ratio= 1.024E-002 Calculated Relative Humidity [%]= 106.90
+   **   ~~~   **  Routine=NodeReportingCalc:SPACE1-1 IN NODE Environment=MPC_SUMMER_TEST, at Simulation time=07/01 00:00 - 00:05
+   **   ~~~   **  Dry-Bulb= 13.84 Humidity Ratio= 1.024E-002 Calculated Relative Humidity [%]= 101.20
    **   ~~~   ** Relative Humidity being reset to 100.0%
    ************* Simulation Error Summary *************
    *************
@@ -39,11 +23,11 @@ Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 21:42,
    ************* The following recurring error messages occurred.
    *************
    *************  ** Warning ** Calculated Relative Humidity out of range (PsyRhFnTdbWPb)
-   *************  **   ~~~   **   This error occurred 40456 total times;
+   *************  **   ~~~   **   This error occurred 47496 total times;
    *************  **   ~~~   **   during Warmup 0 times;
    *************  **   ~~~   **   during Sizing 0 times.
-   *************  **   ~~~   **   Max=154.128045 %  Min=101.030840 %
+   *************  **   ~~~   **   Max=154.128045 %  Min=101.178489 %
    *************
    ************* EnergyPlus Warmup Error Summary. During Warmup: 0 Warning; 0 Severe Errors.
-   ************* EnergyPlus Sizing Error Summary. During Sizing: 6 Warning; 0 Severe Errors.
-   ************* EnergyPlus Completed Successfully-- 40462 Warning; 0 Severe Errors; Elapsed Time=00hr 00min 11.36sec
+   ************* EnergyPlus Sizing Error Summary. During Sizing: 1 Warning; 0 Severe Errors.
+   ************* EnergyPlus Completed Successfully-- 47497 Warning; 0 Severe Errors; Elapsed Time=00hr 00min 20.36sec
