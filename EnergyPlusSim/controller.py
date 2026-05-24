@@ -39,6 +39,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         # 3.5. Get Central Air Loop Node Handles
         central_nodes = {
             "Outdoor_Air": "Outside Air Inlet Node 1",
+            "Relief_Air": "Relief Air Outlet Node 1",
             "Mixer_Inlet": "VAV Sys 1 Inlet Node",
             "Mixed_Air": "Mixed Air Node 1",
             "CC_Out": "Main Cooling Coil 1 Outlet Node",
@@ -133,7 +134,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         row.append(round(self.api.exchange.get_variable_value(state, self.handles['Out_RH']), 2))
 
         # Extract Central Nodes
-        for name in ["Outdoor_Air", "Mixer_Inlet", "Mixed_Air", "CC_Out", "HC_Out", "Fan_Out"]:
+        for name in ["Outdoor_Air", "Relief_Air", "Mixer_Inlet", "Mixed_Air", "CC_Out", "HC_Out", "Fan_Out"]:
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{name}_Temp"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{name}_RH"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{name}_Flow"]), 4))

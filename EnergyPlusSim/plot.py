@@ -87,8 +87,9 @@ for z, color in zip(ZONES, ZONE_COLORS):
 # --- Central Node Definitions ---
 central_nodes = [
     ('Outdoor_Air', 'Outdoor Intake', 'white'),
-    ('Mixer_Recirculated', 'Return Air (Used in Mixer)', '#EF553B'),
-    ('Mixed_Air', 'Mixed Air', '#636EFA'),
+    ('Relief_Air', 'Relief Exhaust', 'gray'),
+    ('Mixer_Inlet', 'Total Return Air', '#EF553B'),
+    ('Mixed_Air', 'Mixed Air to AHU', '#636EFA'),
     ('CC_Out', 'Cooling Coil Out', '#00CC96'),
     ('HC_Out', 'Heating Coil Out', '#FFA15A'),
     ('Fan_Out', 'Supply Fan Out', '#19D3F3')
@@ -96,11 +97,9 @@ central_nodes = [
 
 # --- Row 5: AHU Temperatures ---
 for prefix, label, color in central_nodes:
-    # Mixer_Recirculated doesn't have a specific Temp, it shares Mixer_Inlet Temp
-    temp_prefix = 'Mixer_Inlet' if prefix == 'Mixer_Recirculated' else prefix
-    col_name = f"{temp_prefix}_Temp_C"
+    col_name = f"{prefix}_Temp_C"
     if col_name in df.columns:
-        dash = 'dot' if 'Outdoor' in prefix else 'solid'
+        dash = 'dot' if 'Outdoor' in prefix or 'Relief' in prefix else 'solid'
         fig.add_trace(go.Scatter(
             x=df['Datetime'], y=df[col_name],
             name=f'{label} Temp', mode='lines', line=dict(color=color, width=1.5, dash=dash)
@@ -108,10 +107,9 @@ for prefix, label, color in central_nodes:
 
 # --- Row 6: AHU Humidities ---
 for prefix, label, color in central_nodes:
-    rh_prefix = 'Mixer_Inlet' if prefix == 'Mixer_Recirculated' else prefix
-    col_name = f"{rh_prefix}_RH_pct"
+    col_name = f"{prefix}_RH_pct"
     if col_name in df.columns:
-        dash = 'dot' if 'Outdoor' in prefix else 'solid'
+        dash = 'dot' if 'Outdoor' in prefix or 'Relief' in prefix else 'solid'
         fig.add_trace(go.Scatter(
             x=df['Datetime'], y=df[col_name],
             name=f'{label} RH', mode='lines', line=dict(color=color, width=1.5, dash=dash)
@@ -121,7 +119,7 @@ for prefix, label, color in central_nodes:
 for prefix, label, color in central_nodes:
     col_name = f"{prefix}_Flow_kg_s"
     if col_name in df.columns:
-        dash = 'dot' if 'Outdoor' in prefix else 'solid'
+        dash = 'dot' if 'Outdoor' in prefix or 'Relief' in prefix else 'solid'
         fig.add_trace(go.Scatter(
             x=df['Datetime'], y=df[col_name],
             name=f'{label} Flow', mode='lines', line=dict(color=color, width=2, dash=dash)
@@ -176,5 +174,3 @@ fig.update_xaxes(title_text="Time", row=8, col=1)
 
 # Render the plot
 fig.show()
-
-
