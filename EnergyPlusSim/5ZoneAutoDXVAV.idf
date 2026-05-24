@@ -783,7 +783,8 @@
     ,                        !- Floor Area per Person {m2/person}
     0.3,                     !- Fraction Radiant
     AutoCalculate,           !- Sensible Heat Fraction
-    ActSchd;                 !- Activity Level Schedule Name
+    ActSchd,                 !- Activity Level Schedule Name
+    3.82e-8;                 !- Carbon Dioxide Generation Rate {m3/s-W}
 
   Lights,
     SPACE1-1 Lights 1,       !- Name
@@ -998,7 +999,8 @@
     ,                        !- Floor Area per Person {m2/person}
     0.3,                     !- Fraction Radiant
     AutoCalculate,           !- Sensible Heat Fraction
-    ActSchd;                 !- Activity Level Schedule Name
+    ActSchd,                 !- Activity Level Schedule Name
+    3.82e-8;                 !- Carbon Dioxide Generation Rate {m3/s-W}
 
   Lights,
     SPACE2-1 Lights 1,       !- Name
@@ -1178,7 +1180,8 @@
     ,                        !- Floor Area per Person {m2/person}
     0.3,                     !- Fraction Radiant
     AutoCalculate,           !- Sensible Heat Fraction
-    ActSchd;                 !- Activity Level Schedule Name
+    ActSchd,                 !- Activity Level Schedule Name
+    3.82e-8;                 !- Carbon Dioxide Generation Rate {m3/s-W}
 
   Lights,
     SPACE3-1 Lights 1,       !- Name
@@ -1373,7 +1376,8 @@
     ,                        !- Floor Area per Person {m2/person}
     0.3,                     !- Fraction Radiant
     AutoCalculate,           !- Sensible Heat Fraction
-    ActSchd;                 !- Activity Level Schedule Name
+    ActSchd,                 !- Activity Level Schedule Name
+    3.82e-8;                 !- Carbon Dioxide Generation Rate {m3/s-W}
 
   Lights,
     SPACE4-1 Lights 1,       !- Name
@@ -1553,7 +1557,8 @@
     ,                        !- Floor Area per Person {m2/person}
     0.3,                     !- Fraction Radiant
     AutoCalculate,           !- Sensible Heat Fraction
-    ActSchd;                 !- Activity Level Schedule Name
+    ActSchd,                 !- Activity Level Schedule Name
+    3.82e-8;                 !- Carbon Dioxide Generation Rate {m3/s-W}
 
   Lights,
     SPACE5-1 Lights 1,       !- Name
@@ -2849,6 +2854,24 @@
   Output:Variable, *, Cooling Coil Electricity Rate, Timestep;
   Output:Variable, *, Fan Electricity Rate, Timestep;
 
+  ! CO2, Occupancy, Equipment
+  Output:Variable, *, Zone Air CO2 Concentration, Timestep;
+  Output:Variable, *, System Node CO2 Concentration, Timestep;
+  Output:Variable, *, Zone People Occupant Count, Timestep;
+  Output:Variable, *, Zone Electric Equipment Total Heating Rate, Timestep;
+
+! CO2 Tracking
+
+Schedule:Constant,
+  CO2-Outdoor-Schedule,    !- Name
+  Any Number,              !- Schedule Type Limits Name
+  420.0;                   !- Hourly Value
+
+ZoneAirContaminantBalance,
+  Yes,                     !- Carbon Dioxide Concentration
+  CO2-Outdoor-Schedule,    !- Outdoor Carbon Dioxide Schedule Name
+  No,                      !- Generic Contaminant Concentration
+  ;                        !- Outdoor Generic Contaminant Schedule Name
 
   OutputControl:Table:Style,
     HTML,                    !- Column Separator

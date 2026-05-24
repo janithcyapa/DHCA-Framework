@@ -21,20 +21,24 @@ def eplus_time_to_datetime(row, year=2026):
 
 df['Datetime'] = df.apply(eplus_time_to_datetime, axis=1)
 
-# 4. Create the Plotly Subplots
+# 4. Create the Plotly Subplots (12 rows)
 fig = make_subplots(
-    rows=8, cols=1, 
+    rows=12, cols=1, 
     shared_xaxes=True,
-    vertical_spacing=0.03,
+    vertical_spacing=0.02,
     subplot_titles=(
-        "Zone Temperatures vs Outdoor (°C)", 
-        "Zone Relative Humidities vs Outdoor (%)", 
-        "Zone VAV Supply Mass Flows (kg/s)",
-        "Zone VAV Reheater Actuation (W)",
-        "AHU Temperatures (°C)",
-        "AHU Relative Humidities (%)",
-        "AHU Mass Flows (kg/s)",
-        "Central AHU Equipment Actuation (W)"
+        "1. Zone Temperatures vs Outdoor (°C)", 
+        "2. Zone Relative Humidities vs Outdoor (%)", 
+        "3. Zone CO₂ Concentrations (ppm)",
+        "4. Zone Occupancy (persons)",
+        "5. Zone Equipment Heat Loads (W)",
+        "6. Zone VAV Supply Mass Flows (kg/s)",
+        "7. Zone VAV Reheater Actuation (W)",
+        "8. AHU Temperatures (°C)",
+        "9. AHU CO₂ Concentrations (ppm)",
+        "10. AHU Relative Humidities (%)",
+        "11. AHU Mass Flows (kg/s)",
+        "12. Central AHU Equipment Actuation (W)"
     )
 )
 
@@ -51,7 +55,6 @@ for z, color in zip(ZONES, ZONE_COLORS):
         name=f'{z} Temp', mode='lines', line=dict(color=color, width=1.5)
     ), row=1, col=1)
 
-
 # --- Row 2: Zone Humidities ---
 fig.add_trace(go.Scatter(
     x=df['Datetime'], y=df['Out_RH_pct'],
@@ -65,15 +68,41 @@ for z, color in zip(ZONES, ZONE_COLORS):
         name=f'{z} RH', mode='lines', line=dict(color=color, width=1.5)
     ), row=2, col=1)
 
+# --- Row 3: Zone CO2 ---
+for z, color in zip(ZONES, ZONE_COLORS):
+    col_name = f'{z}_CO2_ppm'
+    if col_name in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['Datetime'], y=df[col_name],
+            name=f'{z} CO₂', mode='lines', line=dict(color=color, width=1.5)
+        ), row=3, col=1)
 
-# --- Row 3: Zone Flows ---
+# --- Row 4: Zone Occupancy ---
+for z, color in zip(ZONES, ZONE_COLORS):
+    col_name = f'{z}_Occupants'
+    if col_name in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['Datetime'], y=df[col_name],
+            name=f'{z} Occupants', mode='lines', line=dict(color=color, width=1.5)
+        ), row=4, col=1)
+
+# --- Row 5: Zone Equipment Loads ---
+for z, color in zip(ZONES, ZONE_COLORS):
+    col_name = f'{z}_EquipLoad_W'
+    if col_name in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['Datetime'], y=df[col_name],
+            name=f'{z} Equip Load', mode='lines', line=dict(color=color, width=1.5)
+        ), row=5, col=1)
+
+# --- Row 6: Zone Flows ---
 for z, color in zip(ZONES, ZONE_COLORS):
     fig.add_trace(go.Scatter(
         x=df['Datetime'], y=df[f'{z}_VAV_Flow_kg_s'],
         name=f'{z} Flow', mode='lines', line=dict(color=color, width=1.5)
-    ), row=3, col=1)
+    ), row=6, col=1)
 
-# --- Row 4: Zone Reheaters ---
+# --- Row 7: Zone Reheaters ---
 for z, color in zip(ZONES, ZONE_COLORS):
     col_name = f'{z}_Reheater_W'
     if col_name in df.columns:
@@ -81,7 +110,7 @@ for z, color in zip(ZONES, ZONE_COLORS):
             x=df['Datetime'], y=df[col_name],
             name=f'{z} Reheater', mode='lines', line=dict(color=color, width=1.5),
             fill='tozeroy'
-        ), row=4, col=1)
+        ), row=7, col=1)
 
 
 # --- Central Node Definitions ---
@@ -95,7 +124,7 @@ central_nodes = [
     ('Fan_Out', 'Supply Fan Out', '#19D3F3')
 ]
 
-# --- Row 5: AHU Temperatures ---
+# --- Row 8: AHU Temperatures ---
 for prefix, label, color in central_nodes:
     col_name = f"{prefix}_Temp_C"
     if col_name in df.columns:
@@ -103,9 +132,19 @@ for prefix, label, color in central_nodes:
         fig.add_trace(go.Scatter(
             x=df['Datetime'], y=df[col_name],
             name=f'{label} Temp', mode='lines', line=dict(color=color, width=1.5, dash=dash)
-        ), row=5, col=1)
+        ), row=8, col=1)
 
-# --- Row 6: AHU Humidities ---
+# --- Row 9: AHU CO2 ---
+for prefix, label, color in central_nodes:
+    col_name = f"{prefix}_CO2_ppm"
+    if col_name in df.columns:
+        dash = 'dot' if 'Outdoor' in prefix or 'Relief' in prefix else 'solid'
+        fig.add_trace(go.Scatter(
+            x=df['Datetime'], y=df[col_name],
+            name=f'{label} CO₂', mode='lines', line=dict(color=color, width=1.5, dash=dash)
+        ), row=9, col=1)
+
+# --- Row 10: AHU Humidities ---
 for prefix, label, color in central_nodes:
     col_name = f"{prefix}_RH_pct"
     if col_name in df.columns:
@@ -113,9 +152,9 @@ for prefix, label, color in central_nodes:
         fig.add_trace(go.Scatter(
             x=df['Datetime'], y=df[col_name],
             name=f'{label} RH', mode='lines', line=dict(color=color, width=1.5, dash=dash)
-        ), row=6, col=1)
+        ), row=10, col=1)
 
-# --- Row 7: AHU Flows ---
+# --- Row 11: AHU Flows ---
 for prefix, label, color in central_nodes:
     col_name = f"{prefix}_Flow_kg_s"
     if col_name in df.columns:
@@ -123,33 +162,33 @@ for prefix, label, color in central_nodes:
         fig.add_trace(go.Scatter(
             x=df['Datetime'], y=df[col_name],
             name=f'{label} Flow', mode='lines', line=dict(color=color, width=2, dash=dash)
-        ), row=7, col=1)
+        ), row=11, col=1)
 
-# --- Row 8: Central AHU Equipment Actuation ---
+# --- Row 12: Central AHU Equipment Actuation ---
 if 'CC_Power_W' in df.columns:
     fig.add_trace(go.Scatter(
         x=df['Datetime'], y=df['CC_Power_W'],
         name='Cooler (W)', mode='lines', line=dict(color='#00CC96', width=2), fill='tozeroy'
-    ), row=8, col=1)
+    ), row=12, col=1)
 
 if 'HC_Power_W' in df.columns:
     fig.add_trace(go.Scatter(
         x=df['Datetime'], y=df['HC_Power_W'],
         name='Heater (W)', mode='lines', line=dict(color='#FFA15A', width=2), fill='tozeroy'
-    ), row=8, col=1)
+    ), row=12, col=1)
 
 if 'Fan_Power_W' in df.columns:
     fig.add_trace(go.Scatter(
         x=df['Datetime'], y=df['Fan_Power_W'],
         name='Fan (W)', mode='lines', line=dict(color='#19D3F3', width=2), fill='tozeroy'
-    ), row=8, col=1)
+    ), row=12, col=1)
 
 
 # 5. Dashboard Layout & Theming
 fig.update_layout(
     title="MPC Whole System Performance Dashboard",
     template="plotly_dark",
-    height=2000,             
+    height=3200,             
     hovermode="x unified",
     showlegend=True,
     legend=dict(
@@ -164,13 +203,17 @@ fig.update_layout(
 # Update axis titles
 fig.update_yaxes(title_text="Temp (°C)", row=1, col=1)
 fig.update_yaxes(title_text="RH (%)", row=2, col=1)
-fig.update_yaxes(title_text="Flow (kg/s)", row=3, col=1)
-fig.update_yaxes(title_text="Power (W)", row=4, col=1)
-fig.update_yaxes(title_text="AHU Temp (°C)", row=5, col=1)
-fig.update_yaxes(title_text="AHU RH (%)", row=6, col=1)
-fig.update_yaxes(title_text="AHU Flow (kg/s)", row=7, col=1)
-fig.update_yaxes(title_text="Power (W)", row=8, col=1)
-fig.update_xaxes(title_text="Time", row=8, col=1)
+fig.update_yaxes(title_text="CO₂ (ppm)", row=3, col=1)
+fig.update_yaxes(title_text="Persons", row=4, col=1)
+fig.update_yaxes(title_text="Load (W)", row=5, col=1)
+fig.update_yaxes(title_text="Flow (kg/s)", row=6, col=1)
+fig.update_yaxes(title_text="Power (W)", row=7, col=1)
+fig.update_yaxes(title_text="AHU Temp (°C)", row=8, col=1)
+fig.update_yaxes(title_text="AHU CO₂ (ppm)", row=9, col=1)
+fig.update_yaxes(title_text="AHU RH (%)", row=10, col=1)
+fig.update_yaxes(title_text="AHU Flow (kg/s)", row=11, col=1)
+fig.update_yaxes(title_text="Power (W)", row=12, col=1)
+fig.update_xaxes(title_text="Time", row=12, col=1)
 
 # Render the plot
 fig.show()

@@ -47,18 +47,23 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             "Fan_Out": "VAV Sys 1 Outlet Node"
         }
         for name, node in central_nodes.items():
-            headers.extend([f"{name}_Temp_C", f"{name}_RH_pct", f"{name}_Flow_kg_s"])
+            headers.extend([f"{name}_Temp_C", f"{name}_RH_pct", f"{name}_Flow_kg_s", f"{name}_CO2_ppm"])
             self.handles[f"{name}_Temp"] = self.api.exchange.get_variable_handle(state, "System Node Temperature", node)
             self.handles[f"{name}_RH"] = self.api.exchange.get_variable_handle(state, "System Node Relative Humidity", node)
             self.handles[f"{name}_Flow"] = self.api.exchange.get_variable_handle(state, "System Node Mass Flow Rate", node)
+            self.handles[f"{name}_CO2"] = self.api.exchange.get_variable_handle(state, "System Node CO2 Concentration", node)
 
         # 4. Get Zone & VAV Handles
         for z in self.zones:
-            headers.extend([f"{z}_Temp_C", f"{z}_RH_pct", f"{z}_VAV_Flow_kg_s", f"{z}_Reheater_W"])
+            headers.extend([f"{z}_Temp_C", f"{z}_RH_pct", f"{z}_VAV_Flow_kg_s", f"{z}_Reheater_W",
+                            f"{z}_CO2_ppm", f"{z}_Occupants", f"{z}_EquipLoad_W"])
             self.handles[f"{z}_Temp"] = self.api.exchange.get_variable_handle(state, "Zone Mean Air Temperature", z)
             self.handles[f"{z}_RH"] = self.api.exchange.get_variable_handle(state, "Zone Air Relative Humidity", z)
             self.handles[f"{z}_VAV_Flow"] = self.api.exchange.get_variable_handle(state, "System Node Mass Flow Rate", f"{z} In Node")
             self.handles[f"{z}_Reheater"] = self.api.exchange.get_variable_handle(state, "Heating Coil NaturalGas Rate", f"{z} Zone Coil")
+            self.handles[f"{z}_CO2"] = self.api.exchange.get_variable_handle(state, "Zone Air CO2 Concentration", z)
+            self.handles[f"{z}_Occ"] = self.api.exchange.get_variable_handle(state, "Zone People Occupant Count", z)
+            self.handles[f"{z}_Equip"] = self.api.exchange.get_variable_handle(state, "Zone Electric Equipment Total Heating Rate", z)
 
             node_name = f"{z} ATU IN NODE"
             
@@ -150,6 +155,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{name}_Temp"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{name}_RH"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{name}_Flow"]), 4))
+            row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{name}_CO2"]), 2))
 
 
         # Extract Zones
@@ -158,6 +164,9 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_RH"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_VAV_Flow"]), 4))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_Reheater"]), 2))
+            row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_CO2"]), 2))
+            row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_Occ"]), 2))
+            row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_Equip"]), 2))
 
         # Extract Central Equipment
         for eq in ["CC_Power", "HC_Power", "Fan_Power"]:

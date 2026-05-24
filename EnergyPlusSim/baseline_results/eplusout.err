@@ -1,4 +1,4 @@
-Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 20:42,
+Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 21:02,
    ** Warning ** PluginManager: Search path inputs requested adding epin variable to Python path, but epin variable was empty, skipping.
    ************* PythonPlugin: Class HVAC_Coordinator imported from: /home/jazz/Projects/DHCA-Framework/EnergyPlusSim/controller.py
    ************* Beginning Zone Sizing Calculations
@@ -46,4 +46,4 @@ Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 20:42,
    *************
    ************* EnergyPlus Warmup Error Summary. During Warmup: 0 Warning; 0 Severe Errors.
    ************* EnergyPlus Sizing Error Summary. During Sizing: 6 Warning; 0 Severe Errors.
-   ************* EnergyPlus Completed Successfully-- 2239 Warning; 0 Severe Errors; Elapsed Time=00hr 00min  7.20sec
+   ************* EnergyPlus Completed Successfully-- 2239 Warning; 0 Severe Errors; Elapsed Time=00hr 00min  0.75sec

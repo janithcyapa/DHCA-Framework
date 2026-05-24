@@ -17,6 +17,7 @@ EnergyManagementSystem:Actuator Available,COOLINGCOILAVAILSCHED,Schedule:Compact
 EnergyManagementSystem:Actuator Available,REHEATCOILAVAILSCHED,Schedule:Compact,Schedule Value,[ ]
 EnergyManagementSystem:Actuator Available,SEASONAL RESET SUPPLY AIR TEMP SCH,Schedule:Compact,Schedule Value,[ ]
 EnergyManagementSystem:Actuator Available,MIN OAREQUIREMENTS SCHED,Schedule:Compact,Schedule Value,[ ]
+EnergyManagementSystem:Actuator Available,CO2-OUTDOOR-SCHEDULE,Schedule:Constant,Schedule Value,[ ]
 EnergyManagementSystem:Actuator Available,Environment,Weather Data,Outdoor Dry Bulb,[C]
 EnergyManagementSystem:Actuator Available,Environment,Weather Data,Outdoor Dew Point,[C]
 EnergyManagementSystem:Actuator Available,Environment,Weather Data,Outdoor Relative Humidity,[%]

@@ -1,4 +1,4 @@
-Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 20:42
+Program Version,EnergyPlus, Version 25.1.0-68a4a7c774, YMD=2026.05.24 21:02
 ! <Version>, Version ID
  Version, 25.1
 ! <Timesteps per Hour>, #TimeSteps, Minutes per TimeStep {minutes}
@@ -44,7 +44,7 @@ Sky Radiance Distribution,Anisotropic
 ! <Zone Air Solution Algorithm>, Algorithm {ThirdOrderBackwardDifference | AnalyticalSolution | EulerMethod}, Space Heat Balance Sizing, Space Heat Balance Simulation
  Zone Air Solution Algorithm, ThirdOrderBackwardDifference, No, No
 ! <Zone Air Carbon Dioxide Balance Simulation>, Simulation {Yes/No}, Carbon Dioxide Concentration
- Zone Air Carbon Dioxide Balance Simulation, No,N/A
+ Zone Air Carbon Dioxide Balance Simulation, Yes,YES
 ! <Zone Air Generic Contaminant Balance Simulation>, Simulation {Yes/No}, Generic Contaminant Concentration
  Zone Air Generic Contaminant Balance Simulation, No,N/A
 ! <Zone Air Mass Flow Balance Simulation>, Enforce Mass Balance, Adjust Zone Mixing and Return {AdjustMixingOnly | AdjustReturnOnly | AdjustMixingThenReturn | AdjustReturnThenMixing | None}, Adjust Zone Infiltration {AddInfiltration | AdjustInfiltration | None}, Infiltration Zones {MixingSourceZonesOnly | AllZones}
