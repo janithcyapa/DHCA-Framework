@@ -33,8 +33,8 @@ class MPCController:
         """
         # ── Placeholder: fixed targets ───────────────────────────────────
         flow_targets = {
-            "SPACE1-1": 0.18,
-            "SPACE2-1": 0.10,
+            "SPACE1-1": 3.0,
+            "SPACE2-1": 0.2,
             "SPACE3-1": 0.12,
             "SPACE4-1": 0.14,
             "SPACE5-1": 0.16,
