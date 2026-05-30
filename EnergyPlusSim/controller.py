@@ -1,6 +1,52 @@
 from pyenergyplus.plugin import EnergyPlusPlugin
 import csv
 import os
+import sys
+import json
+
+
+
+
+def mat_add(A, B):
+    return [[A[i][j] + B[i][j] for j in range(len(A[0]))] for i in range(len(A))]
+def mat_sub(A, B):
+    return [[A[i][j] - B[i][j] for j in range(len(A[0]))] for i in range(len(A))]
+def mat_mul(A, B):
+    return [[sum(A[i][k] * B[k][j] for k in range(len(B))) for j in range(len(B[0]))] for i in range(len(A))]
+def mat_transpose(A):
+    return [[A[j][i] for j in range(len(A))] for i in range(len(A[0]))]
+def vec_add(a, b):
+    return [a[i] + b[i] for i in range(len(a))]
+def vec_sub(a, b):
+    return [a[i] - b[i] for i in range(len(a))]
+def vec_scale(a, scalar):
+    return [a[i] * scalar for i in range(len(a))]
+def mat_vec_mul(M, v):
+    return [sum(M[i][j] * v[j] for j in range(len(v))) for i in range(len(M))]
+def mat_inv_3x3(m):
+    det = (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+           m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+           m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]))
+    if det == 0: return [[1.0 if i==j else 0 for j in range(3)] for i in range(3)]
+    inv_det = 1.0 / det
+    res = [[0]*3 for _ in range(3)]
+    res[0][0] = (m[1][1] * m[2][2] - m[2][1] * m[1][2]) * inv_det
+    res[0][1] = (m[0][2] * m[2][1] - m[0][1] * m[2][2]) * inv_det
+    res[0][2] = (m[0][1] * m[1][2] - m[0][2] * m[1][1]) * inv_det
+    res[1][0] = (m[1][2] * m[2][0] - m[1][0] * m[2][2]) * inv_det
+    res[1][1] = (m[0][0] * m[2][2] - m[0][2] * m[2][0]) * inv_det
+    res[1][2] = (m[1][0] * m[0][2] - m[0][0] * m[1][2]) * inv_det
+    res[2][0] = (m[1][0] * m[2][1] - m[2][0] * m[1][1]) * inv_det
+    res[2][1] = (m[2][0] * m[0][1] - m[0][0] * m[2][1]) * inv_det
+    res[2][2] = (m[0][0] * m[1][1] - m[1][0] * m[0][1]) * inv_det
+    return res
+def eye(n):
+    return [[1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
+def zeros(r, c):
+    return [[0.0]*c for _ in range(r)]
+def diag(v):
+    n = len(v)
+    return [[v[i] if i == j else 0.0 for j in range(n)] for i in range(n)]
 
 class HVAC_Coordinator(EnergyPlusPlugin):
     def __init__(self):
@@ -16,6 +62,9 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         self.zones = {}
         self.datasets = {}
         self.start_day = None
+        self.ekf_data = {}
+        self.model_estimations = {}
+        self.zone_params = {}
 
     def initialize_system(self, state):
         """Helper method to setup handles and CSV once."""
@@ -32,6 +81,11 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         os.makedirs(os.path.dirname(self.csv_path), exist_ok=True)
         self.file_obj = open(self.csv_path, 'w', newline='')
         self.csv_writer = csv.writer(self.file_obj)
+
+        # 2.5 Load Datasets
+        if os.path.exists("./zone_thermal_params.json"):
+            with open("./zone_thermal_params.json", "r") as f:
+                self.zone_params = json.load(f)
 
         # 2.5 Load Datasets
         for i in range(1, 6):
@@ -79,8 +133,11 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
         # 4. Get Zone & VAV Handles
         for z in self.zones:
-            headers.extend([f"{z}_Temp_C", f"{z}_RH_pct", f"{z}_VAV_Flow_kg_s", f"{z}_Reheater_W",
-                            f"{z}_CO2_ppm", f"{z}_Occupants", f"{z}_EquipLoad_W"])
+            headers.extend([f"{z}_Temp_C", f"{z}_T_m_C", f"{z}_W_in_kg_kg", f"{z}_RH_pct", 
+                            f"{z}_VAV_Flow_kg_s", f"{z}_Reheater_W", f"{z}_CO2_ppm", 
+                            f"{z}_Occupants", f"{z}_EquipLoad_W",
+                            f"{z}_T_in_theo", f"{z}_T_m_theo", f"{z}_W_in_theo", f"{z}_C_in_theo",
+                            f"{z}_T_in_est", f"{z}_T_m_est", f"{z}_W_in_est", f"{z}_C_in_est", f"{z}_Occ_est"])
             self.handles[f"{z}_Temp"] = self.api.exchange.get_variable_handle(state, "Zone Mean Air Temperature", z)
             self.handles[f"{z}_RH"] = self.api.exchange.get_variable_handle(state, "Zone Air Relative Humidity", z)
             self.handles[f"{z}_VAV_Flow"] = self.api.exchange.get_variable_handle(state, "System Node Mass Flow Rate", f"{z} In Node")
@@ -88,6 +145,41 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             self.handles[f"{z}_CO2"] = self.api.exchange.get_variable_handle(state, "Zone Air CO2 Concentration", z)
             self.handles[f"{z}_Occ"] = self.api.exchange.get_variable_handle(state, "Zone People Occupant Count", z)
             self.handles[f"{z}_Equip"] = self.api.exchange.get_variable_handle(state, "Zone Electric Equipment Total Heating Rate", z)
+
+            # Extra handles for EKF
+            self.handles[f"{z}_W_in"] = self.api.exchange.get_variable_handle(state, "Zone Mean Air Humidity Ratio", z)
+            self.handles[f"{z}_T_m"] = self.api.exchange.get_variable_handle(state, "Zone Mean Radiant Temperature", z)
+            self.handles[f"{z}_T_s"] = self.api.exchange.get_variable_handle(state, "System Node Temperature", f"{z} In Node")
+            self.handles[f"{z}_W_s"] = self.api.exchange.get_variable_handle(state, "System Node Humidity Ratio", f"{z} In Node")
+            self.handles[f"{z}_C_s"] = self.api.exchange.get_variable_handle(state, "System Node CO2 Concentration", f"{z} In Node")
+            
+            # Init EKF variables
+            P_est = eye(7)
+            P_est[6][6] = 10.0
+            self.ekf_data[z] = {
+                "X_est": None,
+                "X_theo": None,
+                "P_est": P_est,
+                "Q": diag([0.1, 5.0, 1e-6, 10.0, 50.0, 1e-5, 10]),
+                "R": diag([0.01, 1e-8, 1.0]),
+                "H": zeros(3, 7)
+            }
+            self.ekf_data[z]["H"][0][0] = 1.0
+            self.ekf_data[z]["H"][1][2] = 1.0
+            self.ekf_data[z]["H"][2][3] = 1.0
+            
+            self.model_estimations[z] = {
+                "T_in_theo": 0.0, "T_m_theo": 0.0, "W_in_theo": 0.0, "C_in_theo": 0.0,
+                "T_in_est": 0.0, "T_m_est": 0.0, "W_in_est": 0.0, "C_in_est": 0.0, "N_occ_est": 0.0
+            }
+
+        # Ensure all adjacent zones have temperature handles
+        for z, params in self.zone_params.items():
+            for adj in params.get("adj_zones", []):
+                adj_z = adj["zone"]
+                handle_key = f"{adj_z}_Temp"
+                if handle_key not in self.handles:
+                    self.handles[handle_key] = self.api.exchange.get_variable_handle(state, "Zone Mean Air Temperature", adj_z)
 
             node_name = f"{z} ATU IN NODE"
             
@@ -166,8 +258,170 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
         if not self.is_initialized:
             self.initialize_system(state)
+            
+        self.run_ekf(state)
         
         return 0
+    def run_ekf(self, state):
+        dt_hours = self.api.exchange.system_time_step(state)
+        if dt_hours == 0: dt_hours = self.api.exchange.zone_time_step(state)
+        dt = dt_hours * 3600.0
+        if dt <= 0: return
+
+        rho_air, cp_air = 1.204, 1006.0
+        q_person, g_w_person, g_co2_person = 100.0, 5e-5, 1e-5
+
+        for z in self.zones:
+            p = self.zone_params.get(z)
+            if not p: continue
+            
+            ekf = self.ekf_data[z]
+            
+            t_in_meas = self.api.exchange.get_variable_value(state, self.handles[f"{z}_Temp"])
+            w_in_meas = self.api.exchange.get_variable_value(state, self.handles[f"{z}_W_in"])
+            c_in_meas = self.api.exchange.get_variable_value(state, self.handles[f"{z}_CO2"])
+            
+            m_dot = self.api.exchange.get_variable_value(state, self.handles[f"{z}_VAV_Flow"])
+            V_dot_s = m_dot / 1.204
+            
+            T_out = self.api.exchange.get_variable_value(state, self.handles["Out_Temp"])
+            Q_equip = 0.0 # Blind to equip in reality
+            
+            T_s = self.api.exchange.get_variable_value(state, self.handles[f"{z}_T_s"])
+            W_s = self.api.exchange.get_variable_value(state, self.handles[f"{z}_W_s"])
+            C_s = self.api.exchange.get_variable_value(state, self.handles[f"{z}_C_s"])
+            
+            Z_meas = [t_in_meas, w_in_meas, c_in_meas]
+            
+            if ekf["X_est"] is None:
+                ekf["X_est"] = [t_in_meas, t_in_meas, w_in_meas, c_in_meas, 0.0, 0.0, 0.0]
+                ekf["X_theo"] = [t_in_meas, t_in_meas, w_in_meas, c_in_meas]
+                continue
+
+            T_in_e, T_m_e, W_in_e, C_in_e, d_T_e, d_W_e, N_occ_e = ekf["X_est"]
+            T_in_th, T_m_th, W_in_th, C_in_th = ekf["X_theo"]
+
+            # --- Prediction ---
+            R_env_ext = p.get("R_env_ext", float('inf'))
+            R_int = p.get("R_int", 0.001)
+            C_air = p.get("C_air", 100000.0)
+            C_mass = p.get("C_mass", 1000000.0)
+            M_air = p.get("M_air", 100.0)
+            V_room = p.get("V_room", 100.0)
+            
+            q_env = (T_out - T_in_e) / R_env_ext if R_env_ext < float('inf') else 0.0
+            
+            _q_adj, inv_R_adj = 0.0, 0.0
+            for adj in p.get("adj_zones", []):
+                t_adj = self.api.exchange.get_variable_value(state, self.handles[f"{adj['zone']}_Temp"])
+                r_env = float(adj["R_env"])
+                if r_env > 0:
+                    _q_adj += t_adj / r_env
+                    inv_R_adj += 1.0 / r_env
+            q_adj = _q_adj - (T_in_e * inv_R_adj)
+            
+            q_mass = (T_m_e - T_in_e) / R_int if R_int > 0 else 0.0
+            q_int = (N_occ_e * q_person) + Q_equip
+            q_s = rho_air * V_dot_s * cp_air * (T_s - T_in_e)
+
+            dT_in_dt = (q_env + q_adj + q_mass + q_int + q_s + d_T_e) / C_air
+            dT_m_dt = (T_in_e - T_m_e) / (C_mass * R_int) if R_int > 0 else 0.0
+            dW_in_dt = (N_occ_e * g_w_person + rho_air * V_dot_s * (W_s - W_in_e) + d_W_e) / M_air
+            dC_in_dt = (N_occ_e * g_co2_person + V_dot_s * (C_s - C_in_e)) / V_room
+
+            X_pred = vec_add(ekf["X_est"], vec_scale([dT_in_dt, dT_m_dt, dW_in_dt, dC_in_dt, 0.0, 0.0, 0.0], dt))
+
+            # --- Covariance Prediction ---
+            df_dX = zeros(7, 7)
+            inv_R_ext = 1.0 / R_env_ext if R_env_ext < float('inf') else 0.0
+            inv_R_int = 1.0 / R_int if R_int > 0 else 0.0
+
+            df_dX[0][0] = (-inv_R_ext - inv_R_adj - inv_R_int - (rho_air * cp_air * V_dot_s)) / C_air
+            df_dX[0][1] = 1.0 / (C_air * R_int) if R_int > 0 else 0.0
+            df_dX[0][4] = 1.0 / C_air
+            df_dX[0][6] = q_person / C_air
+
+            df_dX[1][0] = 1.0 / (C_mass * R_int) if R_int > 0 else 0.0
+            df_dX[1][1] = -1.0 / (C_mass * R_int) if R_int > 0 else 0.0
+
+            df_dX[2][2] = -(rho_air * V_dot_s) / M_air
+            df_dX[2][5] = 1.0 / M_air
+            df_dX[2][6] = g_w_person / M_air
+
+            df_dX[3][3] = -V_dot_s / V_room
+            df_dX[3][6] = g_co2_person / V_room
+
+            F = mat_add(eye(7), [[df_dX[i][j]*dt for j in range(7)] for i in range(7)])
+            FP = mat_mul(F, ekf["P_est"])
+            FPFt = mat_mul(FP, mat_transpose(F))
+            P_pred = mat_add(FPFt, ekf["Q"])
+
+            # --- Update ---
+            H = ekf["H"]
+            HXp = mat_vec_mul(H, X_pred)
+            y = vec_sub(Z_meas, HXp)
+            
+            HP = mat_mul(H, P_pred)
+            HPHt = mat_mul(HP, mat_transpose(H))
+            S = mat_add(HPHt, ekf["R"])
+            
+            S_inv = mat_inv_3x3(S)
+            P_Ht = mat_mul(P_pred, mat_transpose(H))
+            K = mat_mul(P_Ht, S_inv)
+            
+            Ky = mat_vec_mul(K, y)
+            ekf["X_est"] = vec_add(X_pred, Ky)
+            
+            KH = mat_mul(K, H)
+            I_KH = mat_sub(eye(7), KH)
+            ekf["P_est"] = mat_mul(I_KH, P_pred)
+            
+            ekf["X_est"][6] = max(0.0, ekf["X_est"][6]) # Ensure positive occ
+
+            # --- Theoretical Open-Loop ---
+            occ_actual = self.api.exchange.get_variable_value(state, self.handles[f"{z}_Occ"])
+            q_int_base = (occ_actual * q_person) + Q_equip
+            
+            # Sub-stepping for Euler stability on stiff RC nodes
+            sub_steps = 10
+            dt_sub = dt / sub_steps
+            for _ in range(sub_steps):
+                T_in_th, T_m_th, W_in_th, C_in_th = ekf["X_theo"]
+                
+                q_env_th = (T_out - T_in_th) / R_env_ext if R_env_ext < float('inf') else 0.0
+                
+                _q_adj_th = 0.0
+                for adj in p.get("adj_zones", []):
+                    t_adj = self.api.exchange.get_variable_value(state, self.handles[f"{adj['zone']}_Temp"])
+                    r_env = float(adj["R_env"])
+                    if r_env > 0: _q_adj_th += t_adj / r_env
+                q_adj_th = _q_adj_th - (T_in_th * inv_R_adj)
+                
+                q_mass_th = (T_m_th - T_in_th) / R_int if R_int > 0 else 0.0
+                q_s_th = rho_air * V_dot_s * cp_air * (T_s - T_in_th)
+
+                dT_in_dt_th = (q_env_th + q_adj_th + q_mass_th + q_int_base + q_s_th) / C_air
+                dT_m_dt_th = (T_in_th - T_m_th) / (C_mass * R_int) if R_int > 0 else 0.0
+                dW_in_dt_th = (occ_actual * g_w_person + rho_air * V_dot_s * (W_s - W_in_th)) / M_air
+                dC_in_dt_th = (occ_actual * g_co2_person + V_dot_s * (C_s - C_in_th)) / V_room
+
+                ekf["X_theo"] = vec_add(ekf["X_theo"], vec_scale([dT_in_dt_th, dT_m_dt_th, dW_in_dt_th, dC_in_dt_th], dt_sub))
+            
+            # Safety clip to avoid plotting NaNs/Infs
+            ekf["X_theo"] = [
+                max(-50.0, min(150.0, ekf["X_theo"][0])),
+                max(-50.0, min(150.0, ekf["X_theo"][1])),
+                max(0.0, min(0.1, ekf["X_theo"][2])),
+                max(0.0, min(10000.0, ekf["X_theo"][3]))
+            ]
+
+            self.model_estimations[z] = {
+                "T_in_theo": ekf["X_theo"][0], "T_m_theo": ekf["X_theo"][1], 
+                "W_in_theo": ekf["X_theo"][2], "C_in_theo": ekf["X_theo"][3],
+                "T_in_est": ekf["X_est"][0], "T_m_est": ekf["X_est"][1], 
+                "W_in_est": ekf["X_est"][2], "C_in_est": ekf["X_est"][3], "N_occ_est": ekf["X_est"][6]
+            }
+
 
     # =====================================================================
     # HOOK 2: DATA LOGGER (Corrected Name!)
@@ -199,12 +453,26 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         # Extract Zones
         for z in self.zones:
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_Temp"]), 2))
+            row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_T_m"]), 2))
+            row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_W_in"]), 5))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_RH"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_VAV_Flow"]), 4))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_Reheater"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_CO2"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_Occ"]), 2))
             row.append(round(self.api.exchange.get_variable_value(state, self.handles[f"{z}_Equip"]), 2))
+            
+            est = self.model_estimations.get(z, {})
+            row.append(round(est.get("T_in_theo", 0), 2))
+            row.append(round(est.get("T_m_theo", 0), 2))
+            row.append(round(est.get("W_in_theo", 0), 5))
+            row.append(round(est.get("C_in_theo", 0), 2))
+            
+            row.append(round(est.get("T_in_est", 0), 2))
+            row.append(round(est.get("T_m_est", 0), 2))
+            row.append(round(est.get("W_in_est", 0), 5))
+            row.append(round(est.get("C_in_est", 0), 2))
+            row.append(round(est.get("N_occ_est", 0), 2))
 
         # Extract Central Equipment
         for eq in ["CC_Power", "HC_Power", "Fan_Power"]:

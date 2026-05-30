@@ -2859,6 +2859,9 @@
   Output:Variable, *, System Node CO2 Concentration, Timestep;
   Output:Variable, *, Zone People Occupant Count, Timestep;
   Output:Variable, *, Zone Electric Equipment Total Heating Rate, Timestep;
+  Output:Variable, *, Zone Mean Air Humidity Ratio, Timestep;
+  Output:Variable, *, Zone Mean Radiant Temperature, Timestep;
+  Output:Variable, *, System Node Humidity Ratio, Timestep;
 
 ! CO2 Tracking
 

@@ -29,12 +29,12 @@ fig = make_subplots(
     vertical_spacing=0.06,
     specs=[
         [{"secondary_y": False}],
-        [{"secondary_y": False}],
+        [{"secondary_y": True}],
         [{"secondary_y": False}],
         [{"secondary_y": True}],
         [{"secondary_y": True}],
     ],
-    subplot_titles=("Temp", "RH", "CO2", "Occ", "Flow") # Placeholders
+    subplot_titles=("Temp", "Humidity", "CO2", "Occ", "Flow") # Placeholders
 )
 
 view_traces = {z: [] for z in ZONES}
@@ -55,19 +55,42 @@ def add_t(trace, view_name, row, col, secondary_y=False):
 
 # --- ZONE TRACES ---
 for z in ZONES:
-    # Row 1: Temp
-    add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_Temp_C'], name=f'{z} Inside Temp', line=dict(color='#EF553B')), z, row=1, col=1)
+    # Row 1: Temp (T_in and T_m)
+    add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_Temp_C'], name=f'{z} Sim T_in', line=dict(color='#EF553B')), z, row=1, col=1)
+    if f'{z}_T_in_theo' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_T_in_theo'], name=f'{z} Theo T_in', line=dict(color='#EF553B', dash='dash')), z, row=1, col=1)
+    if f'{z}_T_in_est' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_T_in_est'], name=f'{z} EKF T_in', line=dict(color='yellow', dash='dot')), z, row=1, col=1)
+        
+    if f'{z}_T_m_C' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_T_m_C'], name=f'{z} Sim T_m', line=dict(color='#FFA15A')), z, row=1, col=1)
+    if f'{z}_T_m_theo' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_T_m_theo'], name=f'{z} Theo T_m', line=dict(color='#FFA15A', dash='dash')), z, row=1, col=1)
+    if f'{z}_T_m_est' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_T_m_est'], name=f'{z} EKF T_m', line=dict(color='#FFA15A', dash='dot')), z, row=1, col=1)
+        
     add_t(go.Scatter(x=df['Datetime'], y=df['Out_Temp_C'], name='Outdoor Temp', line=dict(color=COLOR_OUTDOOR, dash='dot')), z, row=1, col=1)
     add_t(go.Scatter(x=df['Datetime'], y=df['Fan_Out_Temp_C'], name='AC Supply Temp', line=dict(color=COLOR_AC, dash='dashdot')), z, row=1, col=1)
 
-    # Row 2: RH
-    add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_RH_pct'], name=f'{z} Inside RH', line=dict(color='#00CC96')), z, row=2, col=1)
-    add_t(go.Scatter(x=df['Datetime'], y=df['Out_RH_pct'], name='Outdoor RH', line=dict(color=COLOR_OUTDOOR, dash='dot')), z, row=2, col=1)
-    add_t(go.Scatter(x=df['Datetime'], y=df['Fan_Out_RH_pct'], name='AC Supply RH', line=dict(color=COLOR_AC, dash='dashdot')), z, row=2, col=1)
+    # Row 2: RH and W_in
+    add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_RH_pct'], name=f'{z} Inside RH (%)', line=dict(color='#00CC96')), z, row=2, col=1, secondary_y=False)
+    add_t(go.Scatter(x=df['Datetime'], y=df['Out_RH_pct'], name='Outdoor RH (%)', line=dict(color=COLOR_OUTDOOR, dash='dot')), z, row=2, col=1, secondary_y=False)
+    add_t(go.Scatter(x=df['Datetime'], y=df['Fan_Out_RH_pct'], name='AC Supply RH (%)', line=dict(color=COLOR_AC, dash='dashdot')), z, row=2, col=1, secondary_y=False)
+    
+    if f'{z}_W_in_kg_kg' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_W_in_kg_kg'], name=f'{z} Sim W_in', line=dict(color='#19D3F3')), z, row=2, col=1, secondary_y=True)
+    if f'{z}_W_in_theo' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_W_in_theo'], name=f'{z} Theo W_in', line=dict(color='#19D3F3', dash='dash')), z, row=2, col=1, secondary_y=True)
+    if f'{z}_W_in_est' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_W_in_est'], name=f'{z} EKF W_in', line=dict(color='yellow', dash='dot')), z, row=2, col=1, secondary_y=True)
 
     # Row 3: CO2
     col_co2 = f'{z}_CO2_ppm' if f'{z}_CO2_ppm' in df.columns else 'Outdoor_Air_CO2_ppm'
-    add_t(go.Scatter(x=df['Datetime'], y=df[col_co2], name=f'{z} Inside CO₂', line=dict(color='#AB63FA')), z, row=3, col=1)
+    add_t(go.Scatter(x=df['Datetime'], y=df[col_co2], name=f'{z} Sim CO₂', line=dict(color='#AB63FA')), z, row=3, col=1)
+    if f'{z}_C_in_theo' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_C_in_theo'], name=f'{z} Theo CO₂', line=dict(color='#AB63FA', dash='dash')), z, row=3, col=1)
+    if f'{z}_C_in_est' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_C_in_est'], name=f'{z} EKF CO₂', line=dict(color='pink', dash='dot')), z, row=3, col=1)
     add_t(go.Scatter(x=df['Datetime'], y=df['Outdoor_Air_CO2_ppm'], name='Outdoor CO₂', line=dict(color=COLOR_OUTDOOR, dash='dot')), z, row=3, col=1)
     add_t(go.Scatter(x=df['Datetime'], y=df['Fan_Out_CO2_ppm'], name='AC Supply CO₂', line=dict(color=COLOR_AC, dash='dashdot')), z, row=3, col=1)
 
@@ -75,6 +98,8 @@ for z in ZONES:
     col_occ = f'{z}_Occupants' if f'{z}_Occupants' in df.columns else 'Out_Temp_C'
     col_equip = f'{z}_EquipLoad_W' if f'{z}_EquipLoad_W' in df.columns else 'Out_Temp_C'
     add_t(go.Scatter(x=df['Datetime'], y=df[col_occ], name=f'{z} Occupants', fill='tozeroy', line=dict(color='#FFA15A')), z, row=4, col=1, secondary_y=False)
+    if f'{z}_Occ_est' in df.columns:
+        add_t(go.Scatter(x=df['Datetime'], y=df[f'{z}_Occ_est'], name=f'{z} EKF Occ Est', line=dict(color='yellow', dash='dot')), z, row=4, col=1, secondary_y=False)
     add_t(go.Scatter(x=df['Datetime'], y=df[col_equip], name=f'{z} Internal Heat (W)', line=dict(color='#FF6692')), z, row=4, col=1, secondary_y=True)
 
     # Row 5: VAV Flow & Reheat
