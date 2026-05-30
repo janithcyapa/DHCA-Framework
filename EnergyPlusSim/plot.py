@@ -5,7 +5,7 @@ import datetime
 import copy
 
 # 1. Configuration
-CSV_PATH = "./baseline_results/state_log.csv"
+CSV_PATH = "./results/state_log.csv"
 ZONES = ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]
 COLOR_OUTDOOR = 'white'
 COLOR_AC = '#19D3F3'

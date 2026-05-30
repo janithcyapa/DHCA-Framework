@@ -2891,7 +2891,7 @@ PythonPlugin:SearchPaths,
 PythonPlugin:Instance,
   MyPythonPluginInstance,  !- Name
   No,                      !- Run During Warmup Days
-  controller,              !- Python Module Name
+  5ZoneAutoDXVAV,          !- Python Module Name
   HVAC_Coordinator;        !- Plugin Class Name
 
 Output:EnergyManagementSystem,
