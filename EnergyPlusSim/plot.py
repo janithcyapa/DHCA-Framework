@@ -46,9 +46,8 @@ def add_t(trace, view_name, row, col, secondary_y=False):
     global trace_index
     trace.visible = False
     
-    # Assign trace to a specific legend for this row
-    legend_id = f"legend{row}" if row > 1 else "legend"
-    trace.update(legend=legend_id)
+    # Assign trace to a specific legendgroup for this row
+    trace.update(legendgroup=str(row))
     
     fig.add_trace(trace, row=row, col=col, secondary_y=secondary_y)
     view_traces[view_name].append(trace_index)
@@ -186,21 +185,10 @@ fig.add_hrect(y0=400, y1=1000, row=3, col=1, fillcolor="green", opacity=0.1, lin
 for idx in view_traces["SPACE1-1"]:
     fig.data[idx].visible = True
 
-# --- Multiple Legends Configuration ---
-# Get top Y domains for each row to align legends
-domains = [
-    fig.layout.yaxis.domain[1],
-    fig.layout.yaxis2.domain[1],
-    fig.layout.yaxis3.domain[1],
-    fig.layout.yaxis4.domain[1],
-    fig.layout.yaxis6.domain[1]
-]
-
-legend_layout = {}
-for i in range(1, 6):
-    legend_key = f"legend{i}" if i > 1 else "legend"
-    legend_layout[legend_key] = dict(
-        y=domains[i-1],
+# --- Single Legend Configuration ---
+legend_layout = dict(
+    legend=dict(
+        y=1,
         yanchor="top",
         # Push x far enough right to clear the secondary y-axis labels
         x=1.06, 
@@ -209,8 +197,9 @@ for i in range(1, 6):
         bgcolor="rgba(0,0,0,0)",
         bordercolor="rgba(255,255,255,0.2)",
         borderwidth=1,
-        title_text="" 
+        tracegroupgap=10
     )
+)
 
 # Add Dropdown to layout
 fig.update_layout(

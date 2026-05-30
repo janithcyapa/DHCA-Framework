@@ -1,0 +1,172 @@
+{
+    "PLENUM-1": {
+        "V_room": 283.2,
+        "M_air": 340.97,
+        "C_air": 343015.82,
+        "C_mass": 46360000.0,
+        "R_int": 0.0004,
+        "R_env_ext": 0.00028517838197336545,
+        "R_env_gnd": 1000.0,
+        "adj_zones": [
+            {
+                "zone": "SPACE1-1",
+                "R_env": 0.0081
+            },
+            {
+                "zone": "SPACE2-1",
+                "R_env": 0.0188
+            },
+            {
+                "zone": "SPACE3-1",
+                "R_env": 0.0083
+            },
+            {
+                "zone": "SPACE4-1",
+                "R_env": 0.0188
+            },
+            {
+                "zone": "SPACE5-1",
+                "R_env": 0.0044
+            }
+        ]
+    },
+    "SPACE1-1": {
+        "V_room": 239.247360229,
+        "M_air": 288.05,
+        "C_air": 289778.3,
+        "C_mass": 9916000.0,
+        "R_int": 0.0017,
+        "R_env_ext": 0.0043,
+        "R_env_gnd": 0.0023,
+        "adj_zones": [
+            {
+                "zone": "PLENUM-1",
+                "R_env": 0.0081
+            },
+            {
+                "zone": "SPACE2-1",
+                "R_env": 0.0199
+            },
+            {
+                "zone": "SPACE4-1",
+                "R_env": 0.0199
+            },
+            {
+                "zone": "SPACE5-1",
+                "R_env": 0.0045
+            }
+        ]
+    },
+    "SPACE2-1": {
+        "V_room": 103.311355591,
+        "M_air": 124.39,
+        "C_air": 125136.34,
+        "C_mass": 4273500.0,
+        "R_int": 0.0039,
+        "R_env_ext": 0.0087,
+        "R_env_gnd": 0.0053,
+        "adj_zones": [
+            {
+                "zone": "PLENUM-1",
+                "R_env": 0.0188
+            },
+            {
+                "zone": "SPACE1-1",
+                "R_env": 0.0199
+            },
+            {
+                "zone": "SPACE3-1",
+                "R_env": 0.0201
+            },
+            {
+                "zone": "SPACE5-1",
+                "R_env": 0.0132
+            }
+        ]
+    },
+    "SPACE3-1": {
+        "V_room": 239.247360229,
+        "M_air": 288.05,
+        "C_air": 289778.3,
+        "C_mass": 9648000.0,
+        "R_int": 0.0017,
+        "R_env_ext": 0.0043,
+        "R_env_gnd": 0.0024,
+        "adj_zones": [
+            {
+                "zone": "PLENUM-1",
+                "R_env": 0.0083
+            },
+            {
+                "zone": "SPACE2-1",
+                "R_env": 0.0201
+            },
+            {
+                "zone": "SPACE4-1",
+                "R_env": 0.0201
+            },
+            {
+                "zone": "SPACE5-1",
+                "R_env": 0.0045
+            }
+        ]
+    },
+    "SPACE4-1": {
+        "V_room": 103.311355591,
+        "M_air": 124.39,
+        "C_air": 125136.34,
+        "C_mass": 4273500.0,
+        "R_int": 0.0039,
+        "R_env_ext": 0.0087,
+        "R_env_gnd": 0.0053,
+        "adj_zones": [
+            {
+                "zone": "PLENUM-1",
+                "R_env": 0.0188
+            },
+            {
+                "zone": "SPACE1-1",
+                "R_env": 0.0199
+            },
+            {
+                "zone": "SPACE3-1",
+                "R_env": 0.0201
+            },
+            {
+                "zone": "SPACE5-1",
+                "R_env": 0.0132
+            }
+        ]
+    },
+    "SPACE5-1": {
+        "V_room": 447.682556152,
+        "M_air": 539.01,
+        "C_air": 542244.06,
+        "C_mass": 18249000.0,
+        "R_int": 0.0009,
+        "R_env_ext": 1000.0,
+        "R_env_gnd": 0.0012,
+        "adj_zones": [
+            {
+                "zone": "PLENUM-1",
+                "R_env": 0.0044
+            },
+            {
+                "zone": "SPACE1-1",
+                "R_env": 0.0045
+            },
+            {
+                "zone": "SPACE2-1",
+                "R_env": 0.0132
+            },
+            {
+                "zone": "SPACE3-1",
+                "R_env": 0.0045
+            },
+            {
+                "zone": "SPACE4-1",
+                "R_env": 0.0132
+            }
+        ]
+    }
+}
