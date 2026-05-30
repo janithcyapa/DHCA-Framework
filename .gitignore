@@ -4,3 +4,4 @@ ssh-key.key
 EnergyPlusSim/baseline_results/
 EnergyPlusSim/results/
 EnergyPlusSim/__pycache__/
+EnergyPlusSim/ep_deps/
