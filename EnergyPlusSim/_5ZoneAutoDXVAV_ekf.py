@@ -21,7 +21,7 @@ RHO_AIR   = 1.204
 CP_AIR    = 1006.0
 Q_PERSON  = 100.0
 G_W_OCC   = 5e-5
-G_CO2_OCC = 1e-5
+G_CO2_OCC = 3.82e-6        # kg_co2/s per occupant (volumetric equivalent)
 
 
 class ZoneEKF:
@@ -34,8 +34,8 @@ class ZoneEKF:
         self.P[6, 6] = 10.0                     # higher initial uncertainty on occupancy
 
         # Tuning matrices
-        self.Q = np.diag([0.1, 5.0, 1e-6, 10.0, 50.0, 1e-5, 10.0])   # process noise
-        self.R = np.diag([0.01, 1e-8, 1.0])                           # measurement noise
+        self.Q = np.diag([0.1, 5.0, 1e-6, 1.0, 50.0, 1e-5, 10.0])    # process noise
+        self.R = np.diag([0.01, 1e-8, 25.0])                          # measurement noise
 
         # Observation matrix  H ∈ ℝ^{3×7}
         self.H = np.zeros((3, 7))
@@ -95,7 +95,7 @@ class ZoneEKF:
         dx[0] = (q_env + q_adj + q_mass + q_int + q_s + dT) / C_air
         dx[1] = (T_in - T_m) / (C_mass * R_int) if R_int > 0 else 0.0
         dx[2] = (N_occ * G_W_OCC + RHO_AIR * V_dot_s * (W_s - W_in) + dW) / M_air
-        dx[3] = (N_occ * G_CO2_OCC + V_dot_s * (C_s - C_in)) / V_room
+        dx[3] = (N_occ * G_CO2_OCC * 1e6 + V_dot_s * (C_s - C_in)) / V_room
         # dx[4..6] = 0  (random walk on disturbances & occupancy)
 
         # ── Predict ──────────────────────────────────────────────────────
@@ -116,7 +116,7 @@ class ZoneEKF:
         J[2, 5] = 1.0 / M_air
         J[2, 6] = G_W_OCC / M_air
         J[3, 3] = -V_dot_s / V_room
-        J[3, 6] = G_CO2_OCC / V_room
+        J[3, 6] = (G_CO2_OCC * 1e6) / V_room
 
         F = np.eye(7) + J * dt
         P_pred = F @ self.P @ F.T + self.Q

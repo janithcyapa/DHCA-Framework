@@ -15,7 +15,7 @@ RHO_AIR   = 1.204      # kg/m³
 CP_AIR    = 1006.0      # J/(kg·K)
 Q_PERSON  = 100.0       # W per occupant (sensible)
 G_W_OCC   = 5e-5        # kg_w/s per occupant
-G_CO2_OCC = 1e-5        # kg_co2/s per occupant
+G_CO2_OCC = 3.82e-6        # kg_co2/s per occupant
 
 
 class TheoreticalZoneModel:
@@ -74,7 +74,7 @@ class TheoreticalZoneModel:
             dT_in = (q_env + q_adj + q_mass + q_int + q_s) / C_air
             dT_m  = (T_in - T_m) / (C_mass * R_int) if R_int > 0 else 0.0
             dW_in = (occ * G_W_OCC + RHO_AIR * V_dot_s * (W_s - W_in)) / M_air
-            dC_in = (occ * G_CO2_OCC + V_dot_s * (C_s - C_in)) / V_room
+            dC_in = (occ * G_CO2_OCC * 1e6 + V_dot_s * (C_s - C_in)) / V_room
 
             self.state += np.array([dT_in, dT_m, dW_in, dC_in]) * dt_sub
 
