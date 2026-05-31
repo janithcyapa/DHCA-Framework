@@ -55,7 +55,7 @@ class MPCController:
     # ── Tuning knobs ─────────────────────────────────────────────────────
     N_HORIZON   = 10          # prediction horizon steps
     DT_CTRL     = 900.0       # control sampling time (s) — 15 min
-    T_REF       = 20.0       # temperature setpoint (°C)
+    T_REF       = 26.0       # temperature setpoint (°C)
     Q_TEMP      = 100.0       # penalty on |T_in − T_ref|²
     Q_TM        = 0.0         # penalty on T_m (not tracked)
     Q_CO2       = 0.0         # CO₂ handled via soft constraint
