@@ -54,7 +54,7 @@ class MPCController:
 
     # ── Tuning knobs ─────────────────────────────────────────────────────
     N_HORIZON   = 10          # prediction horizon steps
-    DT_CTRL     = 300.0       # control sampling time (s) — 5 min
+    DT_CTRL     = 900.0       # control sampling time (s) — 15 min
     T_REF       = 23.5        # temperature setpoint (°C)
     Q_TEMP      = 100.0       # penalty on |T_in − T_ref|²
     Q_TM        = 0.0         # penalty on T_m (not tracked)
@@ -78,25 +78,36 @@ class MPCController:
         self.zone_params = zone_params or {}
         self._prev_u = {z: 0.5 for z in zones}   # previous control action
         self._call_count = 0
+        
+        self.T_SUPPLY = self.__class__.T_SUPPLY
+        self.W_SUPPLY = self.__class__.W_SUPPLY
+        self.C_SUPPLY = self.__class__.C_SUPPLY
+        
         log.info("MPC initialised  |  zones=%s  horizon=%d  dt=%.0fs  "
                  "OSQP=%s", zones, self.N_HORIZON, self.DT_CTRL, _HAS_OSQP)
 
     # =====================================================================
     #  PUBLIC API
     # =====================================================================
-    def compute_optimal_control(self, estimations, time_info):
+    def compute_optimal_control(self, estimations, time_info, ahu_conditions=None):
         """Compute optimal setpoints given current EKF estimates.
 
         Parameters
         ----------
         estimations : dict[str, dict] – per-zone EKF state estimates
         time_info   : float           – elapsed simulation hours
+        ahu_conditions : dict         - optional dynamic supply conditions
 
         Returns
         -------
         flow_targets   : dict[str, float] – VAV mass flow (kg/s) per zone
         reheat_targets : dict[str, float] – reheat temp setpoint (°C)
         """
+        if ahu_conditions:
+            self.T_SUPPLY = ahu_conditions.get('T_SUPPLY', self.T_SUPPLY)
+            self.W_SUPPLY = ahu_conditions.get('W_SUPPLY', self.W_SUPPLY)
+            self.C_SUPPLY = ahu_conditions.get('C_SUPPLY', self.C_SUPPLY)
+
         self._call_count += 1
         flow_targets = {}
         reheat_targets = {}
@@ -313,7 +324,7 @@ class MPCController:
         # Check discrete stability
         eigs = np.linalg.eigvals(Ad)
         max_eig = np.max(np.abs(eigs))
-        if max_eig >= 1.0:
+        if max_eig > 1.0 + 1e-4:
             log.warning("[%s] UNSTABLE Ad!  max|λ|=%.4f — clamping to "
                         "fallback", z, max_eig)
             return np.clip(u_op, self.V_DOT_MIN, self.V_DOT_MAX)
@@ -473,11 +484,11 @@ class MPCController:
         solver = osqp.OSQP()
         solver.setup(P, q, G, l_vec, u_vec,
                      warm_start=True, verbose=False,
-                     eps_abs=1e-5, eps_rel=1e-5,
-                     max_iter=500, polish=True)
+                     eps_abs=1e-4, eps_rel=1e-4,
+                     max_iter=4000, polish=True)
         result = solver.solve()
 
-        if result.info.status not in ('solved', 'solved_inaccurate'):
+        if result.info.status not in ('solved', 'solved inaccurate', 'solved_inaccurate'):
             log.warning("[%s] QP status=%s — using fallback",
                         z, result.info.status)
             return np.clip(self._prev_u.get(z, 0.5),

@@ -155,6 +155,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             self.handles[f"{name}_RH"]   = gv(state, "System Node Relative Humidity", node)
             self.handles[f"{name}_Flow"] = gv(state, "System Node Mass Flow Rate",    node)
             self.handles[f"{name}_CO2"]  = gv(state, "System Node CO2 Concentration", node)
+            self.handles[f"{name}_W"]    = gv(state, "System Node Humidity Ratio",    node)
 
         self.handles["CC_Power"]  = gv(state, "Cooling Coil Electricity Rate", "Main Cooling Coil 1")
         self.handles["HC_Power"]  = gv(state, "Heating Coil NaturalGas Rate",  "Main heating Coil 1")
@@ -396,7 +397,12 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         sa(state, self.actuators["HC_Temp_SP"], 14.0)
 
         # ── MPC targets ─────────────────────────────────────────────────
-        flows, reheats = self.mpc.compute_optimal_control(self.estimations, elapsed)
+        ahu_conditions = {
+            'T_SUPPLY': self._val(state, "HC_Out_Temp"),
+            'W_SUPPLY': self._val(state, "HC_Out_W"),
+            'C_SUPPLY': self._val(state, "HC_Out_CO2")
+        }
+        flows, reheats = self.mpc.compute_optimal_control(self.estimations, elapsed, ahu_conditions)
 
         # ── Per-zone actuation ───────────────────────────────────────────
         for z in self.zones:
