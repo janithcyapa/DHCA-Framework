@@ -60,11 +60,11 @@ class MPCController:
     Q_TM        = 0.0         # penalty on T_m (not tracked)
     Q_CO2       = 0.0         # CO₂ handled via soft constraint
     Q_HUM       = 0.0         # humidity handled via soft constraint
-    R_INPUT     = 0.01        # penalty on V_dot_s (fan energy)
-    RHO_CO2     = 1e6         # slack penalty for CO₂ > 1000 ppm
-    RHO_W       = 1e6         # slack penalty for humidity > W_max
-    CO2_MAX     = 1000.0      # ppm  ASHRAE limit
-    W_MAX       = 0.012       # kg/kg max humidity ratio
+    R_INPUT     = 0.05        # penalty on V_dot_s (fan energy)
+    RHO_CO2     = 1e6         # slack penalty for CO₂ > CO2_MAX
+    RHO_W       = 5e6         # slack penalty for humidity > W_max
+    CO2_MAX     = 900.0       # ppm  ASHRAE limit
+    W_MAX       = 0.009       # kg/kg max humidity ratio (~50% RH)
     V_DOT_MIN   = 0.0         # m³/s  actuator lower bound
     V_DOT_MAX   = 2.5         # m³/s  actuator upper bound
 
