@@ -133,11 +133,14 @@ class ZoneEKF:
     # ── Read current state ───────────────────────────────────────────────
     def get_state(self):
         if self.x is None:
-            return {"T_in_est": 0.0, "T_m_est": 0.0, "W_in_est": 0.0, "C_in_est": 0.0, "N_occ_est": 0.0}
+            return {"T_in_est": 0.0, "T_m_est": 0.0, "W_in_est": 0.0, "C_in_est": 0.0,
+                    "N_occ_est": 0.0, "d_T_est": 0.0, "d_W_est": 0.0}
         return {
             "T_in_est":  self.x[0],
             "T_m_est":   self.x[1],
             "W_in_est":  self.x[2],
             "C_in_est":  self.x[3],
+            "d_T_est":   self.x[4],
+            "d_W_est":   self.x[5],
             "N_occ_est": self.x[6],
         }

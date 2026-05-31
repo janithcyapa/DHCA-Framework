@@ -209,7 +209,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             p = self.zone_params.get(z, {})
             self.zone_models[z] = TheoreticalZoneModel(z, p)
             self.zone_ekfs[z]   = ZoneEKF(z)
-        self.mpc = MPCController(self.zones)
+        self.mpc = MPCController(self.zones, self.zone_params)
 
     # ── CSV logger ───────────────────────────────────────────────────────
     def _open_csv(self):
