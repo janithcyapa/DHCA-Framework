@@ -10,11 +10,16 @@ def _():
     import urllib.request as req
     import plotly.io as pio
     import requests
+    import numpy as np
+    import pandas as pd
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    import io
 
     mo.Html(
         f"<style>{req.urlopen('https://raw.githubusercontent.com/janithcyapa/Engineering-Codex/refs/heads/main/shared_files/marimo/theme.css').read().decode()}</style>"
         )
-    return (mo,)
+    return go, io, make_subplots, mo, np, pd, requests
 
 
 @app.cell(hide_code=True)
@@ -274,51 +279,145 @@ def _(mo):
 
 
 @app.cell
+def _(go, io, make_subplots, np, pd, requests):
+
+    # 1. Constants and SPACE1-1 Properties
+    SPACE_PROPS = {
+        "V_room": 239.247,
+        "rho_air": 1.2,
+        "Cp_air": 1006.0,
+        "R_env_total": 1 / ( (1/0.0043) + (1/0.0023) + (1/0.0081) + (1/0.0199) + (1/0.0199) + (1/0.0045) ),
+        "Q_int_per_person": 100,
+        "G_w_per_person": 1.5e-5,
+        "G_co2_per_person": 1.0e-5
+    }
+
+    LIMITS = {
+        "T_min": 22.0,  "T_max": 24.0,
+        "W_min": 0.004, "W_max": 0.012,
+        "C_min": 400.0, "C_max": 1000.0,
+        "u_max": 1.5
+    }
+
+    def calculate_all_bounds(T_out, N_occ, Q_equip, T_sup, W_sup, C_sup):
+        """Calculates all 6 raw bounds for a given condition."""
+        # Temperature
+        Q_env_maxT = (T_out - LIMITS["T_max"]) / SPACE_PROPS["R_env_total"]
+        u_T_low = max(0.0, (Q_env_maxT + Q_equip + (N_occ * SPACE_PROPS["Q_int_per_person"])) / (SPACE_PROPS["rho_air"] * SPACE_PROPS["Cp_air"] * (LIMITS["T_max"] - T_sup))) if LIMITS["T_max"] > T_sup else float('inf')
+        u_T_hi = max(0.0, ((T_out - LIMITS["T_min"]) / SPACE_PROPS["R_env_total"] + Q_equip + (N_occ * SPACE_PROPS["Q_int_per_person"])) / (SPACE_PROPS["rho_air"] * SPACE_PROPS["Cp_air"] * (LIMITS["T_min"] - T_sup))) if LIMITS["T_min"] > T_sup else float('inf')
+
+        # Humidity
+        u_W_low = (N_occ * SPACE_PROPS["G_w_per_person"]) / (SPACE_PROPS["rho_air"] * (LIMITS["W_max"] - W_sup)) if W_sup < LIMITS["W_max"] else float('inf')
+        u_W_hi = (N_occ * SPACE_PROPS["G_w_per_person"]) / (SPACE_PROPS["rho_air"] * (LIMITS["W_min"] - W_sup)) if W_sup < LIMITS["W_min"] else float('inf')
+
+        # CO2
+        u_C_low = (N_occ * SPACE_PROPS["G_co2_per_person"]) / (SPACE_PROPS["rho_air"] * (LIMITS["C_max"] - C_sup) * 1e-6) if C_sup < LIMITS["C_max"] else float('inf')
+        u_C_hi = (N_occ * SPACE_PROPS["G_co2_per_person"]) / (SPACE_PROPS["rho_air"] * (LIMITS["C_min"] - C_sup) * 1e-6) if C_sup < LIMITS["C_min"] else float('inf')
+    
+        return [u_T_low, u_T_hi, u_W_low, u_W_hi, u_C_low, u_C_hi]
+
+    def plot_viability_analysis(df_results, title_suffix=""):
+        fig = make_subplots(
+            rows=2, cols=2,
+            subplot_titles=("Airflow Feasibility (Overall)", "Temperature Bounds", "Humidity Bounds", "CO2 Bounds"),
+            vertical_spacing=0.15, horizontal_spacing=0.1
+        )
+
+        # 1. Feasibility (Intersection)
+        u_min = df_results[['u_T_low', 'u_W_low', 'u_C_low']].max(axis=1)
+        u_max = df_results[['u_T_hi', 'u_W_hi', 'u_C_hi']].min(axis=1)
+        fig.add_trace(go.Scatter(y=u_min, name='Max Min-Bound', line=dict(color='#ff4757')), row=1, col=1)
+        fig.add_trace(go.Scatter(y=u_max, name='Min Max-Bound', line=dict(color='#2ed573')), row=1, col=1)
+        fig.add_hline(y=LIMITS["u_max"], line_dash="dash", line_color="white", row=1, col=1)
+
+        # 2. Subplots for specific bounds
+        fig.add_trace(go.Scatter(y=df_results['u_T_low'], name='T_low', line=dict(color='orange')), row=2, col=1)
+        fig.add_trace(go.Scatter(y=df_results['u_T_hi'], name='T_hi', line=dict(color='yellow')), row=2, col=1)
+        fig.add_trace(go.Scatter(y=df_results['u_W_low'], name='W_low', line=dict(color='cyan')), row=2, col=2)
+        fig.add_trace(go.Scatter(y=df_results['u_W_hi'], name='W_hi', line=dict(color='blue')), row=2, col=2)
+        fig.add_trace(go.Scatter(y=df_results['u_C_low'], name='C_low', line=dict(color='lightgreen')), row=1, col=2)
+
+        fig.update_layout(height=800, template="plotly_dark", title=f"Controllability: {title_suffix}")
+        fig.show()
+
+    # 2. Main Logic to Run
+    def run_analysis(mode='random', csv_url=None):
+        """
+        Runs analysis. If mode is 'dataset', it fetches from the provided URL.
+        """
+        data_list = []
+    
+        if mode == 'random':
+            for _ in range(500):
+                # Same random generation logic...
+                bounds = calculate_all_bounds(
+                    np.random.normal(30, 4), np.random.randint(0, 15), 
+                    np.random.uniform(100, 1500), np.random.uniform(14, 18), 
+                    0.008, np.random.normal(600, 200)
+                )
+                data_list.append(bounds)
+            
+        elif mode == 'dataset':
+            # Fetch CSV from URL
+            response = requests.get(csv_url)
+            # Use io.StringIO to treat the string as a file for pandas
+            df = pd.read_csv(io.StringIO(response.text))
+        
+            for i in range(len(df)):
+                # Calculate equipment load
+                q = (df['plug_load_energy [kWh]'].iloc[i] + df['lighting_energy [kWh]'].iloc[i]) * 12000
+            
+                # Map dataset columns
+                bounds = calculate_all_bounds(
+                    df['dry_bulb_temp [Celsius]'].iloc[i], 
+                    df['occupant_count [number]'].iloc[i], 
+                    q, 
+                    df['supply_air_temperature [Celsius]'].iloc[i], 
+                    0.008, 
+                    df['outdoor_co2 [ppm]'].iloc[i]
+                )
+                data_list.append(bounds)
+            
+        # Convert results to DataFrame and plot
+        df_res = pd.DataFrame(data_list, columns=['u_T_low', 'u_T_hi', 'u_W_low', 'u_W_hi', 'u_C_low', 'u_C_hi'])
+        max_mech = LIMITS["u_max"]
+        success_T = (df_res['u_T_low'] <= np.minimum(df_res['u_T_hi'], max_mech))
+        success_W = (np.maximum(df_res['u_T_low'], df_res['u_W_low']) <= np.minimum(df_res['u_T_hi'], np.minimum(df_res['u_W_hi'], max_mech)))
+        success_C = (np.maximum(df_res['u_T_low'], df_res['u_C_low']) <= np.minimum(df_res['u_T_hi'], np.minimum(df_res['u_C_hi'], max_mech)))
+        success_All = (np.maximum(df_res['u_T_low'], np.maximum(df_res['u_W_low'], df_res['u_C_low'])) <= 
+                       np.minimum(df_res['u_T_hi'], np.minimum(df_res['u_W_hi'], np.minimum(df_res['u_C_hi'], max_mech))))
+    
+        print(f"\n--- {mode.upper()} Analysis Success Rates ---")
+        print(f"Temperature Control Viability: {success_T.mean()*100:.2f}%")
+        print(f"Temp + Humidity Viability:      {success_W.mean()*100:.2f}%")
+        print(f"Temp + CO2 Viability:          {success_C.mean()*100:.2f}%")
+        print(f"Full System Viability (All):   {success_All.mean()*100:.2f}%")
+        plot_viability_analysis(df_res, mode.upper())
+
+
+    # Run it
+    # run_analysis(mode='random')
+    # run_analysis(mode='dataset', csv_file='combined_Room1.csv')
+    return (run_analysis,)
+
+
+@app.cell
+def _(run_analysis):
+    run_analysis(mode='random')
+    return
+
+
+@app.cell
+def _(run_analysis):
+    # Run with URL
+    url = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/EnergyPlusSim/SupplementaryData/combined_Room1.csv"
+    run_analysis(mode='dataset', csv_url=url)
+
+    return
+
+
+@app.cell
 def _():
-    import numpy as np
-
-    def verify_daytime_viability():
-        # --- System Parameters (SPACE1-1) ---
-        R_env, M_air, rho_air, c_p = 0.0043, 288.05, 1.2, 1006.0
-        T_set, Delta_T = 24.5, 1.5
-        W_max, W_min = 0.012, 0.005
-        C_max, u_max = 0.001, 2.0
-        q_person, g_w, g_co2 = 75.0, 0.000015, 0.000008
-
-        # --- 10-Hour Daytime Profile (08:00 - 18:00) ---
-        hours = np.arange(8, 19)
-        # Peak load simulation
-        T_out = 28 + 10 * np.sin(np.pi * (hours - 8) / 10) 
-        N_occ = 5 * np.sin(np.pi * (hours - 8) / 10) 
-
-        # AHU Control logic: Supply cooler air during high heat/occ
-        T_s = np.where(T_out > 30, 14.0, 16.0)
-        W_s = np.where(T_s == 14.0, 0.007, 0.008)
-        C_s = np.full(len(hours), 0.0004)
-
-        # --- Calculations ---
-        u_T_min = ((T_out - (T_set + Delta_T)) / R_env + N_occ * q_person) / (rho_air * c_p * ((T_set + Delta_T) - T_s))
-        u_T_max = ((T_out - (T_set - Delta_T)) / R_env + N_occ * q_person) / (rho_air * c_p * ((T_set - Delta_T) - T_s))
-        u_W_max = (N_occ * g_w) / (rho_air * (W_max - W_s))
-        u_CO2 = (N_occ * g_co2) / (C_max - C_s)
-
-        # --- Flipped AHU Rule ---
-        W_s_star = W_max - (g_w * (C_max - C_s)) / (rho_air * g_co2)
-        u_W_max_calc = (N_occ * g_w) / (rho_air * (W_max - W_s_star))
-
-        # --- Viability Check ---
-        lo = np.maximum.reduce([u_T_min, u_W_max_calc, u_CO2])
-        hi = np.minimum(u_T_max, u_max)
-
-        is_viable = (lo <= hi) & (W_s_star >= 0.005)
-
-        print(f"--- Daytime Viability (08:00 - 18:00) ---")
-        print(f"Total hours: {len(hours)}")
-        print(f"Viable hours: {np.sum(is_viable)} ({np.mean(is_viable)*100:.1f}%)")
-        print(f"Critical Bottleneck: {'Humidity' if np.mean(u_W_max_calc > u_T_max) > 0.5 else 'Temperature'}")
-
-    if __name__ == "__main__":
-        verify_daytime_viability()
     return
 
 
