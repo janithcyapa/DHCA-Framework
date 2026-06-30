@@ -313,7 +313,7 @@ def _(go, io, make_subplots, np, pd, requests):
         # CO2
         u_C_low = (N_occ * SPACE_PROPS["G_co2_per_person"]) / (SPACE_PROPS["rho_air"] * (LIMITS["C_max"] - C_sup) * 1e-6) if C_sup < LIMITS["C_max"] else float('inf')
         u_C_hi = (N_occ * SPACE_PROPS["G_co2_per_person"]) / (SPACE_PROPS["rho_air"] * (LIMITS["C_min"] - C_sup) * 1e-6) if C_sup < LIMITS["C_min"] else float('inf')
-    
+
         return [u_T_low, u_T_hi, u_W_low, u_W_hi, u_C_low, u_C_hi]
 
     def plot_viability_analysis(df_results, title_suffix=""):
@@ -346,7 +346,7 @@ def _(go, io, make_subplots, np, pd, requests):
         Runs analysis. If mode is 'dataset', it fetches from the provided URL.
         """
         data_list = []
-    
+
         if mode == 'random':
             for _ in range(500):
                 # Same random generation logic...
@@ -356,17 +356,17 @@ def _(go, io, make_subplots, np, pd, requests):
                     0.008, np.random.normal(600, 200)
                 )
                 data_list.append(bounds)
-            
+
         elif mode == 'dataset':
             # Fetch CSV from URL
             response = requests.get(csv_url)
             # Use io.StringIO to treat the string as a file for pandas
             df = pd.read_csv(io.StringIO(response.text))
-        
+
             for i in range(len(df)):
                 # Calculate equipment load
                 q = (df['plug_load_energy [kWh]'].iloc[i] + df['lighting_energy [kWh]'].iloc[i]) * 12000
-            
+
                 # Map dataset columns
                 bounds = calculate_all_bounds(
                     df['dry_bulb_temp [Celsius]'].iloc[i], 
@@ -377,7 +377,7 @@ def _(go, io, make_subplots, np, pd, requests):
                     df['outdoor_co2 [ppm]'].iloc[i]
                 )
                 data_list.append(bounds)
-            
+
         # Convert results to DataFrame and plot
         df_res = pd.DataFrame(data_list, columns=['u_T_low', 'u_T_hi', 'u_W_low', 'u_W_hi', 'u_C_low', 'u_C_hi'])
         max_mech = LIMITS["u_max"]
@@ -386,7 +386,7 @@ def _(go, io, make_subplots, np, pd, requests):
         success_C = (np.maximum(df_res['u_T_low'], df_res['u_C_low']) <= np.minimum(df_res['u_T_hi'], np.minimum(df_res['u_C_hi'], max_mech)))
         success_All = (np.maximum(df_res['u_T_low'], np.maximum(df_res['u_W_low'], df_res['u_C_low'])) <= 
                        np.minimum(df_res['u_T_hi'], np.minimum(df_res['u_W_hi'], np.minimum(df_res['u_C_hi'], max_mech))))
-    
+
         print(f"\n--- {mode.upper()} Analysis Success Rates ---")
         print(f"Temperature Control Viability: {success_T.mean()*100:.2f}%")
         print(f"Temp + Humidity Viability:      {success_W.mean()*100:.2f}%")
@@ -404,20 +404,6 @@ def _(go, io, make_subplots, np, pd, requests):
 @app.cell
 def _(run_analysis):
     run_analysis(mode='random')
-    return
-
-
-@app.cell
-def _(run_analysis):
-    # Run with URL
-    url = "https://raw.githubusercontent.com/janithcyapa/DHCA-Framework/refs/heads/main/EnergyPlusSim/SupplementaryData/combined_Room1.csv"
-    run_analysis(mode='dataset', csv_url=url)
-
-    return
-
-
-@app.cell
-def _():
     return
 
 
