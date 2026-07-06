@@ -1,0 +1,10 @@
+{
+  "zone_001": {
+    "name": "my_room",
+    "description": "My Room"
+  },
+  "zone_002": {
+    "name": "cool_room",
+    "description": "Cool Room"
+  }
+}
