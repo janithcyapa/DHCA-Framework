@@ -5,13 +5,23 @@
     "description": "Senosr Data Test",
     "timestamp": "1783344483",
     "raw_csv_path": "raw_data/experiments/entry_0001_zone_001_1783344483_Test_2026-07-02(1).csv",
-    "processed_files": {}
+    "processed_files": {
+      "refactored_data": "processed_data/experiments/refactored_data/entry_0001_refactored_data.parquet"
+    },
+    "processed_metadata": {
+      "refactored_data": {}
+    }
   },
   "entry_0002": {
     "entity_id": "zone_001",
     "description": "Test CO2 variation, single person come in and out of the room",
     "timestamp": "1783344565",
     "raw_csv_path": "raw_data/experiments/entry_0002_zone_001_1783344565_Test_2026-07-02.csv",
-    "processed_files": {}
+    "processed_files": {
+      "refactored_data": "processed_data/experiments/refactored_data/entry_0002_refactored_data.parquet"
+    },
+    "processed_metadata": {
+      "refactored_data": {}
+    }
   }
 }
