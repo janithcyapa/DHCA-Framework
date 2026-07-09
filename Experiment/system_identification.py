@@ -3,6 +3,7 @@ import numpy as np
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 import os
+import json
 
 # ── Physical Constants ───────────────────────────────────────────────────
 RHO_AIR   = 1.204      # kg/m³
@@ -17,27 +18,21 @@ def rh_to_w(T_celsius, RH_percent):
     T_celsius: Temperature in °C
     RH_percent: Relative Humidity in %
     """
-    # Tetens equation for saturation vapor pressure (kPa)
     P_ws = 0.61078 * np.exp((17.27 * T_celsius) / (T_celsius + 237.3))
-    # Actual vapor pressure (kPa)
     P_w = (RH_percent / 100.0) * P_ws
-    # Atmospheric pressure (kPa)
     P_atm = 101.325
-    # Humidity ratio (kg/kg)
     W = 0.62198 * P_w / (P_atm - P_w)
     return W
 
 def load_and_preprocess(filepath):
     df = pd.read_parquet(filepath)
     
-    # Required columns from user
     req_cols = ['indoor_t', 'indoor_h', 'indoor_c', 'outdoor_t', 'outdoor_h', 'outdoor_c', 'n_occ']
     for col in req_cols:
         if col not in df.columns:
             raise ValueError(f"Missing required column: {col}")
             
-    # Convert units
-    # 1 ppm CO2 ~= 1.8 mg/m^3 (at standard conditions)
+    # Convert units: 1 ppm CO2 ~= 1.8 mg/m^3 (at standard conditions)
     df['indoor_c_mg'] = df['indoor_c'] * 1.8
     df['outdoor_c_mg'] = df['outdoor_c'] * 1.8
     
@@ -50,7 +45,6 @@ def load_and_preprocess(filepath):
     if 'supply_h' not in df.columns: df['supply_h'] = 0.0
     if 'supply_c' not in df.columns: df['supply_c'] = 0.0
     
-    # Convert supply RH and CO2
     df['supply_w'] = rh_to_w(df['supply_t'], df['supply_h'])
     df['supply_c_mg'] = df['supply_c'] * 1.8
     
@@ -58,7 +52,8 @@ def load_and_preprocess(filepath):
 
 # ── Simulation Functions ────────────────────────────────────────────────
 def simulate_mass_balance(params, df, dt=10.0):
-    V_room, M_air, ACH = params
+    V_room, ACH = params
+    M_air = V_room * RHO_AIR  # Enforce physical coupling
     
     N = len(df)
     C_in = np.zeros(N)
@@ -77,11 +72,11 @@ def simulate_mass_balance(params, df, dt=10.0):
     V_inf = (ACH * V_room) / 3600.0
     
     for i in range(N - 1):
-        # CO2 dynamics with infiltration
+        # CO2 dynamics
         dC_in = (occ[i] * G_CO2_OCC * 1e6 + V_inf * (C_out[i] - C_in[i]) + V_s[i] * (C_s[i] - C_in[i])) / V_room
         C_in[i+1] = C_in[i] + dC_in * dt
         
-        # Humidity dynamics with infiltration
+        # Humidity dynamics
         dW_in = (occ[i] * G_W_OCC + RHO_AIR * V_inf * (W_out[i] - W_in[i]) + RHO_AIR * V_s[i] * (W_s[i] - W_in[i])) / M_air
         W_in[i+1] = W_in[i] + dW_in * dt
         
@@ -95,13 +90,13 @@ def simulate_thermal(params, V_room, M_air, ACH, df, dt=10.0):
     T_m = np.zeros(N)
     
     T_in[0] = df['indoor_t'].iloc[0]
-    T_m[0] = T_m0 # Optimize initial mass temperature
+    T_m[0] = T_m0 
     
     occ = df['n_occ'].values
     V_s = df['supply_v'].values
     T_s = df['supply_t'].values
     T_out = df['outdoor_t'].values
-    Q_equip = 0.0 # From user instruction
+    Q_equip = 0.0 
     
     V_inf = (ACH * V_room) / 3600.0
     
@@ -122,14 +117,11 @@ def simulate_thermal(params, V_room, M_air, ACH, df, dt=10.0):
 
 # ── Objective Functions ────────────────────────────────────────────────
 def objective_phase_a(params, df, dt):
-    # Scale parameters slightly for optimizer stability if needed, but we'll use bounds.
     C_in_sim, W_in_sim = simulate_mass_balance(params, df, dt)
     
-    # Calculate MSE
     mse_c = np.mean((C_in_sim - df['indoor_c_mg'].values)**2)
     mse_w = np.mean((W_in_sim - df['indoor_w'].values)**2)
     
-    # Normalize errors to combine them
     var_c = np.var(df['indoor_c_mg'].values) + 1e-6
     var_w = np.var(df['indoor_w'].values) + 1e-12
     
@@ -144,40 +136,50 @@ def objective_phase_b(scaled_params, V_room, M_air, ACH, df, dt, scale_factors):
 def run_identification(filepath):
     print(f"Loading data from {filepath}")
     df = load_and_preprocess(filepath)
-    dt = 10.0 # 10s timestep as specified by user
+    dt = 10.0 
     
-    print("--- Phase A: Estimating V_room, M_air, ACH ---")
+    print("--- Phase A: Estimating V_room, ACH, and CO2 Scale ---")
     
-    # Scale factors: typical V_room = 100, M_air = 120, ACH = 0.5
-    scale_a = np.array([100.0, 120.0, 1.0])
-    init_scaled_a = np.array([1.0, 1.0, 0.5])
+    scale_a = np.array([100.0, 1.0, 1.0])
+    init_scaled_a = np.array([1.0, 0.5, 1.0])
+    
     bounds_scaled_a = [
-        (20.0/scale_a[0], 500.0/scale_a[0]), 
-        (24.0/scale_a[1], 1000.0/scale_a[1]),
-        (0.0/scale_a[2], 5.0/scale_a[2])
+        (20.0/scale_a[0], 150.0/scale_a[0]),     # V_room forced into realistic range
+        (0.0/scale_a[1], 5.0/scale_a[1]),        # ACH
+        (1.0/scale_a[2], 15.0/scale_a[2])        # Allow G_CO2_OCC to scale up
     ]
     
     def obj_a_scaled(scaled_params):
-        params = scaled_params * scale_a
-        return objective_phase_a(params, df, dt)
+        V_room, ACH, G_scale = scaled_params * scale_a
+        global G_CO2_OCC
+        original_g = G_CO2_OCC
+        G_CO2_OCC = original_g * G_scale  # Apply dynamic scale
+        
+        err = objective_phase_a([V_room, ACH], df, dt)
+        
+        G_CO2_OCC = original_g # Reset
+        return err
         
     res_a = minimize(obj_a_scaled, init_scaled_a, bounds=bounds_scaled_a, method='L-BFGS-B')
-    V_room_opt, M_air_opt, ACH_opt = res_a.x * scale_a
+    
+    V_room_opt, ACH_opt, G_scale_opt = res_a.x * scale_a
+    M_air_opt = V_room_opt * RHO_AIR
+    
     print(f"Optimization Phase A Success: {res_a.success}")
-    print(f"Identified V_room: {V_room_opt:.2f} m^3")
-    print(f"Identified M_air:  {M_air_opt:.2f} kg (Theoretical ρ*V: {V_room_opt * RHO_AIR:.2f} kg)")
-    print(f"Identified ACH:    {ACH_opt:.3f} 1/h")
+    print(f"Identified V_room:     {V_room_opt:.2f} m^3")
+    print(f"Identified M_air:      {M_air_opt:.2f} kg (Coupled)")
+    print(f"Identified ACH:        {ACH_opt:.3f} 1/h")
+    print(f"Identified CO2 Scale:  {G_scale_opt:.2f}x (compensating for sensor)")
     
     print("\n--- Phase B: Estimating C_air, C_mass, R_ext, R_int, T_m0 ---")
-    # Scale factors: C_air = 100,000, C_mass = 4,000,000, R_ext = 0.01, R_int = 0.005, T_m0 = 25
     scale_b = np.array([100000.0, 4000000.0, 0.01, 0.005, 25.0])
     init_scaled_b = np.array([1.0, 1.0, 1.0, 1.0, df['indoor_t'].iloc[0] / 25.0])
     bounds_scaled_b = [
-        (10000.0/scale_b[0], 1e6/scale_b[0]),     # C_air
-        (100000.0/scale_b[1], 2e7/scale_b[1]),    # C_mass
-        (0.0001/scale_b[2], 5.0/scale_b[2]),      # R_ext
-        (0.0001/scale_b[3], 1.0/scale_b[3]),      # R_int
-        (15.0/scale_b[4], 35.0/scale_b[4])        # T_m0 (between 15C and 35C)
+        (10000.0/scale_b[0], 1e6/scale_b[0]),     
+        (100000.0/scale_b[1], 2e7/scale_b[1]),    
+        (0.0001/scale_b[2], 5.0/scale_b[2]),      
+        (0.0001/scale_b[3], 1.0/scale_b[3]),      
+        (15.0/scale_b[4], 35.0/scale_b[4])        
     ]
     
     def obj_b_scaled(scaled_params):
@@ -193,30 +195,27 @@ def run_identification(filepath):
     print(f"Identified R_int:  {R_int_opt:.5f} K/W")
     print(f"Identified T_m0:   {T_m0_opt:.2f} °C")
     
-    # ── Simulate with optimal parameters for plotting ──
-    C_sim, W_sim = simulate_mass_balance([V_room_opt, M_air_opt, ACH_opt], df, dt)
+    # Update global for final simulation plot
+    global G_CO2_OCC
+    G_CO2_OCC = G_CO2_OCC * G_scale_opt
+    C_sim, W_sim = simulate_mass_balance([V_room_opt, ACH_opt], df, dt)
     T_sim, Tm_sim = simulate_thermal([C_air_opt, C_mass_opt, R_ext_opt, R_int_opt, T_m0_opt], V_room_opt, M_air_opt, ACH_opt, df, dt)
     
-    # Create plots
     fig, axs = plt.subplots(3, 1, figsize=(10, 12), sharex=True)
+    time_axis = np.arange(len(df)) * dt / 60.0
     
-    time_axis = np.arange(len(df)) * dt / 60.0 # Time in minutes
-    
-    # Temperature
     axs[0].plot(time_axis, df['indoor_t'], label='Measured T_in', color='black')
     axs[0].plot(time_axis, T_sim, label='Simulated T_in', color='red', linestyle='--')
     axs[0].set_ylabel('Temperature (°C)')
     axs[0].legend()
     axs[0].grid(True)
     
-    # Humidity
     axs[1].plot(time_axis, df['indoor_w'], label='Measured W_in', color='black')
     axs[1].plot(time_axis, W_sim, label='Simulated W_in', color='blue', linestyle='--')
     axs[1].set_ylabel('Humidity Ratio (kg/kg)')
     axs[1].legend()
     axs[1].grid(True)
     
-    # CO2
     axs[2].plot(time_axis, df['indoor_c_mg'], label='Measured CO2 (mg/m3)', color='black')
     axs[2].plot(time_axis, C_sim, label='Simulated CO2 (mg/m3)', color='green', linestyle='--')
     axs[2].set_ylabel('CO2 (mg/m³)')
@@ -229,17 +228,17 @@ def run_identification(filepath):
     plt.savefig(plot_path)
     print(f"\nSaved comparison plot to {plot_path}")
     
-    # Save optimal parameters to json
     optimal_params = {
         "V_room": V_room_opt,
         "M_air": M_air_opt,
+        "ACH": ACH_opt,
+        "G_CO2_Scale": G_scale_opt,
         "C_air": C_air_opt,
         "C_mass": C_mass_opt,
         "R_env_ext": R_ext_opt,
         "R_int": R_int_opt
     }
     
-    import json
     params_path = os.path.join(os.path.dirname(filepath), 'identified_params.json')
     with open(params_path, 'w') as f:
         json.dump(optimal_params, f, indent=4)

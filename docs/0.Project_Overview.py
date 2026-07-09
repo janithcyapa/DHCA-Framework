@@ -9,7 +9,7 @@
 
 import marimo
 
-__generated_with = "0.23.6"
+__generated_with = "0.23.13"
 app = marimo.App(width="medium")
 
 
@@ -24,14 +24,6 @@ def _():
         f"<style>{req.urlopen('https://raw.githubusercontent.com/janithcyapa/Engineering-Codex/refs/heads/main/shared_files/marimo/theme.css').read().decode()}</style>"
     )
     return (mo,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    >
-    """)
-    return
 
 
 @app.cell(hide_code=True)
@@ -110,6 +102,8 @@ def _(mo):
     [📑 2.State Estimator Design](https://janithcyapa.github.io/DHCA-Framework/2.State_Estimator_Design.html)
 
     [📑 3.MPC Design](https://janithcyapa.github.io/DHCA-Framework/3.MPC_Design.html)
+
+    [📑 4.Controllability_Analysis](https://janithcyapa.github.io/DHCA-Framework/4.Controllability_Analysis.html)
 
 
     ### Usefull Links
