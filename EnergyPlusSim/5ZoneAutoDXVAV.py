@@ -24,6 +24,12 @@ import numpy as np
 from _5ZoneAutoDXVAV_zone_model import TheoreticalZoneModel
 from _5ZoneAutoDXVAV_ekf import ZoneEKF
 from _5ZoneAutoDXVAV_controller import MPCController
+import random
+
+# ─────────────────────────────────────────────────────────────────────────
+# Sensor Configuration
+# ─────────────────────────────────────────────────────────────────────────
+SIMULATE_SENSOR_NOISE = True
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -242,7 +248,15 @@ class HVAC_Coordinator(EnergyPlusPlugin):
     #  HELPERS — sensor reads
     # ═════════════════════════════════════════════════════════════════════
     def _val(self, state, key):
-        return self.api.exchange.get_variable_value(state, self.handles[key])
+        val = self.api.exchange.get_variable_value(state, self.handles[key])
+        if SIMULATE_SENSOR_NOISE:
+            if key.endswith("_Temp"):
+                val += random.gauss(0, 0.1)  # BME280 temp noise (deg C)
+            elif key.endswith("_RH"):
+                val += random.gauss(0, 1.0)  # BME280 RH noise (%)
+            elif key.endswith("_CO2"):
+                val += random.gauss(0, 15.0) # EN160 CO2 noise (ppm)
+        return val
 
     def _meter_val(self, state, key):
         handle = self.handles.get(key, -1)
