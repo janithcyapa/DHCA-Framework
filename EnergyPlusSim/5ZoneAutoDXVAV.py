@@ -62,7 +62,7 @@ def _build_csv_headers(zones):
         # EKF estimates
         h += [f"{z}_T_in_est", f"{z}_T_m_est", f"{z}_W_in_est", f"{z}_C_in_est", f"{z}_Occ_est"]
 
-    h += ["CC_Power_W", "HC_Power_W", "Fan_Power_W"]
+    h += ["CC_Power_W", "HC_Power_W", "Fan_Power_W", "Meter_Bldg_Elec_J", "Meter_HVAC_Elec_J", "Meter_AHU_Elec_J", "Meter_Bldg_Gas_J"]
     return h
 
 
@@ -102,7 +102,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         self._register_central_handles(state)
         self._register_zone_handles(state)
         self._register_actuators(state)
-        self._init_estimators()
+        # self._init_estimators()
         self._open_csv()
         self._validate_handles()
         self.ready = True
@@ -160,6 +160,13 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         self.handles["CC_Power"]  = gv(state, "Cooling Coil Electricity Rate", "Main Cooling Coil 1")
         self.handles["HC_Power"]  = gv(state, "Heating Coil NaturalGas Rate",  "Main heating Coil 1")
         self.handles["Fan_Power"] = gv(state, "Fan Electricity Rate",           "Supply Fan 1")
+
+        # Meters
+        self.handles["M_Elec_Fac"]  = self.api.exchange.get_meter_handle(state, "Electricity:Building")
+        self.handles["M_Elec_HVAC"] = self.api.exchange.get_meter_handle(state, "Electricity:HVAC")
+        self.handles["M_Elec_Fans"] = self.api.exchange.get_meter_handle(state, "Fans:Electricity")
+        self.handles["M_Elec_Cool"] = self.api.exchange.get_meter_handle(state, "Cooling:Electricity")
+        self.handles["M_Gas_Fac"]   = self.api.exchange.get_meter_handle(state, "NaturalGas:Facility")
 
     # ── Zone-level handles ───────────────────────────────────────────────
     def _register_zone_handles(self, state):
@@ -237,6 +244,11 @@ class HVAC_Coordinator(EnergyPlusPlugin):
     def _val(self, state, key):
         return self.api.exchange.get_variable_value(state, self.handles[key])
 
+    def _meter_val(self, state, key):
+        handle = self.handles.get(key, -1)
+        if handle == -1: return 0.0
+        return self.api.exchange.get_meter_value(state, handle)
+
     def _get_dt(self, state):
         dt_h = self.api.exchange.system_time_step(state)
         if dt_h == 0:
@@ -289,6 +301,8 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             Q_equip = 0.0
 
             # ── Initialise on first call ─────────────────────────────────
+            if z not in self.zone_models or z not in self.zone_ekfs:
+                continue
             model = self.zone_models[z]
             ekf   = self.zone_ekfs[z]
             if model.state is None:
@@ -361,6 +375,17 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 round(self._val(state, "HC_Power"),  2),
                 round(self._val(state, "Fan_Power"), 2)]
 
+        # Energy meters (Joules for the timestep)
+        bldg_elec_j = self._meter_val(state, "M_Elec_Fac")
+        hvac_elec_j = self._meter_val(state, "M_Elec_HVAC")
+        ahu_elec_j  = self._meter_val(state, "M_Elec_Fans") + self._meter_val(state, "M_Elec_Cool")
+        gas_fac_j   = self._meter_val(state, "M_Gas_Fac")
+        
+        row += [round(bldg_elec_j, 2),
+                round(hvac_elec_j, 2),
+                round(ahu_elec_j, 2),
+                round(gas_fac_j, 2)]
+
         self._csv_writer.writerow(row)
         self._csv_file.flush()
         return 0
@@ -397,18 +422,22 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         sa(state, self.actuators["HC_Temp_SP"], 14.0)
 
         # ── MPC targets ─────────────────────────────────────────────────
-        ahu_conditions = {
-            'T_SUPPLY': self._val(state, "HC_Out_Temp"),
-            'W_SUPPLY': self._val(state, "HC_Out_W"),
-            'C_SUPPLY': self._val(state, "HC_Out_CO2")
-        }
-        flows, reheats = self.mpc.compute_optimal_control(self.estimations, elapsed, ahu_conditions)
+        if self.mpc is not None:
+            ahu_conditions = {
+                'T_SUPPLY': self._val(state, "HC_Out_Temp"),
+                'W_SUPPLY': self._val(state, "HC_Out_W"),
+                'C_SUPPLY': self._val(state, "HC_Out_CO2")
+            }
+            flows, reheats = self.mpc.compute_optimal_control(self.estimations, elapsed, ahu_conditions)
+        else:
+            flows, reheats = {}, {}
 
         # ── Per-zone actuation ───────────────────────────────────────────
         for z in self.zones:
             self._inject_dataset_overrides(state, z, idx)
-            self._inject_flow_setpoint(state, z, flows.get(z, 0.1))
-            self._inject_reheat_setpoint(state, z, reheats.get(z, 22.0))
+            if self.mpc is not None:
+                self._inject_flow_setpoint(state, z, flows.get(z, 0.1))
+                self._inject_reheat_setpoint(state, z, reheats.get(z, 22.0))
 
         return 0
 

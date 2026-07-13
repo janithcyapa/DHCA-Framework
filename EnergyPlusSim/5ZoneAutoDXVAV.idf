@@ -2898,3 +2898,8 @@ Output:EnergyManagementSystem,
   Verbose,                 !- Actuator Availability Dictionary Reporting
   Verbose,                 !- Internal Variable Availability Dictionary Reporting
   Verbose;                 !- EMS Runtime Language Debug Output Level
+  Output:Meter, Electricity:Facility, Timestep;
+  Output:Meter, Electricity:HVAC, Timestep;
+  Output:Meter, NaturalGas:Facility, Timestep;
+  Output:Meter, Fans:Electricity, Timestep;
+  Output:Meter, Cooling:Electricity, Timestep;
