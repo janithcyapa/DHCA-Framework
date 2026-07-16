@@ -18,7 +18,7 @@ from _5ZoneAutoDXVAV_zone_controller import ZoneController
 from _5ZoneAutoDXVAV_ahu_coordinator import AHUCoordinator
 
 # Sensor Configuration & Globals
-SIMULATE_SENSOR_NOISE = True
+SIMULATE_SENSOR_NOISE = False
 
 CENTRAL_NODES = {
     "Outdoor_Air":  "Outside Air Inlet Node 1",
