@@ -35,13 +35,13 @@ class ZoneController:
         # Process Noise Covariance Q
         self.Q = np.diag([
             1e-7, 1e-4, 1e-7, 1e-7,  # Tier 1 & 3: T_in, T_m, W_in, C_in
-            1e-2, 1e-2, 1e-2,        # Tier 2: Fast Disturbances (d_T, d_W, N_occ)
+            1e-2, 1e-2, 0.1,         # Tier 2: Fast Disturbances (d_T, d_W, N_occ)
             1e-4, 1e-4,              # Tier 3: Slow Parameters (alpha_ext, alpha_int)
             1e-9, 1e-9               # Tier 4: Geologic (beta_air, beta_mass)
         ])
         
         # Measurement Noise Covariance R
-        self.R = np.diag([0.01, 1e-8, 25.0])  # T_in, W_in, C_in
+        self.R = np.diag([0.01, 1e-8, 10.0])  # T_in, W_in, C_in
 
         # Measurement Matrix H (maps state to measurements: T_in, W_in, C_in)
         self.H = np.zeros((3, 11))
