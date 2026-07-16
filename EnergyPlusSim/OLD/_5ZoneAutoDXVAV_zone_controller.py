@@ -19,19 +19,10 @@ class ZoneController:
         """
         # Skeleton implementation. Log a dummy variable to demonstrate flexible logging.
         logger.add(f"{self.zone_name}_EKF_Status", 1)
-        ideal_temp= 13.0
-        ideal_hum= 0.008
-        ideal_co2= 400.0
-        u_cmd= 0.5
-
-        logger.add(f"{self.zone_name}_ideal_temp", ideal_temp)
-        logger.add(f"{self.zone_name}_ideal_hum", ideal_hum)
-        logger.add(f"{self.zone_name}_ideal_co2", ideal_co2)
-        logger.add(f"{self.zone_name}_u_cmd", u_cmd)
         
         return {
-            'ideal_temp': ideal_temp,
-            'ideal_hum': ideal_hum,
-            'ideal_co2': ideal_co2,
-            'u_cmd': u_cmd
+            'ideal_temp': 22.0,
+            'ideal_hum': 0.008,
+            'ideal_co2': 400.0,
+            'u_cmd': 0.1 # VAV flow rate command
         }

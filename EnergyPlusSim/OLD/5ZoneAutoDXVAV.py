@@ -198,7 +198,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         self.zone_params = {}
 
         # Toggle for custom controllers
-        self.USE_CUSTOM_CONTROLLERS = False
+        self.USE_CUSTOM_CONTROLLERS = True
         
         self.logger = SimulationLogger()
         self.initializer = Initializer(self.api, self)
@@ -380,7 +380,6 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 sa(state, h_sp,  flow)
                 
             # Reheat SP
-            reheat = 0
             h_reheat = self.actuators.get(f"{z}_Reheat_SP", -1)
             if h_reheat != -1:
                 sa(state, h_reheat, reheat)

@@ -17,16 +17,9 @@ class AHUCoordinator:
         """
         # Skeleton implementation. Log a dummy variable to demonstrate flexible logging.
         logger.add("AHU_Coordinator_Status", 1)
-        ahu_temp_sp = 13.0
-        ahu_hum_sp = 0.008
-        ahu_co2_sp = 400.0
-        logger.add("ahu_temp_sp", ahu_temp_sp)
-        logger.add("ahu_hum_sp", ahu_hum_sp)
-        logger.add("ahu_co2_sp", ahu_co2_sp)
-
-
+        
         return {
-            'ahu_temp_sp': ahu_temp_sp,
-            'ahu_hum_sp': ahu_hum_sp,
-            'ahu_co2_sp': ahu_co2_sp
+            'ahu_temp_sp': 13.0,
+            'ahu_hum_sp': 0.008,
+            'ahu_co2_sp': 400.0
         }
