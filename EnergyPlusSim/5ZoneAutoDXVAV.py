@@ -233,6 +233,11 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         if handle == -1: return 0.0
         return self.api.exchange.get_meter_value(state, handle)
 
+    def _act_val(self, state, key):
+        handle = self.actuators.get(key, -1)
+        if handle == -1: return 0.0
+        return self.api.exchange.get_actuator_value(state, handle)
+
     def _get_dt(self, state):
         dt_h = self.api.exchange.system_time_step(state)
         if dt_h == 0:
@@ -307,10 +312,20 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             self.logger.add(f"{z}_CO2_ppm", round(self._val(state, f"{z}_CO2"), 2))
             self.logger.add(f"{z}_Occupants", round(self._val(state, f"{z}_Occ"), 2))
             self.logger.add(f"{z}_EquipLoad_W", round(self._val(state, f"{z}_Equip"), 2))
+            
+            # Log Actuator values for the zone
+            self.logger.add(f"Act_{z}_Flow_SP_kg_s", round(self._act_val(state, f"{z}_Flow_SP"), 4))
+            self.logger.add(f"Act_{z}_Reheat_SP_C", round(self._act_val(state, f"{z}_Reheat_SP"), 2))
 
         self.logger.add("CC_Power_W", round(self._val(state, "CC_Power"), 2))
         self.logger.add("HC_Power_W", round(self._val(state, "HC_Power"), 2))
         self.logger.add("Fan_Power_W", round(self._val(state, "Fan_Power"), 2))
+        
+        # Log Central Actuator values (Cooler, Heater, Fan, Mixer/OA)
+        self.logger.add("Act_CC_Temp_SP_C", round(self._act_val(state, "CC_Temp_SP"), 2))
+        self.logger.add("Act_HC_Temp_SP_C", round(self._act_val(state, "HC_Temp_SP"), 2))
+        self.logger.add("Act_Fan_Flow_kg_s", round(self._act_val(state, "Fan_Flow"), 4))
+        self.logger.add("Act_OA_Flow_SP_kg_s", round(self._act_val(state, "OA_Flow_SP"), 4))
         
         self.logger.add("Meter_Bldg_Elec_J", round(self._meter_val(state, "M_Elec_Fac"), 2))
         self.logger.add("Meter_HVAC_Elec_J", round(self._meter_val(state, "M_Elec_HVAC"), 2))
