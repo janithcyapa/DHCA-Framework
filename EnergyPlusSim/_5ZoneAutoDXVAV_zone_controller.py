@@ -109,6 +109,7 @@ class ZoneController:
             self.SC[i, i*4 + 3] = 1.0
 
     def step(self, dt, state_data, logger):
+        print(f"[{self.zone_name}] Starting step with dt={dt}")
         start_time = time.perf_counter()
         
         T_out = state_data.get('T_out', 22.0)
@@ -185,6 +186,7 @@ class ZoneController:
                     self.x[10] = np.clip(self.x[10], 1e-9, 1e-5)
             
                     # --- MPC Formulation ---
+                    # print(f"[{self.zone_name}] Starting MPC formulation")
                     # 1. Linearization around x_0 (from updated EKF state) and u_{-1}
                     x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11 = self.x
                     T_in, T_m, W_in, C_in = x1, x2, x3, x4
@@ -276,9 +278,12 @@ class ZoneController:
                     
                     A_sparse = sparse.csc_matrix(A_ineq)
                     
+                    # print(f"[{self.zone_name}] Setting up OSQP solver")
                     solver = osqp.OSQP()
                     solver.setup(P=self.H_sparse, q=f, A=A_sparse, l=-np.inf*np.ones_like(b_ineq), u=b_ineq, verbose=False)
+                    # print(f"[{self.zone_name}] Solving OSQP")
                     res = solver.solve()
+                    print(f"[{self.zone_name}] OSQP solved, status={res.info.status_val}")
                     
                     if res.info.status_val in [1, 2]: # 1: SOLVED, 2: SOLVED_INACCURATE
                         u_cmd = res.x[0]

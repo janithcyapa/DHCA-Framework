@@ -198,7 +198,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         self.zone_params = {}
 
         # Toggle for custom controllers
-        self.USE_CUSTOM_CONTROLLERS = False
+        self.USE_CUSTOM_CONTROLLERS = True
         
         self.logger = SimulationLogger()
         self.initializer = Initializer(self.api, self)
