@@ -212,10 +212,10 @@ class HVAC_Coordinator(EnergyPlusPlugin):
     def _init(self, state):
         self.initializer.setup(state)
         
-        if self.USE_CUSTOM_CONTROLLERS:
-            for z in self.zones:
-                self.zone_controllers[z] = ZoneController(z)
-            self.ahu_coordinator = AHUCoordinator()
+    
+        for z in self.zones:
+            self.zone_controllers[z] = ZoneController(z)
+        self.ahu_coordinator = AHUCoordinator()
             
         self.ready = True
 
@@ -262,8 +262,8 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         self.logger.add("Hour", h)
         self.logger.add("Minute", m)
 
-        if not self.USE_CUSTOM_CONTROLLERS:
-            return 0
+        # if not self.USE_CUSTOM_CONTROLLERS:
+        #     return 0
 
         # Run Zone Controllers
         self.zone_ideal_conditions = {}
@@ -275,7 +275,11 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 'C_in': self._val(state, f"{z}_CO2"),
                 'Occ': self._val(state, f"{z}_Occ"),
                 'VAV_Flow': self._val(state, f"{z}_VAV_Flow"),
-                'T_out': self._val(state, "Out_Temp")
+                'T_out': self._val(state, "Out_Temp"),
+                'T_s': self._val(state, f"{z}_T_s"),
+                'W_s': self._val(state, f"{z}_W_s"),
+                'C_s': self._val(state, f"{z}_C_s"),
+                'Equip': self._val(state, f"{z}_Equip")
             }
             # Execute zone controller step
             ideal_cond = self.zone_controllers[z].step(dt, state_data, self.logger)
