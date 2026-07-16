@@ -53,8 +53,8 @@ class ZoneController:
         self.T_ref = 22.0
         self.T_max = self.T_ref + 2.0
         self.T_min = self.T_ref - 2.0
-        self.W_max = 0.0112  # 60% RH at 24°C
-        self.W_min = 0.0055  # 30% RH at 24°C
+        self.W_max = 0.0080  # Reduced to control humidity better
+        self.W_min = 0.0020  # Reduced to match typical lower limits
         self.C_max = 1000.0
         self.u_min = 0.0
         self.u_max = 2.0  # Max volumetric flow rate m3/s
@@ -62,9 +62,9 @@ class ZoneController:
         # Objective Weights
         self.r = 1.0           # Flow penalty
         self.r_delta = 10.0    # Rate of change penalty
-        self.lambda_T = 1e6    # Soft constraint penalty for Temp
-        self.lambda_W = 1e6    # Soft constraint penalty for Humidity
-        self.lambda_C = 1e6    # Soft constraint penalty for CO2
+        self.lambda_T = 1e3    # Reduced soft constraint penalty for Temp
+        self.lambda_W = 1e3    # Reduced soft constraint penalty for Humidity
+        self.lambda_C = 1e3    # Reduced soft constraint penalty for CO2
         
         self.setup_mpc_constants()
         
@@ -280,7 +280,7 @@ class ZoneController:
                     
                     # print(f"[{self.zone_name}] Setting up OSQP solver")
                     solver = osqp.OSQP()
-                    solver.setup(P=self.H_sparse, q=f, A=A_sparse, l=-np.inf*np.ones_like(b_ineq), u=b_ineq, verbose=False)
+                    solver.setup(P=self.H_sparse, q=f, A=A_sparse, l=-np.inf*np.ones_like(b_ineq), u=b_ineq, verbose=False, max_iter=50000, eps_abs=1e-4, eps_rel=1e-4)
                     # print(f"[{self.zone_name}] Solving OSQP")
                     res = solver.solve()
                     print(f"[{self.zone_name}] OSQP solved, status={res.info.status_val}")
@@ -308,14 +308,15 @@ class ZoneController:
                     logger.add(f"{self.zone_name}_EKF_K_C_in", K_k[3, 2])
                     logger.add(f"{self.zone_name}_EKF_K_N_occ_from_C_in", K_k[6, 2])
                     
+                    ideal_hum = (self.W_max + self.W_min) / 2.0
                     logger.add(f"{self.zone_name}_ideal_temp", self.T_ref)
-                    logger.add(f"{self.zone_name}_ideal_hum", 0.008)
+                    logger.add(f"{self.zone_name}_ideal_hum", ideal_hum)
                     logger.add(f"{self.zone_name}_ideal_co2", 400.0)
                     logger.add(f"{self.zone_name}_u_cmd", u_mass_cmd)
                     
                     return {
                         'ideal_temp': self.T_ref,
-                        'ideal_hum': 0.008,
+                        'ideal_hum': ideal_hum,
                         'ideal_co2': 400.0,
                         'u_cmd': u_mass_cmd
                     }
