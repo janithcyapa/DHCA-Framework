@@ -5,6 +5,18 @@ Implements multi-zone arbitration logic with comprehensive logging.
 """
 import math
 
+def w_sat(T_C, P_atm=101325.0):
+    """
+    Saturation humidity ratio (kg/kg dry air) at a given dry-bulb/dew-point
+    temperature T_C -- the inverse of T_sat() below. This is the coldest/
+    driest air a coil can produce at temperature T_C: the true physical
+    floor for dehumidification when no reheat is available.
+    """
+    gamma = 17.625 * T_C / (243.04 + T_C)
+    P_w = 610.94 * math.exp(gamma)
+    return 0.62198 * P_w / (P_atm - P_w)
+
+
 class AHUCoordinator:
     def __init__(self):
         self.ready = False
@@ -13,8 +25,15 @@ class AHUCoordinator:
         self.T_s_min = 10.0
         self.T_s_max = 40.0
         self.T_neutral = 22.0 # Neutral or average zone temp
-        
-        self.W_s_min = 0.005
+
+        # FIX (bug 2): W_s_min used to be a hardcoded 0.005 kg/kg, which is
+        # colder/drier than saturation at T_s_min (10C) can ever deliver
+        # without reheat (~0.0076 kg/kg). Requesting it caused Rule 3b's
+        # psychrometric override to compute a T_bound below T_s_min, which
+        # then got silently accepted by the Rule 4 clip -- commanding the
+        # coil to reach an unphysical dew point it can never hit and never
+        # actually dehumidifying enough. Derive the true floor instead.
+        self.W_s_min = w_sat(self.T_s_min)
         self.W_s_max = 0.015
         self.W_neutral = 0.008
         
@@ -135,7 +154,17 @@ class AHUCoordinator:
             return 243.04 * val / (17.625 - val)
             
         T_sat_bound = T_sat(W_s_AHU)
-        T_bound = min(T_demand, T_sat_bound)
+        # FIX (bug 2): T_sat_bound can fall below T_s_min when a zone's Ideal
+        # Ask requests a W_s_AHU the coil physically can't reach at T_s_min.
+        # Previously this uncapped T_bound flowed straight into Rule 4's
+        # clip(..., T_s_min, T_bound), which -- because T_bound < T_s_min --
+        # always collapsed to T_bound, silently commanding supply air colder
+        # than the AHU's own declared floor (observed at exactly 3.92C for
+        # >25% of a logged run). Since W_s_min is now itself derived from
+        # T_s_min (see __init__), this clamp should rarely bind, but it stays
+        # as a hard physical guarantee: never ask the coil for a dew point
+        # colder than it can deliver without reheat.
+        T_bound = max(min(T_demand, T_sat_bound), self.T_s_min)
         
         logger.add("AHU_R3b_T_sat_bound", round(T_sat_bound, 2))
         logger.add("AHU_R3b_T_bound", round(T_bound, 2))

@@ -6,6 +6,21 @@ import numpy as np
 import scipy.sparse as sparse
 import osqp
 import time
+import math
+
+
+def w_sat(T_C, P_atm=101325.0):
+    """
+    Saturation humidity ratio (kg/kg dry air) at a given dry-bulb/dew-point
+    temperature T_C, via the inverse of the Magnus formula used elsewhere
+    in this codebase (see AHUCoordinator.T_sat). This is the coldest/driest
+    air a coil can produce at temperature T_C -- the true physical floor
+    for dehumidification WITHOUT reheat.
+    """
+    gamma = 17.625 * T_C / (243.04 + T_C)
+    P_w = 610.94 * math.exp(gamma)
+    return 0.62198 * P_w / (P_atm - P_w)
+
 
 class ZoneController:
     def __init__(self, zone_name):
@@ -58,6 +73,18 @@ class ZoneController:
         self.C_max = 1000.0
         self.u_min = 0.0
         self.u_max = 2.0  # Max volumetric flow rate m3/s
+
+        # AHU physical supply-air limits (must match AHUCoordinator's limits).
+        # FIX (bug 2): W_s_min used to be a hardcoded 0.005 kg/kg -- a request
+        # for supply air roughly 6C colder than any coil bound by T_s_min can
+        # actually deliver (no reheat available to make up the difference).
+        # Derive the achievable dehumidification floor from T_s_min instead:
+        # a coil can't produce air drier than saturation at its coldest
+        # deliverable temperature.
+        self.T_s_min = 10.0
+        self.T_s_max = 40.0
+        self.W_s_min = w_sat(self.T_s_min)  # achievable dehumidification floor, no reheat
+        self.W_s_max = 0.015
         
         # Objective Weights — Priority: Temperature >> Humidity >> CO2
         self.r = 0.1           # Flow penalty (low — allow flow changes)
@@ -304,30 +331,36 @@ class ZoneController:
                     
                     # --- Constraint assembly (two-sided format) ---
                     #
-                    # Row block 1: Temperature soft constraints
-                    #   T_min - gT <= FT @ u - eps_T        <= T_max - gT
-                    #   i.e. T_min - gT <= [FT, -I, 0, 0] z <= T_max - gT
+                    # FIX (bug 1): a single two-sided row "T_min-gT <= FT@u - eps_T <= T_max-gT"
+                    # only relaxes the UPPER side as eps_T grows; algebraically the LOWER side
+                    # becomes FT@u >= T_min - gT + eps_T, which gets *stricter* as eps_T grows.
+                    # That means violations on the lower side of the deadband have no slack that
+                    # can rescue them -> spurious OSQP status 3 (PRIMAL_INFEASIBLE) / 7 (MAX_ITER).
+                    # Each two-sided block is now written as two independent one-sided rows,
+                    # matching "3. Actuation-Minimizing Deadband Zone MPC.md" section
+                    # "Formulating the Soft Bounds" exactly:
+                    #   F_T U - eps_T <=  T_max - g_T
+                    #  -F_T U - eps_T <= -T_min + g_T
+                    # (and likewise for W). CO2 stays one-sided (ceiling only).
                     #
-                    # Row block 2: Humidity soft constraints
-                    #   W_min - gW <= FW @ u - eps_W        <= W_max - gW
-                    #   i.e. W_min - gW <= [FW, 0, -I, 0] z <= W_max - gW
-                    #
-                    # Row block 3: CO2 soft constraints (one-sided: upper bound only)
-                    #   -inf       <= FC @ u - eps_C        <= C_max - gC
-                    #   i.e. -inf  <= [FC, 0, 0, -I] z     <= C_max - gC
-                    #
-                    # Row block 4: Slack non-negativity: 0 <= eps_T
-                    # Row block 5: Slack non-negativity: 0 <= eps_W
-                    # Row block 6: Slack non-negativity: 0 <= eps_C
-                    #
-                    # Row block 7: Input bounds: u_min <= u <= u_max
-                    
+                    # Row block 1: T upper   :  FT@u  - eps_T <=  T_max - gT
+                    # Row block 2: T lower   : -FT@u  - eps_T <= -T_min + gT
+                    # Row block 3: W upper   :  FW@u  - eps_W <=  W_max - gW
+                    # Row block 4: W lower   : -FW@u  - eps_W <= -W_min + gW
+                    # Row block 5: C upper   :  FC@u  - eps_C <=  C_max - gC
+                    # Row block 6: Slack non-negativity: 0 <= eps_T
+                    # Row block 7: Slack non-negativity: 0 <= eps_W
+                    # Row block 8: Slack non-negativity: 0 <= eps_C
+                    # Row block 9: Input bounds: u_min <= u <= u_max
+
                     A_con = np.block([
-                        # Temp soft constraints
+                        # Temp soft constraints (upper, then lower)
                         [FT, -self.I_N, self.O_N, self.O_N],
-                        # Humidity soft constraints
+                        [-FT, -self.I_N, self.O_N, self.O_N],
+                        # Humidity soft constraints (upper, then lower)
                         [FW, self.O_N, -self.I_N, self.O_N],
-                        # CO2 soft constraints
+                        [-FW, self.O_N, -self.I_N, self.O_N],
+                        # CO2 soft constraint (upper only)
                         [FC, self.O_N, self.O_N, -self.I_N],
                         # Slack non-negativity: eps_T >= 0
                         [self.O_N, self.I_N, self.O_N, self.O_N],
@@ -338,31 +371,39 @@ class ZoneController:
                         # Input bounds
                         [self.I_N, self.O_N, self.O_N, self.O_N],
                     ])
-                    
-                    n_con = 7 * N
+
+                    n_con = 9 * N
                     l_con = np.zeros(n_con)
                     u_con = np.zeros(n_con)
-                    
-                    # Block 1: T_min - gT <= ... <= T_max - gT
-                    l_con[0:N] = np.ones(N) * self.T_min - gT
+
+                    # Block 1: FT@u - eps_T <= T_max - gT
+                    l_con[0:N] = -np.inf
                     u_con[0:N] = np.ones(N) * self.T_max - gT
-                    
-                    # Block 2: W_min - gW <= ... <= W_max - gW
-                    l_con[N:2*N] = np.ones(N) * self.W_min - gW
-                    u_con[N:2*N] = np.ones(N) * self.W_max - gW
-                    
-                    # Block 3: -inf <= ... <= C_max - gC
-                    l_con[2*N:3*N] = -np.inf * np.ones(N)
-                    u_con[2*N:3*N] = np.ones(N) * self.C_max - gC
-                    
-                    # Block 4-6: 0 <= eps <= inf
-                    l_con[3*N:6*N] = 0.0
-                    u_con[3*N:6*N] = np.inf
-                    
-                    # Block 7: u_min <= u <= u_max
-                    l_con[6*N:7*N] = np.ones(N) * self.u_min
-                    u_con[6*N:7*N] = np.ones(N) * self.u_max
-                    
+
+                    # Block 2: -FT@u - eps_T <= -T_min + gT
+                    l_con[N:2*N] = -np.inf
+                    u_con[N:2*N] = -np.ones(N) * self.T_min + gT
+
+                    # Block 3: FW@u - eps_W <= W_max - gW
+                    l_con[2*N:3*N] = -np.inf
+                    u_con[2*N:3*N] = np.ones(N) * self.W_max - gW
+
+                    # Block 4: -FW@u - eps_W <= -W_min + gW
+                    l_con[3*N:4*N] = -np.inf
+                    u_con[3*N:4*N] = -np.ones(N) * self.W_min + gW
+
+                    # Block 5: FC@u - eps_C <= C_max - gC
+                    l_con[4*N:5*N] = -np.inf
+                    u_con[4*N:5*N] = np.ones(N) * self.C_max - gC
+
+                    # Block 6-8: 0 <= eps <= inf
+                    l_con[5*N:8*N] = 0.0
+                    u_con[5*N:8*N] = np.inf
+
+                    # Block 9: u_min <= u <= u_max
+                    l_con[8*N:9*N] = np.ones(N) * self.u_min
+                    u_con[8*N:9*N] = np.ones(N) * self.u_max
+
                     A_sparse = sparse.csc_matrix(A_con)
                     
                     solver = osqp.OSQP()
@@ -418,13 +459,13 @@ class ZoneController:
                     e_W = W_ref - W_in
                     e_C = min(0.0, C_limit - C_in)
                     
-                    # AHU Physical limits
-                    T_s_min = 10.0
-                    T_s_max = 40.0
+                    # AHU Physical limits (see FIX note on self.W_s_min in __init__)
+                    T_s_min = self.T_s_min
+                    T_s_max = self.T_s_max
                     T_neutral = T_in
                     
-                    W_s_min = 0.005
-                    W_s_max = 0.015
+                    W_s_min = self.W_s_min
+                    W_s_max = self.W_s_max
                     W_neutral = W_in
                     
                     C_s_min = 400.0

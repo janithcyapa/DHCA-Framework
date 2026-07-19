@@ -403,8 +403,14 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             # Also set node setpoints directly as backup
             if self.actuators.get("CC_Temp_SP", -1) != -1:
                 sa(state, self.actuators["CC_Temp_SP"], temp_sp)
+            # FIX (bug 3): this used to set the central heating coil setpoint
+            # to temp_sp + 1.0 unconditionally, i.e. always asking it to add
+            # heat right after the cooling coil. That directly contradicts
+            # the reheat-free "Actuation-Minimizing Deadband MPC" design in
+            # docs 3-5, where VAV flow (u) is meant to be the only actuator.
+            # Pass the setpoint straight through -- no added heat.
             if self.actuators.get("HC_Temp_SP", -1) != -1:
-                sa(state, self.actuators["HC_Temp_SP"], temp_sp + 1.0)
+                sa(state, self.actuators["HC_Temp_SP"], temp_sp)
                 
             # 3. Humidity Setpoints - override the schedule so SetpointManager writes our value
             hum_sp = self.ahu_setpoints.get('ahu_hum_sp', 0.008)
@@ -429,24 +435,18 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             flow = cond.get('u_cmd', 0.1)
             ideal_temp = cond.get('ideal_temp', 22.0)
             
-            # Reheat SP — use zone comfort setpoint (T_ref = 22°C), NOT ideal_temp
-            # ideal_temp can be 40°C (extreme heating ask) which is unachievable
-            # The reheat coil should warm supply air to the zone comfort target
-            T_ref = 22.0
-            zone_temp = self._val(state, f"{z}_Temp") if self.handles.get(f"{z}_Temp", -1) != -1 else T_ref
+            # FIX (bug 3): this block used to command the per-zone reheat
+            # coil up to T_ref (22C) whenever the zone wasn't overheating --
+            # a conventional VAV-reheat sequence that (a) contradicts the
+            # reheat-free "Actuation-Minimizing Deadband MPC" design in docs
+            # 3-5, and (b) shrinks the zone MPC's own authority over
+            # temperature, since T_s is read from this same post-reheat node
+            # (Bc[0,0] ~ (T_s - T_in) collapses toward 0 whenever reheat
+            # pulls T_s up near T_in). VAV flow (u_cmd, from the zone's own
+            # MPC) is meant to be the only actuator -- pass supply air
+            # through unmodified.
             supply_temp = self.ahu_setpoints.get('ahu_temp_sp', 13.0) if self.ahu_setpoints else 13.0
-            
-            # If zone is already cold (below deadband), set reheat to warm
-            # supply air up to comfort. If zone is hot, let cold air through.
-            if zone_temp < T_ref - 1.0:
-                # Zone too cold — reheat to comfort setpoint
-                reheat_sp = T_ref
-            elif zone_temp > T_ref + 1.0:
-                # Zone too hot — don't reheat, let cold supply cool the zone
-                reheat_sp = supply_temp
-            else:
-                # In deadband — moderate reheat to maintain comfort
-                reheat_sp = T_ref
+            reheat_sp = supply_temp
             
             # Clamp Flow
             h_sp  = self.actuators.get(f"{z}_Flow_SP",  -1)
