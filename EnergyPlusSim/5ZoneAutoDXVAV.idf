@@ -1980,7 +1980,7 @@
     Temperature,             !- Schedule Type Limits Name
     Through: 12/31,          !- Field 1
     For: AllDays,            !- Field 2
-    Until: 24:00,15.0;       !- Field 3
+    Until: 24:00,10.0;       !- Field 3
     
 ! same as Doe-2 SDL-C4
 
@@ -2458,7 +2458,7 @@
     ReheatCoilAvailSched,    !- Availability Schedule Name
     NaturalGas,              !- Fuel Type
     0.8,                     !- Burner Efficiency
-    0.0,                     !- Nominal Capacity {W}
+    0.0,                !- Nominal Capacity {W}
     SPACE1-1 Zone Coil Air In Node,  !- Air Inlet Node Name
     SPACE1-1 In Node;        !- Air Outlet Node Name
 
@@ -2467,7 +2467,7 @@
     ReheatCoilAvailSched,    !- Availability Schedule Name
     NaturalGas,              !- Fuel Type
     0.8,                     !- Burner Efficiency
-    0.0,                     !- Nominal Capacity {W}
+    0.0,                !- Nominal Capacity {W}
     SPACE2-1 Zone Coil Air In Node,  !- Air Inlet Node Name
     SPACE2-1 In Node;        !- Air Outlet Node Name
 
@@ -2476,7 +2476,7 @@
     ReheatCoilAvailSched,    !- Availability Schedule Name
     NaturalGas,              !- Fuel Type
     0.8,                     !- Burner Efficiency
-    0.0,                     !- Nominal Capacity {W}
+    0.0,                !- Nominal Capacity {W}
     SPACE3-1 Zone Coil Air In Node,  !- Air Inlet Node Name
     SPACE3-1 In Node;        !- Air Outlet Node Name
 
@@ -2485,7 +2485,7 @@
     ReheatCoilAvailSched,    !- Availability Schedule Name
     NaturalGas,              !- Fuel Type
     0.8,                     !- Burner Efficiency
-    0.0,                     !- Nominal Capacity {W}
+    0.0,                !- Nominal Capacity {W}
     SPACE4-1 Zone Coil Air In Node,  !- Air Inlet Node Name
     SPACE4-1 In Node;        !- Air Outlet Node Name
 
@@ -2494,7 +2494,7 @@
     ReheatCoilAvailSched,    !- Availability Schedule Name
     NaturalGas,              !- Fuel Type
     0.8,                     !- Burner Efficiency
-    0.0,                     !- Nominal Capacity {W}
+    0.0,                !- Nominal Capacity {W}
     SPACE5-1 Zone Coil Air In Node,  !- Air Inlet Node Name
     SPACE5-1 In Node;        !- Air Outlet Node Name
 
@@ -2723,6 +2723,17 @@
     Main Cooling Coil 1 Outlet Node,  !- Node 2 Name
     Main Heating Coil 1 Outlet Node;  !- Node 3 Name
 
+  Schedule:Constant,
+    Hum-Ratio-Max-Sch,       !- Name
+    Any Number,              !- Schedule Type Limits Name
+    0.008;                   !- Hourly Value
+
+  SetpointManager:Scheduled,
+    Supply Air Hum Manager 1,!- Name
+    MaximumHumidityRatio,    !- Control Variable
+    Hum-Ratio-Max-Sch,       !- Schedule Name
+    Main Cooling Coil 1 Outlet Node;  !- Setpoint Node or NodeList Name
+
   Output:Variable,*,Site Outdoor Air Drybulb Temperature,hourly;
 
   Output:Variable,*,Zone Air Temperature,hourly;
@@ -2903,3 +2914,6 @@ Output:EnergyManagementSystem,
   Output:Meter, NaturalGas:Facility, Timestep;
   Output:Meter, Fans:Electricity, Timestep;
   Output:Meter, Cooling:Electricity, Timestep;
+
+Output:Variable, *, Zone Air CO2 Concentration, hourly;
+Output:Variable, *, System Node CO2 Concentration, hourly;

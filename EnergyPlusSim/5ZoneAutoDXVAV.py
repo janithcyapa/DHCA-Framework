@@ -171,10 +171,15 @@ class Initializer:
             self.plugin.actuators[f"{z}_Lights_SP"]= ga(state, "Lights",               "Electricity Rate",     f"{z} LIGHTS 1")
 
         self.plugin.actuators["CC_Temp_SP"] = ga(state, "System Node Setpoint", "Temperature Setpoint", "Main Cooling Coil 1 Outlet Node")
+        self.plugin.actuators["CC_Hum_SP"] = ga(state, "System Node Setpoint", "Humidity Ratio Setpoint", "Main Cooling Coil 1 Outlet Node")
+        self.plugin.actuators["CC_Hum_Max_SP"] = ga(state, "System Node Setpoint", "Humidity Ratio Maximum Setpoint", "Main Cooling Coil 1 Outlet Node")
         self.plugin.actuators["HC_Temp_SP"] = ga(state, "System Node Setpoint", "Temperature Setpoint", "Main Heating Coil 1 Outlet Node")
         self.plugin.actuators["Fan_Flow"]   = ga(state, "Fan", "Fan Air Mass Flow Rate", "Supply Fan 1")
         self.plugin.actuators["CO2_Out_SP"] = ga(state, "Schedule:Constant", "Schedule Value",       "CO2-Outdoor-Schedule")
         self.plugin.actuators["OA_Flow_SP"] = ga(state, "Outdoor Air Controller", "Air Mass Flow Rate", "OA CONTROLLER 1")
+        # Schedule overrides to prevent SetpointManagers from overwriting our Python setpoints
+        self.plugin.actuators["SAT_Sch_SP"]  = ga(state, "Schedule:Compact", "Schedule Value", "Seasonal Reset Supply Air Temp Sch")
+        self.plugin.actuators["Hum_Sch_SP"]  = ga(state, "Schedule:Constant", "Schedule Value", "Hum-Ratio-Max-Sch")
 
     def validate_handles(self):
         bad = [n for n, h in self.plugin.handles.items() if h == -1]
@@ -376,18 +381,72 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
         # Apply AHU Setpoints
         if self.ahu_setpoints:
+            # 1. CO2 Control via Outdoor Air Flow
+            co2_sp = self.ahu_setpoints.get('ahu_co2_sp', 400.0)
+            max_co2 = 400.0
+            for z in self.zones:
+                if self.handles.get(f"{z}_CO2", -1) != -1:
+                    max_co2 = max(max_co2, self._val(state, f"{z}_CO2"))
+                    
+            oa_flow = 0.5 # Default minimum fresh air kg/s
+            if max_co2 > co2_sp:
+                oa_flow = min(2.5, 0.5 + (max_co2 - co2_sp) * 0.01) # Simple P-controller to increase OA
+                
             if self.actuators.get("OA_Flow_SP", -1) != -1:
-                sa(state, self.actuators["OA_Flow_SP"], 1.0)
+                sa(state, self.actuators["OA_Flow_SP"], oa_flow)
             
+            # 2. Temperature Setpoints - override both the schedule and the node
             temp_sp = self.ahu_setpoints.get('ahu_temp_sp', 13.0)
-            sa(state, self.actuators["CC_Temp_SP"], temp_sp)
-            sa(state, self.actuators["HC_Temp_SP"], temp_sp + 1.0) # Simple deadband or explicit heat sp
+            # Override the schedule so SetpointManager:Scheduled writes our value
+            if self.actuators.get("SAT_Sch_SP", -1) != -1:
+                sa(state, self.actuators["SAT_Sch_SP"], temp_sp)
+            # Also set node setpoints directly as backup
+            if self.actuators.get("CC_Temp_SP", -1) != -1:
+                sa(state, self.actuators["CC_Temp_SP"], temp_sp)
+            if self.actuators.get("HC_Temp_SP", -1) != -1:
+                sa(state, self.actuators["HC_Temp_SP"], temp_sp + 1.0)
+                
+            # 3. Humidity Setpoints - override the schedule so SetpointManager writes our value
+            hum_sp = self.ahu_setpoints.get('ahu_hum_sp', 0.008)
+            # Override the humidity max schedule so the SetpointManager:Scheduled picks it up
+            if self.actuators.get("Hum_Sch_SP", -1) != -1:
+                sa(state, self.actuators["Hum_Sch_SP"], hum_sp)
+            # Also set node setpoints directly
+            if self.actuators.get("CC_Hum_SP", -1) != -1:
+                sa(state, self.actuators["CC_Hum_SP"], hum_sp)
+            if self.actuators.get("CC_Hum_Max_SP", -1) != -1:
+                sa(state, self.actuators["CC_Hum_Max_SP"], hum_sp)
+            
+            # Log AHU actuation decisions
+            self.logger.add("Act_AHU_OA_Flow", round(oa_flow, 4))
+            self.logger.add("Act_AHU_MaxCO2", round(max_co2, 2))
+            self.logger.add("Act_AHU_Temp_SP", round(temp_sp, 2))
+            self.logger.add("Act_AHU_Hum_SP", round(hum_sp, 5))
 
         # Apply Zone Setpoints and VAV Commands
         for z in self.zones:
             cond = self.zone_ideal_conditions.get(z, {})
             flow = cond.get('u_cmd', 0.1)
-            reheat = cond.get('ideal_temp', 22.0)
+            ideal_temp = cond.get('ideal_temp', 22.0)
+            
+            # Reheat SP — use zone comfort setpoint (T_ref = 22°C), NOT ideal_temp
+            # ideal_temp can be 40°C (extreme heating ask) which is unachievable
+            # The reheat coil should warm supply air to the zone comfort target
+            T_ref = 22.0
+            zone_temp = self._val(state, f"{z}_Temp") if self.handles.get(f"{z}_Temp", -1) != -1 else T_ref
+            supply_temp = self.ahu_setpoints.get('ahu_temp_sp', 13.0) if self.ahu_setpoints else 13.0
+            
+            # If zone is already cold (below deadband), set reheat to warm
+            # supply air up to comfort. If zone is hot, let cold air through.
+            if zone_temp < T_ref - 1.0:
+                # Zone too cold — reheat to comfort setpoint
+                reheat_sp = T_ref
+            elif zone_temp > T_ref + 1.0:
+                # Zone too hot — don't reheat, let cold supply cool the zone
+                reheat_sp = supply_temp
+            else:
+                # In deadband — moderate reheat to maintain comfort
+                reheat_sp = T_ref
             
             # Clamp Flow
             h_sp  = self.actuators.get(f"{z}_Flow_SP",  -1)
@@ -398,10 +457,12 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 sa(state, h_min, flow)
                 sa(state, h_sp,  flow)
                 
-            # Reheat SP
-            reheat = 0
+            # Apply reheat setpoint
             h_reheat = self.actuators.get(f"{z}_Reheat_SP", -1)
             if h_reheat != -1:
-                sa(state, h_reheat, reheat)
+                sa(state, h_reheat, reheat_sp)
+            
+            # Log zone actuation
+            self.logger.add(f"Act_{z}_Reheat_Applied_C", round(reheat_sp, 2))
 
         return 0

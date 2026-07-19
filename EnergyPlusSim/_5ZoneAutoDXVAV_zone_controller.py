@@ -15,17 +15,17 @@ class ZoneController:
         # --- EKF Initialization ---
         # State vector x: [T_in, T_m, W_in, C_in, d_T, d_W, N_occ, alpha_ext, alpha_int, beta_air, beta_mass]
         self.x = np.zeros(11)
-        self.x[0] = 22.0    # x1: T_in (C)
-        self.x[1] = 22.0    # x2: T_m (C)
-        self.x[2] = 0.008   # x3: W_in (kg/kg)
-        self.x[3] = 400.0   # x4: C_in (ppm)
+        self.x[0] = 0.0    # x1: T_in (C)
+        self.x[1] = 0.0    # x2: T_m (C)
+        self.x[2] = 0.0  # x3: W_in (kg/kg)
+        self.x[3] = 0.0   # x4: C_in (ppm)
         self.x[4] = 0.0     # x5: d_T
         self.x[5] = 0.0     # x6: d_W
         self.x[6] = 0.0     # x7: N_occ
-        self.x[7] = 200.0   # x8: alpha_ext (typically 1/0.005)
-        self.x[8] = 500.0   # x9: alpha_int (typically 1/0.002)
-        self.x[9] = 3.3e-6  # x10: beta_air (typically 1/300000)
-        self.x[10] = 1e-7   # x11: beta_mass (typically 1/10000000)
+        self.x[7] = 0.0   # x8: alpha_ext (typically 1/0.005)
+        self.x[8] = 0.0   # x9: alpha_int (typically 1/0.002)
+        self.x[9] = 0.0  # x10: beta_air (typically 1/300000)
+        self.x[10] = 0.0   # x11: beta_mass (typically 1/10000000)
 
         # Covariance Matrix P
         self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-4, 1.0, 10.0, 10.0, 1e-12, 1e-14])
@@ -47,30 +47,31 @@ class ZoneController:
         
         # --- MPC Initialization ---
         self.N = 10
-        self.u_prev = 0.0 # u_{-1}
+        self.u_prev = 0.5  # Start at a moderate flow, not 0 — avoids stuck-at-zero fallback
         
         # Deadband Limits
         self.T_ref = 22.0
         self.T_max = self.T_ref + 2.0
         self.T_min = self.T_ref - 2.0
-        self.W_max = 0.0080  # Reduced to control humidity better
-        self.W_min = 0.0020  # Reduced to match typical lower limits
+        self.W_max = 0.0100  # ~60% RH at 22C — relaxed upper limit for feasibility
+        self.W_min = 0.0050  # ~30% RH at 22C — physically achievable lower limit
         self.C_max = 1000.0
         self.u_min = 0.0
         self.u_max = 2.0  # Max volumetric flow rate m3/s
         
-        # Objective Weights
-        self.r = 1.0           # Flow penalty
-        self.r_delta = 10.0    # Rate of change penalty
-        self.lambda_T = 1e3    # Reduced soft constraint penalty for Temp
-        self.lambda_W = 1e3    # Reduced soft constraint penalty for Humidity
-        self.lambda_C = 1e3    # Reduced soft constraint penalty for CO2
+        # Objective Weights — Priority: Temperature >> Humidity >> CO2
+        self.r = 0.1           # Flow penalty (low — allow flow changes)
+        self.r_delta = 1.0     # Rate of change penalty (moderate smoothing)
+        self.lambda_T = 1e4    # Highest — temperature comfort is top priority
+        self.lambda_W = 1e2    # Medium — humidity secondary
+        self.lambda_C = 1e1    # Lowest — CO2 tertiary
         
         self.setup_mpc_constants()
         
     def setup_mpc_constants(self):
         N = self.N
         
+        # Differencing matrix for rate-of-change penalty
         D = np.zeros((N, N))
         np.fill_diagonal(D, 1.0)
         for i in range(1, N):
@@ -81,25 +82,11 @@ class ZoneController:
         E[0] = 1.0
         self.E = E
         
-        R_mat = np.eye(N) * self.r
-        R_delta_mat = np.eye(N) * self.r_delta
-        
-        H_U = 2 * (R_mat + self.D.T @ R_delta_mat @ self.D)
-        H_eps_T = 2 * np.eye(N) * self.lambda_T
-        H_eps_W = 2 * np.eye(N) * self.lambda_W
-        H_eps_C = 2 * np.eye(N) * self.lambda_C
-        
-        H = np.zeros((4*N, 4*N))
-        H[0:N, 0:N] = H_U
-        H[N:2*N, N:2*N] = H_eps_T
-        H[2*N:3*N, 2*N:3*N] = H_eps_W
-        H[3*N:4*N, 3*N:4*N] = H_eps_C
-        self.H_sparse = sparse.csc_matrix(H)
-        
         self.I_N = np.eye(N)
         self.O_N = np.zeros((N, N))
         self.zeros_N = np.zeros(N)
         
+        # Selection matrices to extract T, W, C from stacked state predictions
         self.ST = np.zeros((N, 4*N))
         self.SW = np.zeros((N, 4*N))
         self.SC = np.zeros((N, 4*N))
@@ -107,6 +94,65 @@ class ZoneController:
             self.ST[i, i*4 + 0] = 1.0
             self.SW[i, i*4 + 2] = 1.0
             self.SC[i, i*4 + 3] = 1.0
+
+    def _build_hessian(self, N):
+        """Build QP Hessian with regularization for guaranteed positive-definiteness."""
+        R_mat = np.eye(N) * self.r
+        R_delta_mat = np.eye(N) * self.r_delta
+        
+        H_U = 2.0 * (R_mat + self.D.T @ R_delta_mat @ self.D)
+        H_eps_T = 2.0 * np.eye(N) * self.lambda_T
+        H_eps_W = 2.0 * np.eye(N) * self.lambda_W
+        H_eps_C = 2.0 * np.eye(N) * self.lambda_C
+        
+        n_vars = 4 * N
+        H = np.zeros((n_vars, n_vars))
+        H[0:N, 0:N] = H_U
+        H[N:2*N, N:2*N] = H_eps_T
+        H[2*N:3*N, 2*N:3*N] = H_eps_W
+        H[3*N:4*N, 3*N:4*N] = H_eps_C
+        
+        # Regularization: ensure strict positive-definiteness to prevent OSQP Status 7
+        H += np.eye(n_vars) * 1e-6
+        
+        return sparse.csc_matrix(H)
+
+    def _fallback_control(self, state_data):
+        """
+        Proportional fallback controller when MPC fails to solve.
+        Uses simple error-based logic rather than just returning u_prev.
+        """
+        T_in = state_data.get('T_in', self.x[0])
+        W_in = state_data.get('W_in', self.x[2])
+        C_in = state_data.get('C_in', self.x[3])
+        T_s = state_data.get('T_s', 13.0)
+        
+        # Temperature error: positive means zone is too hot, needs more cooling flow
+        e_T = T_in - self.T_ref
+        
+        # CO2 error: positive means zone has too much CO2, needs more fresh air
+        e_C = max(0.0, C_in - self.C_max) / self.C_max
+        
+        # Humidity error: positive means too humid
+        W_ref = (self.W_max + self.W_min) / 2.0
+        e_W = max(0.0, W_in - self.W_max) / self.W_max
+        
+        # If zone is colder than supply air, reduce flow (don't pump cold air into cold zone)
+        if T_in < T_s + 1.0:
+            # Zone is cold enough — minimal flow for ventilation only
+            u_fb = 0.1
+        elif e_T > 0.5:
+            # Zone is too hot — increase flow proportionally
+            u_fb = min(self.u_max, 0.3 + e_T * 0.3)
+        elif e_T < -0.5:
+            # Zone is too cold — reduce flow
+            u_fb = 0.1
+        else:
+            # In deadband — moderate flow for ventilation + humidity/CO2
+            u_fb = 0.2 + e_C * 0.5 + e_W * 0.3
+        
+        u_fb = np.clip(u_fb, self.u_min, self.u_max)
+        return u_fb
 
     def step(self, dt, state_data, logger):
         print(f"[{self.zone_name}] Starting step with dt={dt}")
@@ -186,7 +232,6 @@ class ZoneController:
                     self.x[10] = np.clip(self.x[10], 1e-9, 1e-5)
             
                     # --- MPC Formulation ---
-                    # print(f"[{self.zone_name}] Starting MPC formulation")
                     # 1. Linearization around x_0 (from updated EKF state) and u_{-1}
                     x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11 = self.x
                     T_in, T_m, W_in, C_in = x1, x2, x3, x4
@@ -223,7 +268,7 @@ class ZoneController:
                     N = self.N
                     Psi = np.zeros((4*N, 4))
                     Theta = np.zeros((4*N, N))
-                    Phi = np.zeros((4*N, 4))
+                    Phi_pred = np.zeros((4*N, 4))
                     
                     A_pows = [np.eye(4)]
                     for i in range(1, N + 1):
@@ -233,70 +278,122 @@ class ZoneController:
                     for i in range(N):
                         Psi[i*4:(i+1)*4, :] = A_pows[i+1]
                         sum_A = sum_A + A_pows[i]
-                        Phi[i*4:(i+1)*4, :] = sum_A
+                        Phi_pred[i*4:(i+1)*4, :] = sum_A
                         for j in range(i + 1):
                             Theta[i*4:(i+1)*4, j:j+1] = A_pows[i - j] @ Bd
                             
                     FT = self.ST @ Theta
-                    gT = self.ST @ (Psi @ x_0_mpc + Phi @ cd)
+                    gT = self.ST @ (Psi @ x_0_mpc + Phi_pred @ cd)
                     
                     FW = self.SW @ Theta
-                    gW = self.SW @ (Psi @ x_0_mpc + Phi @ cd)
+                    gW = self.SW @ (Psi @ x_0_mpc + Phi_pred @ cd)
                     
                     FC = self.SC @ Theta
-                    gC = self.SC @ (Psi @ x_0_mpc + Phi @ cd)
+                    gC = self.SC @ (Psi @ x_0_mpc + Phi_pred @ cd)
                     
-                    # 3. Assemble QP
-                    f_U = -2 * self.r_delta * self.D.T @ self.E * self.u_prev
+                    # 3. Assemble QP using OSQP's native two-sided constraint format
+                    #    Decision variables: z = [u(N), eps_T(N), eps_W(N), eps_C(N)]
+                    #    Proper two-sided: l <= A_con @ z <= u_con
+                    
+                    # Build regularized Hessian
+                    H_sparse = self._build_hessian(N)
+                    
+                    # Linear cost
+                    f_U = -2.0 * self.r_delta * self.D.T @ self.E * self.u_prev
                     f = np.concatenate([f_U, self.zeros_N, self.zeros_N, self.zeros_N])
                     
-                    A_ineq = np.block([
+                    # --- Constraint assembly (two-sided format) ---
+                    #
+                    # Row block 1: Temperature soft constraints
+                    #   T_min - gT <= FT @ u - eps_T        <= T_max - gT
+                    #   i.e. T_min - gT <= [FT, -I, 0, 0] z <= T_max - gT
+                    #
+                    # Row block 2: Humidity soft constraints
+                    #   W_min - gW <= FW @ u - eps_W        <= W_max - gW
+                    #   i.e. W_min - gW <= [FW, 0, -I, 0] z <= W_max - gW
+                    #
+                    # Row block 3: CO2 soft constraints (one-sided: upper bound only)
+                    #   -inf       <= FC @ u - eps_C        <= C_max - gC
+                    #   i.e. -inf  <= [FC, 0, 0, -I] z     <= C_max - gC
+                    #
+                    # Row block 4: Slack non-negativity: 0 <= eps_T
+                    # Row block 5: Slack non-negativity: 0 <= eps_W
+                    # Row block 6: Slack non-negativity: 0 <= eps_C
+                    #
+                    # Row block 7: Input bounds: u_min <= u <= u_max
+                    
+                    A_con = np.block([
+                        # Temp soft constraints
                         [FT, -self.I_N, self.O_N, self.O_N],
-                        [-FT, -self.I_N, self.O_N, self.O_N],
+                        # Humidity soft constraints
                         [FW, self.O_N, -self.I_N, self.O_N],
-                        [-FW, self.O_N, -self.I_N, self.O_N],
+                        # CO2 soft constraints
                         [FC, self.O_N, self.O_N, -self.I_N],
-                        [self.O_N, -self.I_N, self.O_N, self.O_N],
-                        [self.O_N, self.O_N, -self.I_N, self.O_N],
-                        [self.O_N, self.O_N, self.O_N, -self.I_N],
+                        # Slack non-negativity: eps_T >= 0
+                        [self.O_N, self.I_N, self.O_N, self.O_N],
+                        # Slack non-negativity: eps_W >= 0
+                        [self.O_N, self.O_N, self.I_N, self.O_N],
+                        # Slack non-negativity: eps_C >= 0
+                        [self.O_N, self.O_N, self.O_N, self.I_N],
+                        # Input bounds
                         [self.I_N, self.O_N, self.O_N, self.O_N],
-                        [-self.I_N, self.O_N, self.O_N, self.O_N]
                     ])
                     
-                    b_ineq = np.concatenate([
-                        np.ones(N) * self.T_max - gT,
-                        -np.ones(N) * self.T_min + gT,
-                        np.ones(N) * self.W_max - gW,
-                        -np.ones(N) * self.W_min + gW,
-                        np.ones(N) * self.C_max - gC,
-                        self.zeros_N,
-                        self.zeros_N,
-                        self.zeros_N,
-                        np.ones(N) * self.u_max,
-                        -np.ones(N) * self.u_min
-                    ])
+                    n_con = 7 * N
+                    l_con = np.zeros(n_con)
+                    u_con = np.zeros(n_con)
                     
-                    A_sparse = sparse.csc_matrix(A_ineq)
+                    # Block 1: T_min - gT <= ... <= T_max - gT
+                    l_con[0:N] = np.ones(N) * self.T_min - gT
+                    u_con[0:N] = np.ones(N) * self.T_max - gT
                     
-                    # print(f"[{self.zone_name}] Setting up OSQP solver")
+                    # Block 2: W_min - gW <= ... <= W_max - gW
+                    l_con[N:2*N] = np.ones(N) * self.W_min - gW
+                    u_con[N:2*N] = np.ones(N) * self.W_max - gW
+                    
+                    # Block 3: -inf <= ... <= C_max - gC
+                    l_con[2*N:3*N] = -np.inf * np.ones(N)
+                    u_con[2*N:3*N] = np.ones(N) * self.C_max - gC
+                    
+                    # Block 4-6: 0 <= eps <= inf
+                    l_con[3*N:6*N] = 0.0
+                    u_con[3*N:6*N] = np.inf
+                    
+                    # Block 7: u_min <= u <= u_max
+                    l_con[6*N:7*N] = np.ones(N) * self.u_min
+                    u_con[6*N:7*N] = np.ones(N) * self.u_max
+                    
+                    A_sparse = sparse.csc_matrix(A_con)
+                    
                     solver = osqp.OSQP()
-                    solver.setup(P=self.H_sparse, q=f, A=A_sparse, l=-np.inf*np.ones_like(b_ineq), u=b_ineq, verbose=False, max_iter=50000, eps_abs=1e-4, eps_rel=1e-4)
-                    # print(f"[{self.zone_name}] Solving OSQP")
+                    solver.setup(
+                        P=H_sparse, q=f, A=A_sparse, l=l_con, u=u_con,
+                        verbose=False,
+                        max_iter=50000,
+                        eps_abs=1e-4,
+                        eps_rel=1e-4,
+                        polish=True,
+                        adaptive_rho=True,
+                    )
                     res = solver.solve()
-                    print(f"[{self.zone_name}] OSQP solved, status={res.info.status_val}")
+                    mpc_status = res.info.status_val
+                    print(f"[{self.zone_name}] OSQP solved, status={mpc_status}")
                     
-                    if res.info.status_val in [1, 2]: # 1: SOLVED, 2: SOLVED_INACCURATE
-                        u_cmd = res.x[0]
+                    if mpc_status in [1, 2]:  # 1: SOLVED, 2: SOLVED_INACCURATE
+                        u_cmd = np.clip(res.x[0], self.u_min, self.u_max)
                         self.u_prev = u_cmd
                     else:
-                        u_cmd = self.u_prev
+                        # Proportional fallback instead of blindly using u_prev
+                        u_cmd = self._fallback_control(state_data)
+                        self.u_prev = u_cmd
+                        print(f"[{self.zone_name}] MPC failed (status={mpc_status}), fallback u={u_cmd:.3f}")
                     
                     u_mass_cmd = u_cmd * self.rho_air
                     
                     # --- Logging ---
                     exec_time_ms = (time.perf_counter() - start_time) * 1000.0
                     logger.add(f"{self.zone_name}_MPC_Time_ms", exec_time_ms)
-                    logger.add(f"{self.zone_name}_MPC_Status", res.info.status_val)
+                    logger.add(f"{self.zone_name}_MPC_Status", mpc_status)
                     
                     state_names = ["T_in", "T_m", "W_in", "C_in", "d_T", "d_W", "N_occ", "alpha_ext", "alpha_int", "beta_air", "beta_mass"]
                     for i, name in enumerate(state_names):
@@ -308,17 +405,78 @@ class ZoneController:
                     logger.add(f"{self.zone_name}_EKF_K_C_in", K_k[3, 2])
                     logger.add(f"{self.zone_name}_EKF_K_N_occ_from_C_in", K_k[6, 2])
                     
-                    ideal_hum = (self.W_max + self.W_min) / 2.0
-                    logger.add(f"{self.zone_name}_ideal_temp", self.T_ref)
-                    logger.add(f"{self.zone_name}_ideal_hum", ideal_hum)
-                    logger.add(f"{self.zone_name}_ideal_co2", 400.0)
+                    # --- Ideal Ask Logic ---
+                    T_in, T_m, W_in, C_in = self.x[0], self.x[1], self.x[2], self.x[3]
+                    
+                    # Target values
+                    T_ref = self.T_ref
+                    W_ref = (self.W_max + self.W_min) / 2.0
+                    C_limit = self.C_max
+                    
+                    # Correction vector e
+                    e_T = T_ref - T_in
+                    e_W = W_ref - W_in
+                    e_C = min(0.0, C_limit - C_in)
+                    
+                    # AHU Physical limits
+                    T_s_min = 10.0
+                    T_s_max = 40.0
+                    T_neutral = T_in
+                    
+                    W_s_min = 0.005
+                    W_s_max = 0.015
+                    W_neutral = W_in
+                    
+                    C_s_min = 400.0
+                    C_recirc = C_in
+                    
+                    # Proportional Ideal Ask (replaces bang-bang for better coordination)
+                    if e_T > 0.5:
+                        T_s_star = T_s_max
+                    elif e_T > 0.1:
+                        # Proportional range: interpolate between neutral and max
+                        alpha = (e_T - 0.1) / 0.4
+                        T_s_star = T_neutral + alpha * (T_s_max - T_neutral)
+                    elif e_T < -0.5:
+                        T_s_star = T_s_min
+                    elif e_T < -0.1:
+                        alpha = (-e_T - 0.1) / 0.4
+                        T_s_star = T_neutral - alpha * (T_neutral - T_s_min)
+                    else:
+                        T_s_star = T_neutral
+                        
+                    if e_W > 0.001:
+                        W_s_star = W_s_max
+                    elif e_W > 0.0005:
+                        alpha = (e_W - 0.0005) / 0.0005
+                        W_s_star = W_neutral + alpha * (W_s_max - W_neutral)
+                    elif e_W < -0.001:
+                        W_s_star = W_s_min
+                    elif e_W < -0.0005:
+                        alpha = (-e_W - 0.0005) / 0.0005
+                        W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
+                    else:
+                        W_s_star = W_neutral
+                        
+                    if e_C < -50.0:
+                        C_s_star = C_s_min
+                    else:
+                        C_s_star = C_recirc
+                        
+                    saturation_index = u_cmd / self.u_max
+
+                    logger.add(f"{self.zone_name}_ideal_temp", T_s_star)
+                    logger.add(f"{self.zone_name}_ideal_hum", W_s_star)
+                    logger.add(f"{self.zone_name}_ideal_co2", C_s_star)
                     logger.add(f"{self.zone_name}_u_cmd", u_mass_cmd)
+                    logger.add(f"{self.zone_name}_saturation_index", saturation_index)
                     
                     return {
-                        'ideal_temp': self.T_ref,
-                        'ideal_hum': ideal_hum,
-                        'ideal_co2': 400.0,
-                        'u_cmd': u_mass_cmd
+                        'ideal_temp': T_s_star,
+                        'ideal_hum': W_s_star,
+                        'ideal_co2': C_s_star,
+                        'u_cmd': u_mass_cmd,
+                        'saturation_index': saturation_index
                     }
         except Exception as e:
             import traceback
