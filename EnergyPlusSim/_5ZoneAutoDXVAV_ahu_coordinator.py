@@ -36,6 +36,18 @@ class AHUCoordinator:
         self.T_s_opt = 13.0
         self.delta_T_step = 0.2
 
+        # Setpoint smoothing — protect equipment from rapid changes
+        # EMA alpha: 0.0 = no change, 1.0 = no smoothing (instant)
+        self.SMOOTH_ALPHA = 0.4   # Blend: 40% new, 60% previous
+        # Max change per timestep (rate limiter, on top of EMA)
+        self.MAX_dT = 1.5         # °C per timestep
+        self.MAX_dW = 0.001       # kg/kg per timestep
+        self.MAX_dC = 50.0        # ppm per timestep
+        # Previous smoothed setpoints
+        self._prev_T = self.T_neutral
+        self._prev_W = self.W_neutral
+        self._prev_C = self.C_s_min
+
     def calculate_setpoints(self, zone_conditions, logger):
         """
         Calculates central AHU setpoints based on all zones' ideal conditions.
@@ -165,14 +177,35 @@ class AHUCoordinator:
         T_s_AHU = self.T_s_opt
 
         
-        # Final setpoints
+        # Final setpoints — apply smoothing to protect equipment
+        T_s_AHU = self._smooth(T_s_AHU, self._prev_T, self.SMOOTH_ALPHA, self.MAX_dT)
+        W_s_AHU = self._smooth(W_s_AHU, self._prev_W, self.SMOOTH_ALPHA, self.MAX_dW)
+        C_s_AHU = self._smooth(C_s_AHU, self._prev_C, self.SMOOTH_ALPHA, self.MAX_dC)
+        self._prev_T = T_s_AHU
+        self._prev_W = W_s_AHU
+        self._prev_C = C_s_AHU
+
         logger.add("AHU_Temp_SP_C", round(T_s_AHU, 2))
         logger.add("AHU_W_kg_kg", round(W_s_AHU, 5))
         logger.add("AHU_CO2_ppm", round(C_s_AHU, 2))
 
-        
         return {
             'ahu_temp_sp': T_s_AHU,
             'ahu_hum_sp': W_s_AHU,
             'ahu_co2_sp': C_s_AHU
         }
+
+    @staticmethod
+    def _smooth(new_val, prev_val, alpha, max_delta):
+        """
+        Smooth a setpoint with EMA + rate limiter.
+        alpha: blend weight for new value (0..1)
+        max_delta: maximum allowed change per timestep
+        """
+        # EMA blend
+        blended = alpha * new_val + (1.0 - alpha) * prev_val
+        # Rate limiter
+        delta = blended - prev_val
+        if abs(delta) > max_delta:
+            blended = prev_val + max_delta * (1.0 if delta > 0 else -1.0)
+        return blended
