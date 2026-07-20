@@ -30,22 +30,33 @@ class ZoneController:
         # --- EKF Initialization ---
         # State vector x: [T_in, T_m, W_in, C_in, d_T, d_W, N_occ, alpha_ext, alpha_int, beta_air, beta_mass]
         self.x = np.zeros(11)
-        self.x[0] = 0.0     # x1: T_in (C)
-        self.x[1] = 0.0     # x2: T_m (C)
-        self.x[2] = 0.0     # x3: W_in (kg/kg)
-        self.x[3] = 0.0     # x4: C_in (ppm)
-        self.x[4] = 0.0     # x5: d_T
-        self.x[5] = 0.0     # x6: d_W
-        self.x[6] = 0.0     # x7: N_occ
-        self.x[7] = 0.0     # x8: alpha_ext (typically 1/0.005)
-        self.x[8] = 0.0     # x9: alpha_int (typically 1/0.002)
-        self.x[9] = 0.0     # x10: beta_air (typically 1/300000)
-        self.x[10] = 0.0    # x11: beta_mass (typically 1/10000000)
+        
+        # --- Physical States ---
+        # Initialize at typical comfortable ambient conditions
+        self.x[0] = 22.0    # x1: T_in (C) - Typical room temperature (71.6 F)
+        self.x[1] = 22.0    # x2: T_m (C) - Assume walls/furniture are in thermal equilibrium with the air
+        self.x[2] = 0.008   # x3: W_in (kg/kg) - Roughly 50% Relative Humidity at 22C
+        self.x[3] = 400.0   # x4: C_in (ppm) - Standard outdoor baseline CO2 concentration
+        
+        # --- Disturbances ---
+        # Let the EKF discover these; it is safe to start them at 0
+        self.x[4] = 0.0     # x5: d_T - Unmodeled sensible heat
+        self.x[5] = 0.0     # x6: d_W - Unmodeled latent heat/moisture
+        self.x[6] = 0.0     # x7: N_occ - Assume the room starts empty
+        
+        # --- Structural Parameters ---
+        # These are the inverses of Resistance (R) and Capacitance (C). 
+        # Using the standard values suggested in your comments.
+        self.x[7] = 200.0   # x8: alpha_ext (1/R_ext) - e.g., 1 / 0.005. Moderate envelope conductance.
+        self.x[8] = 500.0   # x9: alpha_int (1/R_int) - e.g., 1 / 0.002. Good thermal linkage between air and mass.
+        self.x[9] = 3.3e-6  # x10: beta_air (1/C_air) - ~1/300,000. Typical air volume heat capacity.
+        self.x[10] = 1e-7   # x11: beta_mass (1/C_mass) - 1/10,000,000. Heavy thermal mass (concrete/furniture).
+
 
         # Covariance Matrix P
-        self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-4, 1.0, 10.0, 10.0, 1e-12, 1e-14])
+        self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-4, 1.0, 10000.0, 10000.0, 1e-12, 1e-14])
         # Process Noise Covariance Q
-        self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-2, 0.1, 1e-4, 1e-4, 1e-9, 1e-9])
+        self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-2, 0.1, 10, 10, 1e-9, 1e-9])
         # Measurement Noise Covariance R
         self.R = np.diag([0.01, 1e-8, 10.0])
         
@@ -61,15 +72,27 @@ class ZoneController:
         self.g_co2_person = 3.82e-6 * 1e6
         
         # --- MPC Initialization ---
-        self.N = 10
+        self.N = 5
         self.u_prev = 0.5  # Start at a moderate flow, not 0 — avoids stuck-at-zero fallback
         
+        T_in = self.x[0] 
+        rh_min = 0.30
+        rh_max = 0.60
+        def get_w_from_rh(T, rh):
+            p_sat = 610.94 * math.exp(17.625 * T / (243.04 + T))
+            p_vapor = rh * p_sat
+            return 0.62198 * p_vapor / (101325.0 - p_vapor)
+
         # Deadband Limits
         self.T_ref = 22.0
-        self.T_max = self.T_ref + 2.0
-        self.T_min = self.T_ref - 2.0
-        self.W_max = 0.0100  # ~60% RH at 22C — relaxed upper limit for feasibility
-        self.W_min = 0.0050  # ~30% RH at 22C — physically achievable lower limit
+        self.T_delta = 1.0
+        self.T_max = self.T_ref + self.T_delta
+        self.T_min = self.T_ref -self.T_delta
+        # self.W_max = 0.0100  # ~60% RH at 22C — relaxed upper limit for feasibility
+        # self.W_min = 0.0050  # ~30% RH at 22C — physically achievable lower limit
+        self.W_min = get_w_from_rh(T_in, rh_min)
+        self.W_max = get_w_from_rh(T_in, rh_max)
+
         self.C_max = 1000.0
         self.u_min = 0.0
         self.u_max = 2.0  # Max volumetric flow rate m3/s
@@ -80,11 +103,21 @@ class ZoneController:
         self.W_s_max = 0.015
         
         # Objective Weights — Priority: Temperature >> Humidity >> CO2
-        self.r = 0.1           # Flow penalty (low — allow flow changes)
-        self.r_delta = 1.0     # Rate of change penalty (moderate smoothing)
-        self.lambda_T = 1e4    # Highest — temperature comfort is top priority
-        self.lambda_W = 1e2    # Medium — humidity secondary
+        self.r = 0.05           # Flow penalty (low — allow flow changes)
+        self.r_delta = 0.5     # Rate of change penalty (moderate smoothing)
+        self.lambda_T = 1e2    # Highest — temperature comfort is top priority
+        self.lambda_W = 1e1    # Medium — humidity secondary
         self.lambda_C = 1e1    # Lowest — CO2 tertiary
+
+        self.max_iter=1000000
+        self.eps_abs=1e-2
+        self.eps_rel=1e-2
+
+        
+        # self.r_delta = 1.0     # Rate of change penalty (moderate smoothing)
+        # self.lambda_T = 1e4    # Highest — temperature comfort is top priority
+        # self.lambda_W = 1e2    # Medium — humidity secondary
+        # self.lambda_C = 1e1    # Lowest — CO2 tertiary
         
         self.setup_mpc_constants()
         
@@ -244,6 +277,10 @@ class ZoneController:
                     I_KH = np.eye(11) - K_k @ self.H
                     self.P = I_KH @ P_pred @ I_KH.T + K_k @ self.R @ K_k.T
                     self.P = (self.P + self.P.T) / 2.0
+
+                    # Calculate Normalized Innovation Squared (NIS)
+                    # This condenses multi-dimensional residual checks into a single metric
+                    self.NIS = float(y_k.T @ S_inv @ y_k)
                     
                     self.x[6] = max(0.0, self.x[6])
                     self.x[7] = np.clip(self.x[7], 1.0, 5000.0)
@@ -323,29 +360,7 @@ class ZoneController:
                     f = np.concatenate([f_U, self.zeros_N, self.zeros_N, self.zeros_N])
                     
                     # --- Constraint assembly (two-sided format) ---
-                    #
-                    # FIX (bug 1): a single two-sided row "T_min-gT <= FT@u - eps_T <= T_max-gT"
-                    # only relaxes the UPPER side as eps_T grows; algebraically the LOWER side
-                    # becomes FT@u >= T_min - gT + eps_T, which gets *stricter* as eps_T grows.
-                    # That means violations on the lower side of the deadband have no slack that
-                    # can rescue them -> spurious OSQP status 3 (PRIMAL_INFEASIBLE) / 7 (MAX_ITER).
-                    # Each two-sided block is now written as two independent one-sided rows,
-                    # matching "3. Actuation-Minimizing Deadband Zone MPC.md" section
-                    # "Formulating the Soft Bounds" exactly:
-                    #   F_T U - eps_T <=  T_max - g_T
-                    #  -F_T U - eps_T <= -T_min + g_T
-                    # (and likewise for W). CO2 stays one-sided (ceiling only).
-                    #
-                    # Row block 1: T upper   :  FT@u  - eps_T <=  T_max - gT
-                    # Row block 2: T lower   : -FT@u  - eps_T <= -T_min + gT
-                    # Row block 3: W upper   :  FW@u  - eps_W <=  W_max - gW
-                    # Row block 4: W lower   : -FW@u  - eps_W <= -W_min + gW
-                    # Row block 5: C upper   :  FC@u  - eps_C <=  C_max - gC
-                    # Row block 6: Slack non-negativity: 0 <= eps_T
-                    # Row block 7: Slack non-negativity: 0 <= eps_W
-                    # Row block 8: Slack non-negativity: 0 <= eps_C
-                    # Row block 9: Input bounds: u_min <= u <= u_max
-
+               
                     A_con = np.block([
                         # Temp soft constraints (upper, then lower)
                         [FT, -self.I_N, self.O_N, self.O_N],
@@ -403,9 +418,9 @@ class ZoneController:
                     solver.setup(
                         P=H_sparse, q=f, A=A_sparse, l=l_con, u=u_con,
                         verbose=False,
-                        max_iter=50000,
-                        eps_abs=1e-4,
-                        eps_rel=1e-4,
+                        max_iter=self.max_iter,
+                        eps_abs=self.eps_abs,
+                        eps_rel=self.eps_rel,
                         polish=True,
                         adaptive_rho=True,
                     )
@@ -429,11 +444,25 @@ class ZoneController:
                     logger.add(f"{self.zone_name}_MPC_Time_ms", exec_time_ms)
                     logger.add(f"{self.zone_name}_MPC_Status", mpc_status)
                     
+                    
                     state_names = ["T_in", "T_m", "W_in", "C_in", "d_T", "d_W", "N_occ", "alpha_ext", "alpha_int", "beta_air", "beta_mass"]
                     for i, name in enumerate(state_names):
                         logger.add(f"{self.zone_name}_EKF_x_{name}", self.x[i])
                         logger.add(f"{self.zone_name}_EKF_P_{name}", self.P[i, i])
                         
+                    # 2. Log EKF Health Diagnostics
+                    # Innovation/Residuals (Expected to be zero-mean white noise)
+                    logger.add(f"{self.zone_name}_EKF_y_T_in", y_k[0])
+                    logger.add(f"{self.zone_name}_EKF_y_W_in", y_k[1])
+                    logger.add(f"{self.zone_name}_EKF_y_C_in", y_k[2])
+                    
+                    # NIS (For 3 measurements, 95% of samples should fall between 0.216 and 7.815)
+                    logger.add(f"{self.zone_name}_EKF_NIS", self.NIS)
+                    
+                    # Trace of P (Expected to drop initially and then stabilize)
+                    logger.add(f"{self.zone_name}_EKF_P_trace", float(np.trace(self.P)))
+                    
+                    # 3. Log Critical Kalman Gains
                     logger.add(f"{self.zone_name}_EKF_K_T_in", K_k[0, 0])
                     logger.add(f"{self.zone_name}_EKF_K_W_in", K_k[2, 1])
                     logger.add(f"{self.zone_name}_EKF_K_C_in", K_k[3, 2])
