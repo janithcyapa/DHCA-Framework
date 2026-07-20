@@ -28,3 +28,27 @@ SPACE2-1         67.9             3.3            0.0          28.7            1.
 SPACE3-1         73.5             5.8            0.0          20.6            0.52           110.00          512.47
 SPACE4-1         59.8            13.8            0.0          26.5            1.85           124.51          658.42
 SPACE5-1         84.6             4.4            0.0          11.0            0.99            74.00          502.55
+
+      # Objective Weights — Priority: Temperature >> Humidity >> CO2
+        self.r = 0.5           # Flow penalty (low — allow flow changes)
+        self.r_delta = 0.5     # Rate of change penalty (moderate smoothing)
+        self.lambda_T = 1e6    # Highest — temperature comfort is top priority
+        self.lambda_W = 1e3    # Medium — humidity secondary
+        self.lambda_C = 1e1    # Lowest — CO2 tertiary
+
+        self.max_iter=1000000
+        self.eps_abs=1e-2
+        self.eps_rel=1e-2
+Zone  Success (%)  Infeasible (%)  Unbounded (%)  Max Iter (%)  Avg T Dev (°C)  Mean Solve (ms)  Max Solve (ms)
+SPACE1-1         83.8            10.8            0.0           5.4            1.62           138.09          929.95
+SPACE2-1         91.0             2.5            0.0           6.5            1.91           107.00          688.00
+SPACE3-1         84.6             8.1            0.0           7.3            1.68           136.38         1056.30
+SPACE4-1         91.9             2.7            0.0           5.4            1.49            94.07          853.12
+SPACE5-1         95.8             2.1            0.0           2.1            1.09            94.16         1368.55
+
+Zone  Success (%)  Infeasible (%)  Unbounded (%)  Max Iter (%)  Avg T Dev (°C)  Mean Solve (ms)  Max Solve (ms)
+SPACE1-1         92.3             4.2            0.0           3.5            1.41            81.19         1377.17
+SPACE2-1         94.2             2.7            0.0           3.1            2.08           113.17         1440.43
+SPACE3-1         92.3             5.0            0.0           2.7            1.93            58.77         1500.41
+SPACE4-1         90.6             6.0            0.0           3.3            2.78            76.05         1166.93
+SPACE5-1         97.1             2.7            0.0           0.2            0.76            22.45         1204.42

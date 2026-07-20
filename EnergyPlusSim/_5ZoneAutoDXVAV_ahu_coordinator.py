@@ -38,7 +38,7 @@ class AHUCoordinator:
 
         # Setpoint smoothing — protect equipment from rapid changes
         # EMA alpha: 0.0 = no change, 1.0 = no smoothing (instant)
-        self.SMOOTH_ALPHA = 0.4   # Blend: 40% new, 60% previous
+        self.SMOOTH_ALPHA = 0.25   # Blend: 40% new, 60% previous
         # Max change per timestep (rate limiter, on top of EMA)
         self.MAX_dT = 1.5         # °C per timestep
         self.MAX_dW = 0.001       # kg/kg per timestep

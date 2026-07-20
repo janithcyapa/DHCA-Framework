@@ -72,7 +72,7 @@ class ZoneController:
         self.g_co2_person = 3.82e-6 * 1e6
         
         # --- MPC Initialization ---
-        self.N = 5
+        self.N = 20
         self.u_prev = 0.5  # Start at a moderate flow, not 0 — avoids stuck-at-zero fallback
         
         T_in = self.x[0] 
@@ -103,17 +103,17 @@ class ZoneController:
         self.W_s_max = 0.015
         
         # Objective Weights — Priority: Temperature >> Humidity >> CO2
-        self.r = 0.05           # Flow penalty (low — allow flow changes)
-        self.r_delta = 0.5     # Rate of change penalty (moderate smoothing)
+        self.r = 1e2         # Flow penalty (low — allow flow changes)
+        self.r_delta = 1e4  # Rate of change penalty (moderate smoothing)
         self.lambda_T = 1e2    # Highest — temperature comfort is top priority
-        self.lambda_W = 1e1    # Medium — humidity secondary
+        self.lambda_W = 1e2    # Medium — humidity secondary
         self.lambda_C = 1e1    # Lowest — CO2 tertiary
 
-        self.max_iter=1000000
-        self.eps_abs=1e-2
-        self.eps_rel=1e-2
+        self.max_iter=10000
+        self.eps_abs=1e-4
+        self.eps_rel=1e-4
 
-        
+        self.mu_T = 1e6
         # self.r_delta = 1.0     # Rate of change penalty (moderate smoothing)
         # self.lambda_T = 1e4    # Highest — temperature comfort is top priority
         # self.lambda_W = 1e2    # Medium — humidity secondary
@@ -357,6 +357,11 @@ class ZoneController:
                     
                     # Linear cost
                     f_U = -2.0 * self.r_delta * self.D.T @ self.E * self.u_prev
+
+                    # NEW
+                    f_eps_T = np.ones(N) * self.mu_T
+                    f = np.concatenate([f_U, f_eps_T, self.zeros_N, self.zeros_N])
+                    
                     f = np.concatenate([f_U, self.zeros_N, self.zeros_N, self.zeros_N])
                     
                     # --- Constraint assembly (two-sided format) ---
