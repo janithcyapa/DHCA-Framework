@@ -116,6 +116,8 @@ class Initializer:
         gv = self.api.exchange.get_variable_handle
         self.plugin.handles['Out_Temp'] = gv(state, "Site Outdoor Air Drybulb Temperature", "Environment")
         self.plugin.handles['Out_RH']   = gv(state, "Site Outdoor Air Relative Humidity",   "Environment")
+        self.plugin.handles['Out_W']    = gv(state, "Site Outdoor Air Humidity Ratio",      "Environment")
+        self.plugin.handles['Out_CO2']  = gv(state, "Site Outdoor Air CO2 Concentration",   "Environment")
 
     def register_central_handles(self, state):
         gv = self.api.exchange.get_variable_handle
@@ -213,6 +215,8 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         
         self.zone_ideal_conditions = {}
         self.ahu_setpoints = {}
+        self._fan_dT_est = 0.5  # Running estimate of fan heat rise (°C)
+        self._prev_co2_error = 0.0  # Previous CO2 error for derivative term
 
     def _init(self, state):
         self.initializer.setup(state)
@@ -226,7 +230,10 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
     #  HELPERS — sensor reads
     def _val(self, state, key):
-        val = self.api.exchange.get_variable_value(state, self.handles[key])
+        handle = self.handles.get(key, -1)
+        if handle == -1:
+            return 0.0
+        val = self.api.exchange.get_variable_value(state, handle)
         if SIMULATE_SENSOR_NOISE:
             if key.endswith("_Temp"): val += random.gauss(0, 0.1)
             elif key.endswith("_RH"): val += random.gauss(0, 1.0)
@@ -304,42 +311,54 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         # Log Default Data Readings
         self.logger.add('Out_Temp_C', round(self._val(state, 'Out_Temp'), 2))
         self.logger.add('Out_RH_pct', round(self._val(state, 'Out_RH'), 2))
+        self.logger.add('Out_W_kg_kg', round(self._val(state, 'Out_W'), 5))
+        self.logger.add('Out_CO2_ppm', round(self._val(state, 'Out_CO2'), 2))
 
         for n in CENTRAL_NODE_NAMES:
             self.logger.add(f"{n}_Temp_C", round(self._val(state, f"{n}_Temp"), 2))
             self.logger.add(f"{n}_RH_pct", round(self._val(state, f"{n}_RH"), 2))
+            self.logger.add(f"{n}_W_kg_kg", round(self._val(state, f"{n}_W"), 5))
             self.logger.add(f"{n}_Flow_kg_s", round(self._val(state, f"{n}_Flow"), 4))
             self.logger.add(f"{n}_CO2_ppm", round(self._val(state, f"{n}_CO2"), 2))
 
         for z in self.zones:
             self.logger.add(f"{z}_Temp_C", round(self._val(state, f"{z}_Temp"), 2))
             self.logger.add(f"{z}_T_m_C", round(self._val(state, f"{z}_T_m"), 2))
-            self.logger.add(f"{z}_W_in_kg_kg", round(self._val(state, f"{z}_W_in"), 5))
+            self.logger.add(f"{z}_W_kg_kg", round(self._val(state, f"{z}_W_in"), 5))
             self.logger.add(f"{z}_RH_pct", round(self._val(state, f"{z}_RH"), 2))
-            self.logger.add(f"{z}_VAV_Flow_kg_s", round(self._val(state, f"{z}_VAV_Flow"), 4))
-            self.logger.add(f"{z}_Reheater_W", round(self._val(state, f"{z}_Reheater"), 2))
             self.logger.add(f"{z}_CO2_ppm", round(self._val(state, f"{z}_CO2"), 2))
+
             self.logger.add(f"{z}_Occupants", round(self._val(state, f"{z}_Occ"), 2))
             self.logger.add(f"{z}_EquipLoad_W", round(self._val(state, f"{z}_Equip"), 2))
-            
-            # Log Actuator values for the zone
-            self.logger.add(f"Act_{z}_Flow_SP_kg_s", round(self._act_val(state, f"{z}_Flow_SP"), 4))
-            self.logger.add(f"Act_{z}_Reheat_SP_C", round(self._act_val(state, f"{z}_Reheat_SP"), 2))
 
+            self.logger.add(f"{z}_VAV_Flow_kg_s", round(self._val(state, f"{z}_VAV_Flow"), 4))
+            self.logger.add(f"{z}_Reheater_W", round(self._val(state, f"{z}_Reheater"), 2))
+            self.logger.add(f"{z}_Flow_SP_kg_s", round(self._act_val(state, f"{z}_Flow_SP"), 4))
+            self.logger.add(f"{z}_Reheat_SP_C", round(self._act_val(state, f"{z}_Reheat_SP"), 2))
+
+
+        # --- AHU Actual Supply (what was delivered at fan outlet) ---
+        self.logger.add("AHU_Supply_Temp_C",  round(self._val(state, "Fan_Out_Temp"), 2))
+        self.logger.add("AHU_Supply_W_kg_kg", round(self._val(state, "Fan_Out_W"), 5))
+        self.logger.add("AHU_Supply_CO2_ppm", round(self._val(state, "Fan_Out_CO2"), 2))
+        self.logger.add("AHU_Supply_Flow_kg_s", round(self._val(state, "Fan_Out_Flow"), 4))
+
+        # --- Component Power (instantaneous W) ---
         self.logger.add("CC_Power_W", round(self._val(state, "CC_Power"), 2))
         self.logger.add("HC_Power_W", round(self._val(state, "HC_Power"), 2))
         self.logger.add("Fan_Power_W", round(self._val(state, "Fan_Power"), 2))
-        
-        # Log Central Actuator values (Cooler, Heater, Fan, Mixer/OA)
-        self.logger.add("Act_CC_Temp_SP_C", round(self._act_val(state, "CC_Temp_SP"), 2))
-        self.logger.add("Act_HC_Temp_SP_C", round(self._act_val(state, "HC_Temp_SP"), 2))
-        self.logger.add("Act_Fan_Flow_kg_s", round(self._act_val(state, "Fan_Flow"), 4))
-        self.logger.add("Act_OA_Flow_SP_kg_s", round(self._act_val(state, "OA_Flow_SP"), 4))
-        
-        self.logger.add("Meter_Bldg_Elec_J", round(self._meter_val(state, "M_Elec_Fac"), 2))
-        self.logger.add("Meter_HVAC_Elec_J", round(self._meter_val(state, "M_Elec_HVAC"), 2))
-        self.logger.add("Meter_AHU_Elec_J", round(self._meter_val(state, "M_Elec_Fans") + self._meter_val(state, "M_Elec_Cool"), 2))
-        self.logger.add("Meter_Bldg_Gas_J", round(self._meter_val(state, "M_Gas_Fac"), 2))
+
+        # --- Energy Meters (Joules per timestep) ---
+        bldg_elec = self._meter_val(state, "M_Elec_Fac")
+        hvac_elec = self._meter_val(state, "M_Elec_HVAC")
+        bldg_gas  = self._meter_val(state, "M_Gas_Fac")
+
+        self.logger.add("Meter_Bldg_Elec_J", round(bldg_elec, 2))
+        self.logger.add("Meter_HVAC_Elec_J", round(hvac_elec, 2))
+        self.logger.add("Meter_Bldg_Gas_J",  round(bldg_gas, 2))
+
+        self.logger.add("Meter_Bldg_Total_J", round(bldg_elec + hvac_elec + bldg_gas, 2))
+        self.logger.add("Meter_HVAC_Total_J", round(hvac_elec + bldg_gas, 2))
 
         # Write to CSV
         self.logger.log_timestep()
@@ -381,72 +400,92 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
         # Apply AHU Setpoints
         if self.ahu_setpoints:
-            # 1. CO2 Control via Outdoor Air Flow
+            # 1. CO2 Control via Outdoor Air Flow — PD Controller
+            #    Kp: proportional gain (kg/s per ppm error)
+            #    Kd: derivative gain (kg/s per ppm/timestep rate of change)
+            Kp = 0.008   # Aggressive proportional: 100 ppm error → +0.8 kg/s
+            Kd = 0.003   # Derivative: reacts to rate of CO2 change
+            OA_MIN = 0.1  # Minimum for air quality (near-zero, not blind 0.5)
+            OA_MAX = 2.5  # Physical max outdoor air flow
+
             co2_sp = self.ahu_setpoints.get('ahu_co2_sp', 400.0)
             max_co2 = 400.0
             for z in self.zones:
                 if self.handles.get(f"{z}_CO2", -1) != -1:
                     max_co2 = max(max_co2, self._val(state, f"{z}_CO2"))
-                    
-            oa_flow = 0.5 # Default minimum fresh air kg/s
-            if max_co2 > co2_sp:
-                oa_flow = min(2.5, 0.5 + (max_co2 - co2_sp) * 0.01) # Simple P-controller to increase OA
-                
+
+            co2_error = max_co2 - co2_sp
+            co2_deriv = co2_error - self._prev_co2_error
+            self._prev_co2_error = co2_error
+
+            # PD output: proportional + derivative
+            oa_flow = OA_MIN + Kp * max(co2_error, 0.0) + Kd * max(co2_deriv, 0.0)
+            oa_flow = min(max(oa_flow, OA_MIN), OA_MAX)
+
             if self.actuators.get("OA_Flow_SP", -1) != -1:
                 sa(state, self.actuators["OA_Flow_SP"], oa_flow)
             
-            # 2. Temperature Setpoints - override both the schedule and the node
+            # 2. Temperature & Humidity Setpoints with compensation
             temp_sp = self.ahu_setpoints.get('ahu_temp_sp', 13.0)
-            # Override the schedule so SetpointManager:Scheduled writes our value
+            hum_sp  = self.ahu_setpoints.get('ahu_hum_sp', 0.008)
+
+            # 2a. Fan heat rise compensation
+            #     The draw-through fan adds waste heat: dT = P_fan / (m_dot * Cp)
+            #     Measure it from last timestep's actual data and use an EMA.
+            fan_out_T = self._val(state, "Fan_Out_Temp")
+            hc_out_T  = self._val(state, "HC_Out_Temp")
+            if fan_out_T > 0 and hc_out_T > 0:
+                measured_dT = fan_out_T - hc_out_T
+                if measured_dT > 0:
+                    # Exponential moving average (alpha=0.3) for smooth tracking
+                    self._fan_dT_est = 0.7 * self._fan_dT_est + 0.3 * measured_dT
+
+            # Subtract fan heat rise so the POST-fan supply temperature hits temp_sp
+            coil_temp_sp = temp_sp - self._fan_dT_est
+
+            # 2b. Psychrometric coupling for dehumidification
+            #     If the humidity setpoint requires a dew point below the sensible
+            #     coil setpoint, lower the coil temperature to reach that dew point.
+            #     T_dew(W) = 243.04 * ln(P_w/610.94) / (17.625 - ln(P_w/610.94))
+            import math
+            P_w = hum_sp * 101325.0 / (0.62198 + hum_sp)
+            if P_w > 0:
+                ln_ratio = math.log(P_w / 610.94)
+                T_dew_target = 243.04 * ln_ratio / (17.625 - ln_ratio)
+                # If dehumidification requires a colder coil, use the lower value
+                coil_temp_sp = min(coil_temp_sp, T_dew_target)
+
+            # Clamp to physical AHU limits
+            T_s_min = 5.0   # Hard physical floor for the coil
+            coil_temp_sp = max(coil_temp_sp, T_s_min)
+
+            # Apply temperature setpoints
             if self.actuators.get("SAT_Sch_SP", -1) != -1:
-                sa(state, self.actuators["SAT_Sch_SP"], temp_sp)
-            # Also set node setpoints directly as backup
+                sa(state, self.actuators["SAT_Sch_SP"], coil_temp_sp)
             if self.actuators.get("CC_Temp_SP", -1) != -1:
-                sa(state, self.actuators["CC_Temp_SP"], temp_sp)
-            # FIX (bug 3): this used to set the central heating coil setpoint
-            # to temp_sp + 1.0 unconditionally, i.e. always asking it to add
-            # heat right after the cooling coil. That directly contradicts
-            # the reheat-free "Actuation-Minimizing Deadband MPC" design in
-            # docs 3-5, where VAV flow (u) is meant to be the only actuator.
-            # Pass the setpoint straight through -- no added heat.
+                sa(state, self.actuators["CC_Temp_SP"], coil_temp_sp)
             if self.actuators.get("HC_Temp_SP", -1) != -1:
-                sa(state, self.actuators["HC_Temp_SP"], temp_sp)
-                
-            # 3. Humidity Setpoints - override the schedule so SetpointManager writes our value
-            hum_sp = self.ahu_setpoints.get('ahu_hum_sp', 0.008)
-            # Override the humidity max schedule so the SetpointManager:Scheduled picks it up
+                sa(state, self.actuators["HC_Temp_SP"], coil_temp_sp)
+
+            # Apply humidity setpoints
             if self.actuators.get("Hum_Sch_SP", -1) != -1:
                 sa(state, self.actuators["Hum_Sch_SP"], hum_sp)
-            # Also set node setpoints directly
             if self.actuators.get("CC_Hum_SP", -1) != -1:
                 sa(state, self.actuators["CC_Hum_SP"], hum_sp)
             if self.actuators.get("CC_Hum_Max_SP", -1) != -1:
                 sa(state, self.actuators["CC_Hum_Max_SP"], hum_sp)
+
+            # Log compensation values for debugging
+            self.logger.add("Fan_dT_est_C", round(self._fan_dT_est, 2))
+            self.logger.add("Coil_Temp_SP_C", round(coil_temp_sp, 2))
             
-            # Log AHU actuation decisions
-            self.logger.add("Act_AHU_OA_Flow", round(oa_flow, 4))
-            self.logger.add("Act_AHU_MaxCO2", round(max_co2, 2))
-            self.logger.add("Act_AHU_Temp_SP", round(temp_sp, 2))
-            self.logger.add("Act_AHU_Hum_SP", round(hum_sp, 5))
+
 
         # Apply Zone Setpoints and VAV Commands
         for z in self.zones:
             cond = self.zone_ideal_conditions.get(z, {})
             flow = cond.get('u_cmd', 0.1)
-            ideal_temp = cond.get('ideal_temp', 22.0)
             
-            # FIX (bug 3): this block used to command the per-zone reheat
-            # coil up to T_ref (22C) whenever the zone wasn't overheating --
-            # a conventional VAV-reheat sequence that (a) contradicts the
-            # reheat-free "Actuation-Minimizing Deadband MPC" design in docs
-            # 3-5, and (b) shrinks the zone MPC's own authority over
-            # temperature, since T_s is read from this same post-reheat node
-            # (Bc[0,0] ~ (T_s - T_in) collapses toward 0 whenever reheat
-            # pulls T_s up near T_in). VAV flow (u_cmd, from the zone's own
-            # MPC) is meant to be the only actuator -- pass supply air
-            # through unmodified.
-            supply_temp = self.ahu_setpoints.get('ahu_temp_sp', 13.0) if self.ahu_setpoints else 13.0
-            reheat_sp = supply_temp
             
             # Clamp Flow
             h_sp  = self.actuators.get(f"{z}_Flow_SP",  -1)
@@ -456,13 +495,12 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 sa(state, h_max, flow)
                 sa(state, h_min, flow)
                 sa(state, h_sp,  flow)
-                
+
+            reheat_sp = 0    
             # Apply reheat setpoint
             h_reheat = self.actuators.get(f"{z}_Reheat_SP", -1)
             if h_reheat != -1:
                 sa(state, h_reheat, reheat_sp)
-            
-            # Log zone actuation
-            self.logger.add(f"Act_{z}_Reheat_Applied_C", round(reheat_sp, 2))
+
 
         return 0

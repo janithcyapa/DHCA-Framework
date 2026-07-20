@@ -26,15 +26,8 @@ class AHUCoordinator:
         self.T_s_max = 40.0
         self.T_neutral = 22.0 # Neutral or average zone temp
 
-        # FIX (bug 2): W_s_min used to be a hardcoded 0.005 kg/kg, which is
-        # colder/drier than saturation at T_s_min (10C) can ever deliver
-        # without reheat (~0.0076 kg/kg). Requesting it caused Rule 3b's
-        # psychrometric override to compute a T_bound below T_s_min, which
-        # then got silently accepted by the Rule 4 clip -- commanding the
-        # coil to reach an unphysical dew point it can never hit and never
-        # actually dehumidifying enough. Derive the true floor instead.
         self.W_s_min = w_sat(self.T_s_min)
-        self.W_s_max = 0.015
+        self.W_s_max = 0.012
         self.W_neutral = 0.008
         
         self.C_s_min = 400.0
@@ -48,16 +41,16 @@ class AHUCoordinator:
         Calculates central AHU setpoints based on all zones' ideal conditions.
         Implements the 4-rule arbitration logic with comprehensive logging.
         """
-        logger.add("AHU_Coordinator_Status", 1)
         
         if not zone_conditions:
-            logger.add("AHU_Arbitration_Decision", "NO_ZONES")
+            logger.add("AHU_Coordinator_Status", 0)
             return {
                 'ahu_temp_sp': self.T_neutral,
                 'ahu_hum_sp': self.W_neutral,
                 'ahu_co2_sp': self.C_s_min
             }
         
+        logger.add("AHU_Coordinator_Status", 1)
         # Parse conditions and log per-zone inputs
         zone_names = list(zone_conditions.keys())
         ideal_temps = []
@@ -75,16 +68,10 @@ class AHUCoordinator:
             ideal_hums.append(w)
             ideal_co2s.append(c)
             sat_indices.append(s)
-            
-            # Log per-zone ideal conditions received by coordinator
-            logger.add(f"AHU_in_{z_name}_ideal_T", round(t, 2))
-            logger.add(f"AHU_in_{z_name}_ideal_W", round(w, 5))
-            logger.add(f"AHU_in_{z_name}_ideal_CO2", round(c, 2))
-            logger.add(f"AHU_in_{z_name}_sat_idx", round(s, 3))
 
         # Rule 1: Ventilation (CO2) Arbitration — most demanding zone wins
         C_s_AHU = min(ideal_co2s) if ideal_co2s else 400.0
-        logger.add("AHU_R1_CO2_demand", round(C_s_AHU, 2))
+
         
         # Rule 2: Humidity Arbitration — use min/max aggregation, not exact equality
         # Dehumidification requests (low W) take priority over humidification
@@ -104,11 +91,7 @@ class AHUCoordinator:
             W_rule = "NEUTRAL"
             
         W_s_AHU = W_demand
-        logger.add("AHU_R2_W_demand", round(W_s_AHU, 5))
-        logger.add("AHU_R2_W_rule", W_rule)
-        logger.add("AHU_R2_n_dehumid", len(W_demands_low))
-        logger.add("AHU_R2_n_humid", len(W_demands_high))
-        logger.add("AHU_R2_n_neutral", len(W_demands_neutral))
+
         
         # Rule 3: Sensible (Temperature) Arbitration & Psychrometric Coupling
         # Step 3a: Conflict Resolution — use min/max aggregation
@@ -137,13 +120,7 @@ class AHUCoordinator:
             # All neutral
             T_demand = self.T_neutral
             T_rule = "NEUTRAL"
-        
-        logger.add("AHU_R3a_T_demand", round(T_demand, 2))
-        logger.add("AHU_R3a_T_rule", T_rule)
-        logger.add("AHU_R3a_n_cool", n_cool)
-        logger.add("AHU_R3a_n_heat", n_heat)
-        logger.add("AHU_R3a_n_neutral", n_neutral)
-            
+
         # Step 3b: Psychrometric Override
         def T_sat(W):
             if W <= 0: return 0.0
@@ -166,8 +143,7 @@ class AHUCoordinator:
         # colder than it can deliver without reheat.
         T_bound = max(min(T_demand, T_sat_bound), self.T_s_min)
         
-        logger.add("AHU_R3b_T_sat_bound", round(T_sat_bound, 2))
-        logger.add("AHU_R3b_T_bound", round(T_bound, 2))
+
         
         # Rule 4: Global Energy Optimization
         I_max = max(sat_indices) if sat_indices else 0.0
@@ -187,18 +163,13 @@ class AHUCoordinator:
             self.T_s_opt = min(max(self.T_s_opt, self.T_s_min), T_bound)
             
         T_s_AHU = self.T_s_opt
-        
-        logger.add("AHU_R4_I_max", round(I_max, 3))
-        logger.add("AHU_R4_I_mean", round(I_mean, 3))
-        logger.add("AHU_R4_T_s_opt_prev", round(T_s_opt_prev, 2))
-        logger.add("AHU_R4_T_s_opt_new", round(self.T_s_opt, 2))
+
         
         # Final setpoints
-        logger.add("ahu_temp_sp", round(T_s_AHU, 2))
-        logger.add("ahu_hum_sp", round(W_s_AHU, 5))
-        logger.add("ahu_co2_sp", round(C_s_AHU, 2))
-        logger.add("ahu_T_bound", round(T_bound, 2))
-        logger.add("ahu_I_max", round(I_max, 3))
+        logger.add("AHU_Temp_SP_C", round(T_s_AHU, 2))
+        logger.add("AHU_W_kg_kg", round(W_s_AHU, 5))
+        logger.add("AHU_CO2_ppm", round(C_s_AHU, 2))
+
         
         return {
             'ahu_temp_sp': T_s_AHU,
