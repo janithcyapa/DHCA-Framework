@@ -30,17 +30,17 @@ class ZoneController:
         # --- EKF Initialization ---
         # State vector x: [T_in, T_m, W_in, C_in, d_T, d_W, N_occ, alpha_ext, alpha_int, beta_air, beta_mass]
         self.x = np.zeros(11)
-        self.x[0] = 0.0    # x1: T_in (C)
-        self.x[1] = 0.0    # x2: T_m (C)
-        self.x[2] = 0.0  # x3: W_in (kg/kg)
-        self.x[3] = 0.0   # x4: C_in (ppm)
+        self.x[0] = 0.0     # x1: T_in (C)
+        self.x[1] = 0.0     # x2: T_m (C)
+        self.x[2] = 0.0     # x3: W_in (kg/kg)
+        self.x[3] = 0.0     # x4: C_in (ppm)
         self.x[4] = 0.0     # x5: d_T
         self.x[5] = 0.0     # x6: d_W
         self.x[6] = 0.0     # x7: N_occ
-        self.x[7] = 0.0   # x8: alpha_ext (typically 1/0.005)
-        self.x[8] = 0.0   # x9: alpha_int (typically 1/0.002)
-        self.x[9] = 0.0  # x10: beta_air (typically 1/300000)
-        self.x[10] = 0.0   # x11: beta_mass (typically 1/10000000)
+        self.x[7] = 0.0     # x8: alpha_ext (typically 1/0.005)
+        self.x[8] = 0.0     # x9: alpha_int (typically 1/0.002)
+        self.x[9] = 0.0     # x10: beta_air (typically 1/300000)
+        self.x[10] = 0.0    # x11: beta_mass (typically 1/10000000)
 
         # Covariance Matrix P
         self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-4, 1.0, 10.0, 10.0, 1e-12, 1e-14])
@@ -74,16 +74,9 @@ class ZoneController:
         self.u_min = 0.0
         self.u_max = 2.0  # Max volumetric flow rate m3/s
 
-        # AHU physical supply-air limits (must match AHUCoordinator's limits).
-        # FIX (bug 2): W_s_min used to be a hardcoded 0.005 kg/kg -- a request
-        # for supply air roughly 6C colder than any coil bound by T_s_min can
-        # actually deliver (no reheat available to make up the difference).
-        # Derive the achievable dehumidification floor from T_s_min instead:
-        # a coil can't produce air drier than saturation at its coldest
-        # deliverable temperature.
         self.T_s_min = 10.0
         self.T_s_max = 40.0
-        self.W_s_min = w_sat(self.T_s_min)  # achievable dehumidification floor, no reheat
+        self.W_s_min = w_sat(self.T_s_min) 
         self.W_s_max = 0.015
         
         # Objective Weights — Priority: Temperature >> Humidity >> CO2
