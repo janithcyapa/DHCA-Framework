@@ -429,19 +429,21 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
             co2_error = actual_co2 - co2_sp
             
-            if not hasattr(self, '_oa_flow_cmd'):
-                self._oa_flow_cmd = OA_MIN
+            if not hasattr(self, '_co2_integral'):
+                self._co2_integral = 0.0
                 
             co2_error = actual_co2 - co2_sp
             
-            # Integral controller logic (eliminates steady-state error)
-            # If actual > setpoint (error > 0), slowly open damper
-            # If actual < setpoint (error < 0), slowly close damper
-            Ki_oa = 0.002  # kg/s change per ppm error per timestep
+            # PI controller logic (fast response + eliminates steady-state error)
+            Kp_oa = 0.003  # proportional "kick"
+            Ki_oa = 0.002  # integral accumulation per timestep
             
-            self._oa_flow_cmd += Ki_oa * co2_error
-            self._oa_flow_cmd = min(max(self._oa_flow_cmd, OA_MIN), OA_MAX)
-            oa_flow = self._oa_flow_cmd
+            self._co2_integral += co2_error
+            # Anti-windup clamp (bound between 0 and max required integral contribution)
+            self._co2_integral = max(min(self._co2_integral, (OA_MAX - OA_MIN)/Ki_oa), 0.0)
+            
+            oa_flow = OA_MIN + Kp_oa * co2_error + Ki_oa * self._co2_integral
+            oa_flow = min(max(oa_flow, OA_MIN), OA_MAX)
 
             if self.actuators.get("OA_Flow_SP", -1) != -1:
                 sa(state, self.actuators["OA_Flow_SP"], oa_flow)

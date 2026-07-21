@@ -75,16 +75,16 @@ class ZoneController:
         self.N = 20
         
         # Objective Weights — Priority: Temperature >> Humidity >> CO2
-        self.r = 0.001
-        self.r_delta = 15.0        # was 1e10 — this is what was breaking everything
+        self.r = 0.0001
+        self.r_delta = 25.0        # was 1e10 — this is what was breaking everything
         self.lambda_T = 1e4       # was 1e5
-        self.lambda_W = 1e3       # was 1e-5
+        self.lambda_W = 1e2       # was 1e-5
         self.lambda_C = 1e1       # was 1e-5
-        self.mu_T = 1e4           # was 1e10 — see below for why
+        self.mu_T = 1e6           # was 1e10 — see below for why
 
         self.du_max = 0.05
 
-        self.max_iter=10000
+        self.max_iter=50000
         self.eps_abs=1e-4
         self.eps_rel=1e-4
 
@@ -522,17 +522,16 @@ class ZoneController:
                     else:
                         T_s_star = T_neutral
                         
-                    if e_W > 0.001:
+                    if e_W < -0.001:
+                        # Room is very humid (e_W is negative), request dry air to dehumidify
                         W_s_star = W_s_min
-                    elif e_W > 0.0005:
-                        alpha = (e_W - 0.0005) / 0.0005
-                        W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
-                    elif e_W < -0.001:
-                        W_s_star = W_s_max
                     elif e_W < -0.0005:
                         alpha = (-e_W - 0.0005) / 0.0005
-                        W_s_star = W_neutral + alpha * (W_s_max - W_neutral)
+                        W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
                     else:
+                        # Room is dry or neutral (e_W >= -0.0005). 
+                        # Since the AHU lacks a humidifier, we can't actively add moisture.
+                        # The best we can do is ask for neutral air so we don't dry it out further.
                         W_s_star = W_neutral
                         
                     if not hasattr(self, 'prev_C_in'):
@@ -540,9 +539,16 @@ class ZoneController:
                     dC_in = C_in - self.prev_C_in
                     self.prev_C_in = C_in
                     
-                    if dC_in > 1.0:
-                        C_s_star = max(400.0, C_in - 50.0)
+                    if dC_in > 0.5:
+                        # Actively increasing: scale setpoint to take proactive action before hitting C_max
+                        if C_in < 600.0:
+                            C_s_star = max(400.0, C_in - 50.0)
+                        else:
+                            # Scale from 800 down to 400 as C_in goes from 600 to 950
+                            alpha = min(1.0, max(0.0, (C_in - 600.0) / 350.0))
+                            C_s_star = 800.0 - alpha * 400.0
                     else:
+                        # Stable or decreasing: tolerate up to the limit
                         C_s_star = self.C_max
                         
                     saturation_index = u_cmd / self.u_max
