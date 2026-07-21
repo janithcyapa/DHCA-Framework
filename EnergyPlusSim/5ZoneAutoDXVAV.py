@@ -217,6 +217,12 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         self.ahu_setpoints = {}
         self._fan_dT_est = 0.5  # Running estimate of fan heat rise (°C)
         self._prev_co2_error = 0.0  # Previous CO2 error for derivative term
+        
+        # Direct ON/OFF override states
+        self._dx_state = False
+        self._dx_last_toggle_time = -999.0
+        self._heater_state = False
+        self._heater_last_toggle_time = -999.0
 
     def _init(self, state):
         self.initializer.setup(state)
@@ -430,23 +436,20 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             hum_sp  = self.ahu_setpoints.get('ahu_hum_sp', 0.008)
 
             # 2a. Fan heat rise compensation
-            #     The draw-through fan adds waste heat: dT = P_fan / (m_dot * Cp)
+            #     The draw-through fan adds waste heat.
             #     Measure it from last timestep's actual data and use an EMA.
             fan_out_T = self._val(state, "Fan_Out_Temp")
             hc_out_T  = self._val(state, "HC_Out_Temp")
             if fan_out_T > 0 and hc_out_T > 0:
                 measured_dT = fan_out_T - hc_out_T
                 if measured_dT > 0:
-                    # Exponential moving average (alpha=0.3) for smooth tracking
-                    self._fan_dT_est = 0.7 * self._fan_dT_est + 0.3 * measured_dT
+                    # Use a very slow EMA (alpha=0.01) so ON/OFF compressor cycles don't cause the estimate to bounce
+                    self._fan_dT_est = 0.99 * self._fan_dT_est + 0.01 * measured_dT
 
-            # Subtract fan heat rise so the POST-fan supply temperature hits temp_sp
+            # Subtract fan heat rise so the POST-fan supply temperature hits temp_sp on average
             coil_temp_sp = temp_sp - self._fan_dT_est
 
             # 2b. Psychrometric coupling for dehumidification
-            #     If the humidity setpoint requires a dew point below the sensible
-            #     coil setpoint, lower the coil temperature to reach that dew point.
-            #     T_dew(W) = 243.04 * ln(P_w/610.94) / (17.625 - ln(P_w/610.94))
             import math
             P_w = hum_sp * 101325.0 / (0.62198 + hum_sp)
             if P_w > 0:
@@ -458,14 +461,54 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             # Clamp to physical AHU limits
             T_s_min = 5.0   # Hard physical floor for the coil
             coil_temp_sp = max(coil_temp_sp, T_s_min)
+            
+            # --- Direct ON/OFF Control (Option 1 with Anti-Short Cycle) ---
+            cc_temp_sp = coil_temp_sp
+            hc_temp_sp = coil_temp_sp
+            sat_sch_sp = coil_temp_sp
+            
+            current_time = self.api.exchange.current_time(state) # in hours
+            dx_override = self.ahu_setpoints.get('ahu_dx_override', None)
+            heater_override = self.ahu_setpoints.get('ahu_heater_override', None)
+            
+            # 6 minutes = 0.1 hours minimum toggle delay
+            MIN_TOGGLE_DELAY = 0.5 
+            
+            if dx_override is not None:
+                requested = bool(dx_override)
+                if requested != self._dx_state:
+                    if (current_time - self._dx_last_toggle_time) >= MIN_TOGGLE_DELAY:
+                        self._dx_state = requested
+                        self._dx_last_toggle_time = current_time
+                        
+                # Option 1: Extreme Setpoints
+                cc_temp_sp = 0.0 if self._dx_state else 50.0
+
+            if heater_override is not None:
+                requested = bool(heater_override)
+                if requested != self._heater_state:
+                    if (current_time - self._heater_last_toggle_time) >= MIN_TOGGLE_DELAY:
+                        self._heater_state = requested
+                        self._heater_last_toggle_time = current_time
+                        
+                # Option 1: Extreme Setpoints
+                hc_temp_sp = 50.0 if self._heater_state else 0.0
+                
+            if dx_override is not None or heater_override is not None:
+                if self._dx_state:
+                    sat_sch_sp = 0.0
+                elif self._heater_state:
+                    sat_sch_sp = 50.0
+                else:
+                    sat_sch_sp = 25.0
 
             # Apply temperature setpoints
             if self.actuators.get("SAT_Sch_SP", -1) != -1:
-                sa(state, self.actuators["SAT_Sch_SP"], coil_temp_sp)
+                sa(state, self.actuators["SAT_Sch_SP"], sat_sch_sp)
             if self.actuators.get("CC_Temp_SP", -1) != -1:
-                sa(state, self.actuators["CC_Temp_SP"], coil_temp_sp)
+                sa(state, self.actuators["CC_Temp_SP"], cc_temp_sp)
             if self.actuators.get("HC_Temp_SP", -1) != -1:
-                sa(state, self.actuators["HC_Temp_SP"], coil_temp_sp)
+                sa(state, self.actuators["HC_Temp_SP"], hc_temp_sp)
 
             # Apply humidity setpoints
             if self.actuators.get("Hum_Sch_SP", -1) != -1:

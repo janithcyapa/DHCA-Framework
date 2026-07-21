@@ -73,6 +73,24 @@ class ZoneController:
         
         # --- MPC Initialization ---
         self.N = 20
+        
+        # Objective Weights — Priority: Temperature >> Humidity >> CO2
+        self.r = 1e0         # Flow penalty (low — allow flow changes)
+        self.r_delta = 1e10  # Rate of change penalty (moderate smoothing)
+        self.lambda_T = 1e5    # Highest — temperature comfort is top priority
+        self.lambda_W = 1e-5    # Medium — humidity secondary
+        self.lambda_C = 1e-5    # Lowest — CO2 tertiary
+
+        self.max_iter=10000
+        self.eps_abs=1e-4
+        self.eps_rel=1e-4
+
+        self.mu_T = 1e10
+        # self.r_delta = 1.0     # Rate of change penalty (moderate smoothing)
+        # self.lambda_T = 1e4    # Highest — temperature comfort is top priority
+        # self.lambda_W = 1e2    # Medium — humidity secondary
+        # self.lambda_C = 1e1    # Lowest — CO2 tertiary
+
         self.u_prev = 0.5  # Start at a moderate flow, not 0 — avoids stuck-at-zero fallback
         
         T_in = self.x[0] 
@@ -102,22 +120,7 @@ class ZoneController:
         self.W_s_min = w_sat(self.T_s_min) 
         self.W_s_max = 0.015
         
-        # Objective Weights — Priority: Temperature >> Humidity >> CO2
-        self.r = 1e2         # Flow penalty (low — allow flow changes)
-        self.r_delta = 1e4  # Rate of change penalty (moderate smoothing)
-        self.lambda_T = 1e2    # Highest — temperature comfort is top priority
-        self.lambda_W = 1e2    # Medium — humidity secondary
-        self.lambda_C = 1e1    # Lowest — CO2 tertiary
 
-        self.max_iter=10000
-        self.eps_abs=1e-4
-        self.eps_rel=1e-4
-
-        self.mu_T = 1e6
-        # self.r_delta = 1.0     # Rate of change penalty (moderate smoothing)
-        # self.lambda_T = 1e4    # Highest — temperature comfort is top priority
-        # self.lambda_W = 1e2    # Medium — humidity secondary
-        # self.lambda_C = 1e1    # Lowest — CO2 tertiary
         
         self.setup_mpc_constants()
         
@@ -362,7 +365,7 @@ class ZoneController:
                     f_eps_T = np.ones(N) * self.mu_T
                     f = np.concatenate([f_U, f_eps_T, self.zeros_N, self.zeros_N])
                     
-                    f = np.concatenate([f_U, self.zeros_N, self.zeros_N, self.zeros_N])
+                    # f = np.concatenate([f_U, self.zeros_N, self.zeros_N, self.zeros_N])
                     
                     # --- Constraint assembly (two-sided format) ---
                
