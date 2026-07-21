@@ -82,16 +82,31 @@ class ZoneController:
         self.lambda_C = 1e1       # was 1e-5
         self.mu_T = 1e6           # was 1e10 — see below for why
 
+        # Quadratic centering weights — pulls predicted states toward deadband midpoint.
+        # These are added INTO the QP Hessian (not as separate error terms), so the
+        # corrective gradient grows linearly from zero at T_ref/W_ref — no sudden kick.
+        self.q_T_center = 50.0    # Centering pull for temperature
+        self.q_W_center = 1e4     # Centering pull for humidity ratio (W drifts silently)
+
         self.du_max = 0.05
 
         self.max_iter=50000
         self.eps_abs=1e-4
         self.eps_rel=1e-4
 
+        # Minimum ventilation flow — prevents MPC from shutting VAV to exactly 0,
+        # which causes EnergyPlus to report stale duct temperature (~20°C) instead
+        # of actual supply temp (~11°C), creating a plant-model mismatch that
+        # drives perfect bang-bang oscillation every timestep.
+        self.u_min_vent = 0.02  # m³/s — small but keeps duct temp sensor valid
 
-
+        # EMA output smoothing — low-pass filter on MPC output to absorb any
+        # residual high-frequency chatter that the rate constraint can't prevent
+        # (e.g., oscillation between 0 and du_max which satisfies the rate limit).
+        self.u_smooth_alpha = 0.3  # Blend: 30% new MPC, 70% previous smoothed
 
         self.u_prev = 0.5  # Start at a moderate flow, not 0 — avoids stuck-at-zero fallback
+        self.u_ema = 0.5   # Smoothed output state
         
         T_in = self.x[0] 
         rh_min = 0.30
@@ -151,12 +166,25 @@ class ZoneController:
             self.SW[i, i*4 + 2] = 1.0
             self.SC[i, i*4 + 3] = 1.0
 
-    def _build_hessian(self, N):
-        """Build QP Hessian with regularization for guaranteed positive-definiteness."""
+    def _build_hessian(self, N, FT=None, FW=None):
+        """Build QP Hessian with quadratic centering cost + regularization.
+        
+        The centering cost adds q_T * ||FT@u + gT - T_ref||^2 to the objective.
+        Expanding: the u-quadratic part is q_T * u' FT'FT u, which adds
+        2*q_T * FT'FT to the u-block of the Hessian. The linear part
+        (involving gT - T_ref) is handled in the f vector, not here.
+        """
         R_mat = np.eye(N) * self.r
         R_delta_mat = np.eye(N) * self.r_delta
         
         H_U = 2.0 * (R_mat + self.D.T @ R_delta_mat @ self.D)
+        
+        # Quadratic centering: add FT'FT and FW'FW to u-block
+        if FT is not None:
+            H_U += 2.0 * self.q_T_center * (FT.T @ FT)
+        if FW is not None:
+            H_U += 2.0 * self.q_W_center * (FW.T @ FW)
+        
         H_eps_T = 2.0 * np.eye(N) * self.lambda_T
         H_eps_W = 2.0 * np.eye(N) * self.lambda_W
         H_eps_C = 2.0 * np.eye(N) * self.lambda_C
@@ -356,13 +384,19 @@ class ZoneController:
                     #    Decision variables: z = [u(N), eps_T(N), eps_W(N), eps_C(N)]
                     #    Proper two-sided: l <= A_con @ z <= u_con
                     
-                    # Build regularized Hessian
-                    H_sparse = self._build_hessian(N)
+                    # Build regularized Hessian (with centering quadratic in u-block)
+                    H_sparse = self._build_hessian(N, FT=FT, FW=FW)
                     
-                    # Linear cost
+                    # Linear cost — rate penalty + quadratic centering gradient
                     f_U = -2.0 * self.r_delta * self.D.T @ self.E * self.u_prev
 
-                    # NEW
+                    # Centering linear terms: d/du [ q * ||FT@u + gT - T_ref||^2 ]
+                    #   = 2*q * FT' @ (gT - T_ref_vec)   (the u-independent residual)
+                    T_ref_vec = np.ones(N) * self.T_ref
+                    W_ref_vec = np.ones(N) * (self.W_max + self.W_min) / 2.0
+                    f_U += 2.0 * self.q_T_center * FT.T @ (gT - T_ref_vec)
+                    f_U += 2.0 * self.q_W_center * FW.T @ (gW - W_ref_vec)
+
                     f_eps_T = np.ones(N) * self.mu_T
                     f = np.concatenate([f_U, f_eps_T, self.zeros_N, self.zeros_N])
                     
@@ -420,7 +454,7 @@ class ZoneController:
                     u_con[5*N:8*N] = np.inf
 
                     # Block 9: u_min <= u <= u_max
-                    l_con[8*N:9*N] = np.ones(N) * self.u_min
+                    l_con[8*N:9*N] = np.ones(N) * self.u_min_vent
                     u_con[8*N:9*N] = np.ones(N) * self.u_max
 
                     l_con[9*N:10*N] = -self.du_max * np.ones(N) + self.E * self.u_prev
@@ -443,13 +477,17 @@ class ZoneController:
                     print(f"[{self.zone_name}] OSQP solved, status={mpc_status}")
                     
                     if mpc_status in [1, 2]:  # 1: SOLVED, 2: SOLVED_INACCURATE
-                        u_cmd = np.clip(res.x[0], self.u_min, self.u_max)
-                        self.u_prev = u_cmd
+                        u_cmd_raw = np.clip(res.x[0], self.u_min_vent, self.u_max)
                     else:
                         # Proportional fallback instead of blindly using u_prev
-                        u_cmd = self._fallback_control(state_data)
-                        self.u_prev = u_cmd
-                        print(f"[{self.zone_name}] MPC failed (status={mpc_status}), fallback u={u_cmd:.3f}")
+                        u_cmd_raw = self._fallback_control(state_data)
+                        print(f"[{self.zone_name}] MPC failed (status={mpc_status}), fallback u={u_cmd_raw:.3f}")
+                    
+                    # EMA output smoothing: absorbs high-frequency chatter
+                    u_cmd = self.u_smooth_alpha * u_cmd_raw + (1.0 - self.u_smooth_alpha) * self.u_ema
+                    u_cmd = np.clip(u_cmd, self.u_min_vent, self.u_max)
+                    self.u_ema = u_cmd
+                    self.u_prev = u_cmd
                     
                     u_mass_cmd = u_cmd * self.rho_air
                     

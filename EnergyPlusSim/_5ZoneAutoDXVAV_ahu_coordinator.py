@@ -143,17 +143,20 @@ class AHUCoordinator:
             return 243.04 * val / (17.625 - val)
             
         T_sat_bound = T_sat(W_s_AHU)
-        # FIX (bug 2): T_sat_bound can fall below T_s_min when a zone's Ideal
-        # Ask requests a W_s_AHU the coil physically can't reach at T_s_min.
-        # Previously this uncapped T_bound flowed straight into Rule 4's
-        # clip(..., T_s_min, T_bound), which -- because T_bound < T_s_min --
-        # always collapsed to T_bound, silently commanding supply air colder
-        # than the AHU's own declared floor (observed at exactly 3.92C for
-        # >25% of a logged run). Since W_s_min is now itself derived from
-        # T_s_min (see __init__), this clamp should rarely bind, but it stays
-        # as a hard physical guarantee: never ask the coil for a dew point
-        # colder than it can deliver without reheat.
-        T_bound = max(min(T_demand, T_sat_bound), self.T_s_min)
+        
+        # Psychrometric ceiling only applies when we're COOLING (dehumidification
+        # couples supply temp to dew point).  When ALL zones want HEATING,
+        # forcing supply air through a cold dew-point cap is counterproductive:
+        # it locks T_s_opt at ~T_sat(W) ≈ 10.7 °C even though every zone
+        # needs warm air, which causes MPC to command zero flow (don't send
+        # cold air to a cold room), then bang-bang oscillation every timestep
+        # as stale duct air floats to ambient.
+        if T_rule == "HEAT_ONLY":
+            # No dew-point ceiling — let supply temp rise to meet heating demand
+            T_bound = min(T_demand, self.T_s_max)
+        else:
+            # Cooling or conflict: enforce dew-point physics, floored by T_s_min
+            T_bound = max(min(T_demand, T_sat_bound), self.T_s_min)
         
 
         
