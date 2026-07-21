@@ -75,21 +75,21 @@ class ZoneController:
         self.N = 20
         
         # Objective Weights — Priority: Temperature >> Humidity >> CO2
-        self.r = 1e0         # Flow penalty (low — allow flow changes)
-        self.r_delta = 1e10  # Rate of change penalty (moderate smoothing)
-        self.lambda_T = 1e5    # Highest — temperature comfort is top priority
-        self.lambda_W = 1e-5    # Medium — humidity secondary
-        self.lambda_C = 1e-5    # Lowest — CO2 tertiary
+        self.r = 0.001
+        self.r_delta = 15.0        # was 1e10 — this is what was breaking everything
+        self.lambda_T = 1e4       # was 1e5
+        self.lambda_W = 1e3       # was 1e-5
+        self.lambda_C = 1e1       # was 1e-5
+        self.mu_T = 1e4           # was 1e10 — see below for why
+
+        self.du_max = 0.05
 
         self.max_iter=10000
         self.eps_abs=1e-4
         self.eps_rel=1e-4
 
-        self.mu_T = 1e10
-        # self.r_delta = 1.0     # Rate of change penalty (moderate smoothing)
-        # self.lambda_T = 1e4    # Highest — temperature comfort is top priority
-        # self.lambda_W = 1e2    # Medium — humidity secondary
-        # self.lambda_C = 1e1    # Lowest — CO2 tertiary
+
+
 
         self.u_prev = 0.5  # Start at a moderate flow, not 0 — avoids stuck-at-zero fallback
         
@@ -208,6 +208,7 @@ class ZoneController:
             u_fb = 0.2 + e_C * 0.5 + e_W * 0.3
         
         u_fb = np.clip(u_fb, self.u_min, self.u_max)
+        u_fb = np.clip(u_fb, self.u_prev - self.du_max, self.u_prev + self.du_max)  # NEW
         return u_fb
 
     def step(self, dt, state_data, logger):
@@ -368,7 +369,7 @@ class ZoneController:
                     # f = np.concatenate([f_U, self.zeros_N, self.zeros_N, self.zeros_N])
                     
                     # --- Constraint assembly (two-sided format) ---
-               
+                    
                     A_con = np.block([
                         # Temp soft constraints (upper, then lower)
                         [FT, -self.I_N, self.O_N, self.O_N],
@@ -386,9 +387,11 @@ class ZoneController:
                         [self.O_N, self.O_N, self.O_N, self.I_N],
                         # Input bounds
                         [self.I_N, self.O_N, self.O_N, self.O_N],
+                        # NEW: rate constraint on u
+                        [self.D, self.O_N, self.O_N, self.O_N],   
                     ])
 
-                    n_con = 9 * N
+                    n_con = 10 * N
                     l_con = np.zeros(n_con)
                     u_con = np.zeros(n_con)
 
@@ -419,6 +422,9 @@ class ZoneController:
                     # Block 9: u_min <= u <= u_max
                     l_con[8*N:9*N] = np.ones(N) * self.u_min
                     u_con[8*N:9*N] = np.ones(N) * self.u_max
+
+                    l_con[9*N:10*N] = -self.du_max * np.ones(N) + self.E * self.u_prev
+                    u_con[9*N:10*N] =  self.du_max * np.ones(N) + self.E * self.u_prev
 
                     A_sparse = sparse.csc_matrix(A_con)
                     
@@ -517,22 +523,27 @@ class ZoneController:
                         T_s_star = T_neutral
                         
                     if e_W > 0.001:
-                        W_s_star = W_s_max
+                        W_s_star = W_s_min
                     elif e_W > 0.0005:
                         alpha = (e_W - 0.0005) / 0.0005
-                        W_s_star = W_neutral + alpha * (W_s_max - W_neutral)
+                        W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
                     elif e_W < -0.001:
-                        W_s_star = W_s_min
+                        W_s_star = W_s_max
                     elif e_W < -0.0005:
                         alpha = (-e_W - 0.0005) / 0.0005
-                        W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
+                        W_s_star = W_neutral + alpha * (W_s_max - W_neutral)
                     else:
                         W_s_star = W_neutral
                         
-                    if e_C < -50.0:
-                        C_s_star = C_s_min
+                    if not hasattr(self, 'prev_C_in'):
+                        self.prev_C_in = C_in
+                    dC_in = C_in - self.prev_C_in
+                    self.prev_C_in = C_in
+                    
+                    if dC_in > 1.0:
+                        C_s_star = max(400.0, C_in - 50.0)
                     else:
-                        C_s_star = C_recirc
+                        C_s_star = self.C_max
                         
                     saturation_index = u_cmd / self.u_max
 

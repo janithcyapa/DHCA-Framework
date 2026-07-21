@@ -415,18 +415,33 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             OA_MAX = 2.5  # Physical max outdoor air flow
 
             co2_sp = self.ahu_setpoints.get('ahu_co2_sp', 400.0)
-            max_co2 = 400.0
-            for z in self.zones:
-                if self.handles.get(f"{z}_CO2", -1) != -1:
-                    max_co2 = max(max_co2, self._val(state, f"{z}_CO2"))
+            
+            actual_co2 = self._val(state, "Fan_Out_CO2")
+            if actual_co2 <= 0.0:
+                actual_co2 = self._val(state, "Mixed_Air_CO2")
+                
+            # Fallback in case central handles are missing
+            if actual_co2 <= 0.0:
+                actual_co2 = 400.0
+                for z in self.zones:
+                    if self.handles.get(f"{z}_CO2", -1) != -1:
+                        actual_co2 = max(actual_co2, self._val(state, f"{z}_CO2"))
 
-            co2_error = max_co2 - co2_sp
-            co2_deriv = co2_error - self._prev_co2_error
-            self._prev_co2_error = co2_error
-
-            # PD output: proportional + derivative
-            oa_flow = OA_MIN + Kp * max(co2_error, 0.0) + Kd * max(co2_deriv, 0.0)
-            oa_flow = min(max(oa_flow, OA_MIN), OA_MAX)
+            co2_error = actual_co2 - co2_sp
+            
+            if not hasattr(self, '_oa_flow_cmd'):
+                self._oa_flow_cmd = OA_MIN
+                
+            co2_error = actual_co2 - co2_sp
+            
+            # Integral controller logic (eliminates steady-state error)
+            # If actual > setpoint (error > 0), slowly open damper
+            # If actual < setpoint (error < 0), slowly close damper
+            Ki_oa = 0.002  # kg/s change per ppm error per timestep
+            
+            self._oa_flow_cmd += Ki_oa * co2_error
+            self._oa_flow_cmd = min(max(self._oa_flow_cmd, OA_MIN), OA_MAX)
+            oa_flow = self._oa_flow_cmd
 
             if self.actuators.get("OA_Flow_SP", -1) != -1:
                 sa(state, self.actuators["OA_Flow_SP"], oa_flow)
@@ -501,6 +516,14 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                     sat_sch_sp = 50.0
                 else:
                     sat_sch_sp = 25.0
+                    
+            # Prevent rapid extreme temp changes by disabling coils at low flows
+            # fan_out_flow = self._val(state, "Fan_Out_Flow")
+            # LOW_FLOW_THRESHOLD = 0.25 # kg/s
+            # if fan_out_flow < LOW_FLOW_THRESHOLD:
+            #     cc_temp_sp = 50.0  # Disable cooling
+            #     hc_temp_sp = 0.0   # Disable heating
+            #     sat_sch_sp = 25.0  # Neutral
 
             # Apply temperature setpoints
             if self.actuators.get("SAT_Sch_SP", -1) != -1:
