@@ -245,9 +245,9 @@ class ZoneController:
         start_time = time.perf_counter()
         
         T_out = state_data.get('T_out', 22.0)
-        T_s = state_data.get('T_s', 13.0)
-        W_s = state_data.get('W_s', 0.008)
-        C_s = state_data.get('C_s', 400.0)
+        T_s = max(5.0, state_data.get('T_s', 13.0))
+        W_s = max(0.004, state_data.get('W_s', 0.008))
+        C_s = max(400.0, state_data.get('C_s', 400.0))
         u_mass = state_data.get('VAV_Flow', 0.0)
         u = u_mass / self.rho_air
 
