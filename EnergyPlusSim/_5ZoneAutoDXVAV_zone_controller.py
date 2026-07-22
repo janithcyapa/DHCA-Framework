@@ -58,9 +58,14 @@ class ZoneController:
         # # Process Noise Covariance Q
         # self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-10, 0.1, 1e-12, 1e-12, 1e-16, 1e-16])
 
-        # In your __init__, set the P and Q for parameters 7, 8, 9, 10 to exactly 0.0
-        self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-10, 10.0, 0.0, 0.0, 0.0, 0.0])
+        # P Matrix: Give initial doubt to alpha (indices 7, 8) so they can calibrate.
+        # Keep beta (indices 9, 10) at 0.0 so the known physical mass doesn't drift.
+        self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-10, 10.0, 100.0, 100.0, 50.0, 50.0])
+
+        # Q Matrix: ALL structural parameters (7, 8, 9, 10) must be 0.0. 
+        # They will converge to their true values and stop moving.
         self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-6, 1e-10, 0.1, 0.0, 0.0, 0.0, 0.0])
+
         # Measurement Noise Covariance R
         self.R = np.diag([0.01, 1e-8, 10.0])
         
