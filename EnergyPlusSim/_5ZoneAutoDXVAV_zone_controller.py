@@ -54,9 +54,9 @@ class ZoneController:
 
 
         # Covariance Matrix P
-        self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-4, 1.0, 10000.0, 10000.0, 1e-12, 1e-14])
+        self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-10, 10.0, 100.0, 100.0, 1e-12, 1e-14])
         # Process Noise Covariance Q
-        self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-2, 0.1, 1e-4, 1e-4, 1e-9, 1e-9])
+        self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-10, 0.1, 1e-12, 1e-12, 1e-16, 1e-16])
         # Measurement Noise Covariance R
         self.R = np.diag([0.01, 1e-8, 10.0])
         
@@ -69,7 +69,8 @@ class ZoneController:
         self.c_p = 1006.0
         self.q_person = 100.0
         self.g_w_person = 5e-5
-        self.g_co2_person = 3.82e-6 * 1e6
+        rho_co2 = 1.81  # kg/m^3 at standard room temp
+        self.g_co2_person = (3.82e-6 / rho_co2) * 1e6  # ≈ 2.11 ppm*m^3/s
         
         # --- MPC Initialization ---
         self.N = 20
@@ -293,7 +294,8 @@ class ZoneController:
                         
                         Phi = np.eye(11) + F * dt_sub
                         x_pred = x_pred + f_x * dt_sub
-                        P_pred = Phi @ P_pred @ Phi.T + self.Q * (dt_sub / dt)
+                        # P_pred = Phi @ P_pred @ Phi.T + self.Q * (dt_sub / dt)
+                        P_pred = Phi @ P_pred @ Phi.T + self.Q * dt_sub
                         P_pred = (P_pred + P_pred.T) / 2.0
                     
                     # --- EKF Update ---
