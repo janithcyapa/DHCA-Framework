@@ -159,11 +159,11 @@
 
   RunPeriod,
     MPC_Summer_Test,         !- Name
-    7,                       !- Begin Month
+    5,                       !- Begin Month
     1,                       !- Begin Day of Month
     ,                        !- Begin Year (Leave blank to use weather file default)
-    7,                       !- End Month
-    3,                      !- End Day of Month
+    5,                       !- End Month
+    2,                      !- End Day of Month
     ,                        !- End Year
     Sunday,                 !- Day of Week for Start Day
     No,                     !- Use Weather File Holidays and Special Days

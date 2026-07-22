@@ -7,5 +7,12 @@
         "PTAC",
         "Simualtion",
         "SWERA"
+    ],
+    "python-envs.pythonProjects": [
+        {
+            "path": "Experiment",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip"
+        }
     ]
 }

@@ -56,7 +56,7 @@ class ZoneController:
         # Covariance Matrix P
         self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-4, 1.0, 10000.0, 10000.0, 1e-12, 1e-14])
         # Process Noise Covariance Q
-        self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-2, 0.1, 10, 10, 1e-9, 1e-9])
+        self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-2, 0.1, 1e-4, 1e-4, 1e-9, 1e-9])
         # Measurement Noise Covariance R
         self.R = np.diag([0.01, 1e-8, 10.0])
         
@@ -75,20 +75,20 @@ class ZoneController:
         self.N = 20
         
         # Objective Weights — Priority: Temperature >> Humidity >> CO2
-        self.r = 0.0001
-        self.r_delta = 25.0        # was 1e10 — this is what was breaking everything
+        self.r = 0.001
+        self.r_delta = 50.0        # was 1e10 — this is what was breaking everything
         self.lambda_T = 1e4       # was 1e5
-        self.lambda_W = 1e2       # was 1e-5
-        self.lambda_C = 1e1       # was 1e-5
+        self.lambda_W = 1e3       # was 1e-5
+        self.lambda_C = 1e0       # was 1e-5
         self.mu_T = 1e6           # was 1e10 — see below for why
 
         # Quadratic centering weights — pulls predicted states toward deadband midpoint.
         # These are added INTO the QP Hessian (not as separate error terms), so the
         # corrective gradient grows linearly from zero at T_ref/W_ref — no sudden kick.
-        self.q_T_center = 50.0    # Centering pull for temperature
-        self.q_W_center = 1e4     # Centering pull for humidity ratio (W drifts silently)
+        self.q_T_center = 100.0    # Centering pull for temperature
+        self.q_W_center = 1e5     # Centering pull for humidity ratio (W drifts silently)
 
-        self.du_max = 0.05
+        self.du_max = 0.02
 
         self.max_iter=50000
         self.eps_abs=1e-4
@@ -103,7 +103,7 @@ class ZoneController:
         # EMA output smoothing — low-pass filter on MPC output to absorb any
         # residual high-frequency chatter that the rate constraint can't prevent
         # (e.g., oscillation between 0 and du_max which satisfies the rate limit).
-        self.u_smooth_alpha = 0.3  # Blend: 30% new MPC, 70% previous smoothed
+        self.u_smooth_alpha = 0.9  # Blend: 30% new MPC, 70% previous smoothed
 
         self.u_prev = 0.5  # Start at a moderate flow, not 0 — avoids stuck-at-zero fallback
         self.u_ema = 0.5   # Smoothed output state
@@ -313,6 +313,11 @@ class ZoneController:
                     # Calculate Normalized Innovation Squared (NIS)
                     # This condenses multi-dimensional residual checks into a single metric
                     self.NIS = float(y_k.T @ S_inv @ y_k)
+
+                     # Prevent EKF divergence on unmeasured states by clipping to physical bounds
+                    self.x[1] = np.clip(self.x[1], 10.0, 40.0)      # T_m: wall temp can't be lava
+                    self.x[4] = np.clip(self.x[4], -5000.0, 5000.0) # d_T: unmodeled sensible heat bounds
+                    self.x[5] = np.clip(self.x[5], -0.01, 0.01)     # d_W: unmodeled latent heat bounds
                     
                     self.x[6] = max(0.0, self.x[6])
                     self.x[7] = np.clip(self.x[7], 1.0, 5000.0)
