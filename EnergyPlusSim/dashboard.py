@@ -19,6 +19,16 @@ CSV_PATH = './results/state_log.csv'
 ZONES = ['SPACE1-1', 'SPACE2-1', 'SPACE3-1', 'SPACE4-1', 'SPACE5-1']
 base_year = 2014
 
+# --- Configuration Flags ---
+# Change this to False if you want to see the first hour of EKF data
+REMOVE_FIRST_HOUR_EKF = True
+
+def filter_first_hour(df):
+    if df is None or df.empty:
+        return df
+    first_time = df["Datetime"].iloc[0]
+    return df[df["Datetime"] >= first_time + pd.Timedelta(hours=1)].copy()
+
 def _ep_to_datetime(row):
     day, hour, minute = int(row['DayOfYear']), int(row['Hour']), int(row['Minute'])
     if hour >= 24:
@@ -329,9 +339,11 @@ def get_ekf_config(zone):
         {"title": "Inverse Air Thermal Mass (β_air)", "y_label": "Air Mass (β_air)", "traces": [{"col": f"{zone}_true_beta_air", "source": "Setpoint", "name": "True β_air (1/C_air)"}, {"col": f"{zone}_EKF_x_beta_air", "source": "Zone", "name": "Estimated β_air"}]},
         {"title": "Inverse Structural Thermal Mass (β_mass)", "y_label": "Structural Mass (β_mass)", "traces": [{"col": f"{zone}_true_beta_mass", "source": "Setpoint", "name": "True β_mass (1/C_mass)"}, {"col": f"{zone}_EKF_x_beta_mass", "source": "Zone", "name": "Estimated β_mass"}]},
         {
-            "title": "EKF Innovations (Residuals) - Temp & CO2", "y_label": "Temperature Error (°C)", "secondary_y_label": "CO2 Error (ppm)",
+            "title": "EKF Innovations (Residuals) - Temp & CO2", "y_label": "Residuals",
             "expected_range": [-0.5, 0.5], "range_color": "rgba(46, 204, 113, 0.1)", "expected_label": "Zero-Mean Band (Temp)",
-            "traces": [{"col": f"{zone}_EKF_y_T_in", "source": "Zone", "name": "Temp Residual (y_T)"}, {"col": f"{zone}_EKF_y_C_in", "source": "Other_1", "name": "CO2 Residual (y_C)", "secondary_y": True}]
+            "traces": [
+                {"col": f"{zone}_EKF_y_T_in", "source": "Zone", "name": "Temp Residual (y_T)"}, 
+                {"col": f"{zone}_EKF_y_C_in", "source": "Other_1", "name": "CO2 Residual (y_C)"}]
         },
         {
             "title": "Normalized Innovation Squared (NIS)", "y_label": "NIS Value", "y_range": [0, 15],
@@ -407,7 +419,8 @@ if args.save_plots:
             print(f"  PNG export failed for {z} zone: {e}")
 
         print(f"Generating and saving EKF plot for {z}...")
-        ekf_fig = build_zone_subplots(global_df, f"{z} (EKF)", get_ekf_config(z))
+        ekf_df = filter_first_hour(global_df) if REMOVE_FIRST_HOUR_EKF else global_df
+        ekf_fig = build_zone_subplots(ekf_df, f"{z} (EKF)", get_ekf_config(z))
         try:
             ekf_fig.write_image(f"./results/{z}_ekf_dashboard.png", width=1200, height=4000)
             print(f"  Saved {z} EKF dashboard.")
@@ -495,7 +508,8 @@ def update_dashboard(selected_view, selected_zone, n_intervals):
     elif selected_view == "ZONE":
         return build_zone_subplots(current_df, selected_zone, get_zone_config(selected_zone))
     elif selected_view == "EKF":
-        return build_zone_subplots(current_df, f"{selected_zone} (EKF)", get_ekf_config(selected_zone))
+        plot_df = filter_first_hour(current_df) if REMOVE_FIRST_HOUR_EKF else current_df
+        return build_zone_subplots(plot_df, f"{selected_zone} (EKF)", get_ekf_config(selected_zone))
     return go.Figure()
 
 if __name__ == "__main__":

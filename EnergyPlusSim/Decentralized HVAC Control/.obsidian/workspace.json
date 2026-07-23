@@ -1,0 +1,192 @@
+{
+  "main": {
+    "id": "26437b18c1d6b52d",
+    "type": "split",
+    "children": [
+      {
+        "id": "273eae3a44439fcf",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "63830765bb069a2e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "4. Controllability Maximization  The \"Ideal Ask\".md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "4. Controllability Maximization  The \"Ideal Ask\""
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "8c8fe6c40030127c",
+    "type": "split",
+    "children": [
+      {
+        "id": "54690859df4ecc81",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "0b9279b6f110d667",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "e811d7423b9ae806",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "e0ff155ab2ece07a",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "bcbd8b886a2b73e3",
+    "type": "split",
+    "children": [
+      {
+        "id": "2d7740f0a2e87974",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "bc76f384e6f3f52e",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "4. Controllability Maximization  The \"Ideal Ask\".md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for 4. Controllability Maximization  The \"Ideal Ask\""
+            }
+          },
+          {
+            "id": "482225d1cca344c7",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "4. Controllability Maximization  The \"Ideal Ask\".md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from 4. Controllability Maximization  The \"Ideal Ask\""
+            }
+          },
+          {
+            "id": "9b2a2d601718eafd",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "6de93c97e85038f7",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "f6dd2c170b94cfd8",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "4. Controllability Maximization  The \"Ideal Ask\".md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of 4. Controllability Maximization  The \"Ideal Ask\""
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "63830765bb069a2e",
+  "lastOpenFiles": [
+    "3. Actuation-Minimizing Deadband Zone MPC.md",
+    "2. The Extended Kalman Filter (EKF).md",
+    "1. Modeling a thermal zone using an RC (Resistor-Capacitor) model.md"
+  ]
+}

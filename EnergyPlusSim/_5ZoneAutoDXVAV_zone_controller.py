@@ -21,6 +21,11 @@ def w_sat(T_C, P_atm=101325.0):
     P_w = 610.94 * math.exp(gamma)
     return 0.62198 * P_w / (P_atm - P_w)
 
+def get_w_from_rh(T, rh):
+    p_sat = 610.94 * math.exp(17.625 * T / (243.04 + T))
+    p_vapor = rh * p_sat
+    return 0.62198 * p_vapor / (101325.0 - p_vapor)
+
 
 class ZoneController:
     def __init__(self, zone_name):
@@ -32,48 +37,28 @@ class ZoneController:
         self.x = np.zeros(11)
         
         # --- Physical States ---
-        # Initialize at typical comfortable ambient conditions
-        self.x[0] = 22.0    # x1: T_in (C) - Typical room temperature (71.6 F)
-        self.x[1] = 22.0    # x2: T_m (C) - Assume walls/furniture are in thermal equilibrium with the air
-        self.x[2] = 0.008   # x3: W_in (kg/kg) - Roughly 50% Relative Humidity at 22C
-        self.x[3] = 420.0   # x4: C_in (ppm) - Standard outdoor baseline CO2 concentration
+        self.x[0] = 22.0    # x1: T_in (C)
+        self.x[1] = 22.0    # x2: T_m (C)
+        self.x[2] = 0.008   # x3: W_in (kg/kg)
+        self.x[3] = 420.0   # x4: C_in (ppm)
         
         # --- Disturbances ---
-        # Let the EKF discover these; it is safe to start them at 0
-        self.x[4] = 0.0     # x5: d_T - Unmodeled sensible heat
-        self.x[5] = 0.0     # x6: d_W - Unmodeled latent heat/moisture
-        self.x[6] = 0.0     # x7: N_occ - Assume the room starts empty
+        self.x[4] = 0.0     # x5: d_T
+        self.x[5] = 0.0     # x6: d_W
+        self.x[6] = 0.0     # x7: N_occ
         
         # --- Structural Parameters ---
-        # These are the inverses of Resistance (R) and Capacitance (C). 
-        # Using the standard values suggested in your comments.
-        self.x[7] = 200.0   # x8: alpha_ext (1/R_ext) - e.g., 1 / 0.005. Moderate envelope conductance.
-        self.x[8] = 500.0   # x9: alpha_int (1/R_int) - e.g., 1 / 0.002. Good thermal linkage between air and mass.
-        self.x[9] = 3.3e-6  # x10: beta_air (1/C_air) - ~1/300,000. Typical air volume heat capacity.
-        self.x[10] = 1e-7   # x11: beta_mass (1/C_mass) - 1/10,000,000. Heavy thermal mass (concrete/furniture).
+
+        self.x[7] = 200.0   # x8: alpha_ext (1/R_ext)
+        self.x[8] = 500.0   # x9: alpha_int (1/R_int)
+        self.x[9] = 3.3e-6  # x10: beta_air (1/C_air)
+        self.x[10] = 1e-7   # x11: beta_mass (1/C_mass)
 
 
-        # # Covariance Matrix P
-        # self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-10, 10.0, 100.0, 100.0, 1e-12, 1e-14])
-        # # Process Noise Covariance Q
-        # self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-10, 0.1, 1e-12, 1e-12, 1e-16, 1e-16])
-
-        # # P Matrix: Give initial doubt to alpha (indices 7, 8) so they can calibrate.
-        # # Keep beta (indices 9, 10) at 0.0 so the known physical mass doesn't drift.
-        # self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-10, 10.0, 100.0, 100.0, 50.0, 50.0])
-
-        # # Q Matrix: ALL structural parameters (7, 8, 9, 10) must be 0.0. 
-        # # They will converge to their true values and stop moving.
-        # self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-6, 1e-10, 0.1, 0.0, 0.0, 0.0, 0.0])
-
-        # P Matrix: Start beta (indices 9, 10) with near-zero uncertainty
+        # P Matrix - Error Covariance matrix
         self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-10, 10.0, 10.0, 10.0, 1e-12, 1e-12])
-
-        # Q Matrix: Increase process noise on disturbances for sharper tracking
-        # Index 4 (d_T) changed from 1e-6 to 1e-2
-        # Index 6 (N_occ) changed from 0.1 to 1.0
+        # Q Matrix - Process Noise Covariance matrix
         self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-10, 1.0, 0.0, 0.0, 0.0, 0.0])
-
         # Measurement Noise Covariance R
         self.R = np.diag([0.01, 1e-8, 10.0])
         
@@ -82,72 +67,65 @@ class ZoneController:
         self.H[1, 2] = 1.0
         self.H[2, 3] = 1.0
 
+        # Constantas
         self.rho_air = 1.204
         self.c_p = 1006.0
         self.q_person = 100.0
         self.g_w_person = 5e-5
-        rho_co2 = 1.81  # kg/m^3 at standard room temp
-        self.g_co2_person = (3.82e-6 / rho_co2) * 1e6  # ≈ 2.11 ppm*m^3/s
+        rho_co2 = 1.81
+        self.g_co2_person = ((3.82e-8 * 120.0) / rho_co2) * 1e6
         
         # --- MPC Initialization ---
-        self.N = 20
-        
-        # Compress the dynamic range to keep the condition number < 10^5
-        self.r = 1e-1             # Increased from 0.001
-        self.r_delta = 5e1       # Reduced from 325
-        self.lambda_T = 1e3       # Reduced from 1e4
-        self.lambda_W = 1e8       # Increased from 1e2 (W^2 is tiny, needs massive weight)
-        self.lambda_C = 1e1      # Increased from 1e1
-        self.mu_T = 1e4           # Reduced massively from 1e6
+        self.N = 20 
 
-        # Centering weights
-        self.q_T_center = 5.0     # Reduced slightly
-        self.q_W_center = 1e5     # Increased massively to account for W ~ 0.005 range
+        self.r = 1e-1
+        self.r_delta = 5e1 
 
+        self.lambda_T = 1e3 
+        self.lambda_W = 1e8  
+        self.lambda_C = 1e1
+
+        self.mu_T = 1e4  
         self.du_max = 0.05
 
+        # Centering weights
+        self.q_T_center = 5.0
+        self.q_W_center = 1e5 
+
+        # Solver Config
         self.max_iter=50000
         self.eps_abs=1e-3
         self.eps_rel=1e-3
 
+        # U EMA filter
+        self.u_smooth_alpha = 1.0  
+        self.u_prev = 0.5
+        self.u_ema = 0.5
         
-        self.u_min_vent = 0.05  # m³/s — small but keeps duct temp sensor valid
+        T_in = self.x[0]
 
-        # EMA output smoothing — low-pass filter on MPC output to absorb any
-        # residual high-frequency chatter that the rate constraint can't prevent
-        # (e.g., oscillation between 0 and du_max which satisfies the rate limit).
-        self.u_smooth_alpha = 1.0  # Blend: 30% new MPC, 70% previous smoothed
-
-        self.u_prev = 0.5  # Start at a moderate flow, not 0 — avoids stuck-at-zero fallback
-        self.u_ema = 0.5   # Smoothed output state
-        
-        T_in = self.x[0] 
-        rh_min = 0.30
-        rh_max = 0.60
-        def get_w_from_rh(T, rh):
-            p_sat = 610.94 * math.exp(17.625 * T / (243.04 + T))
-            p_vapor = rh * p_sat
-            return 0.62198 * p_vapor / (101325.0 - p_vapor)
-
-        # Deadband Limits
+        # MPC Zones and Other Limits
+        # Temperature
         self.T_ref = 22.0
         self.T_delta = 1.0
         self.T_max = self.T_ref + self.T_delta
         self.T_min = self.T_ref -self.T_delta
-        # self.W_max = 0.0100  # ~60% RH at 22C — relaxed upper limit for feasibility
-        # self.W_min = 0.0050  # ~30% RH at 22C — physically achievable lower limit
+        # Humidity
+        rh_min = 0.30
+        rh_max = 0.60
         self.W_min = get_w_from_rh(T_in, rh_min)
         self.W_max = get_w_from_rh(T_in, rh_max)
-
+        # CO2
         self.C_max = 1000.0
-        self.u_min = 0.0
-        self.u_max = 2.0  # Max volumetric flow rate m3/s
-
+        # Flow
+        self.u_min = 0.05
+        self.u_max = 2.0
+        # Supply Limits
         self.T_s_min = 10.0
         self.T_s_max = 40.0
         self.W_s_min = w_sat(self.T_s_min) 
         self.W_s_max = 0.015
-        
+        self.C_s_min = 420.0
 
         
         self.setup_mpc_constants()
@@ -187,10 +165,10 @@ class ZoneController:
         2*q_T * FT'FT to the u-block of the Hessian. The linear part
         (involving gT - T_ref) is handled in the f vector, not here.
         """
-        R_mat = np.eye(N) * self.r
-        R_delta_mat = np.eye(N) * self.r_delta
+        R = np.eye(N) * self.r
+        DR = np.eye(N) * self.r_delta
         
-        H_U = 2.0 * (R_mat + self.D.T @ R_delta_mat @ self.D)
+        H_U = 2.0 * (R + self.D.T @ DR @ self.D)
         
         # Quadratic centering: add FT'FT and FW'FW to u-block
         if FT is not None:
@@ -257,9 +235,10 @@ class ZoneController:
         start_time = time.perf_counter()
         
         T_out = state_data.get('T_out', 22.0)
-        T_s = max(5.0, state_data.get('T_s', 13.0))
-        W_s = max(0.004, state_data.get('W_s', 0.008))
-        C_s = max(420.0, state_data.get('C_s', 420.0))
+        T_s = max(self.T_s_min, state_data.get('T_s', 13.0))
+        W_s = max(self.W_s_min, state_data.get('W_s', 0.008))
+        C_s = max(self.C_s_min, state_data.get('C_s', 420.0))
+
         u_mass = state_data.get('VAV_Flow', 0.0)
         u = u_mass / self.rho_air
 
@@ -273,374 +252,371 @@ class ZoneController:
         n_steps = max(1, int(dt / 5.0))
         dt_sub = dt / n_steps
         try:
-                    x_pred = self.x.copy()
-                    P_pred = self.P.copy()
-                    
-                    for _ in range(n_steps):
-                        x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11 = x_pred
-
-                        # --- NEW: Mean-Reverting Time Constant ---
-                        # We must convert the disturbance models from a Random Walk to an Ornstein-Uhlenbeck (Mean-Reverting) Process. By adding a tiny "leakage" or decay factor, the disturbances will naturally bleed back to zero over time when there is no active data to sustain them.
-                        # tau is the relaxation time in seconds (e.g., 2 hours = 7200s)
-                        tau = 7200.0
-
-
-                        f_x = np.zeros(11)
-                        f_x[0] = x10 * (x8*(T_out - x1) + x9*(x2 - x1) + x7 * self.q_person + self.rho_air * self.c_p * u * (T_s - x1) + x5)
-                        f_x[1] = x11 * (x9*(x1 - x2))
-                        f_x[2] = x10 * self.c_p * (x7 * self.g_w_person + self.rho_air * u * (W_s - x3) + x6)
-                        f_x[3] = x10 * self.rho_air * self.c_p * (x7 * self.g_co2_person + u * (C_s - x4))
-                        
-                        # Apply leakage to disturbances so they decay to 0 when unobserved
-                        f_x[4] = -(1.0 / tau) * x5
-                        f_x[5] = -(1.0 / tau) * x6
-                        f_x[6] = -(1.0 / tau) * x7  # Occupancy decay
-
-                        F = np.zeros((11, 11))
-                        F[0, 0] = x10 * (-x8 - x9 - self.rho_air * self.c_p * u)
-                        F[0, 1] = x10 * x9
-                        F[0, 4] = x10
-                        F[0, 6] = x10 * self.q_person
-                        F[0, 7] = x10 * (T_out - x1)
-                        F[0, 8] = x10 * (x2 - x1)
-                        F[0, 9] = x8 * (T_out - x1) + x9 * (x2 - x1) + x7 * self.q_person + self.rho_air * self.c_p * u * (T_s - x1) + x5
-                        F[1, 0] = x11 * x9
-                        F[1, 1] = -x11 * x9
-                        F[1, 8] = x11 * (x1 - x2)
-                        F[1, 10] = x9 * (x1 - x2)
-                        F[2, 2] = -x10 * self.c_p * self.rho_air * u
-                        F[2, 5] = x10 * self.c_p
-                        F[2, 6] = x10 * self.c_p * self.g_w_person
-                        F[2, 9] = self.c_p * (x7 * self.g_w_person + self.rho_air * u * (W_s - x3) + x6)
-                        F[3, 3] = -x10 * self.rho_air * self.c_p * u
-                        F[3, 6] = x10 * self.rho_air * self.c_p * self.g_co2_person
-                        F[3, 9] = self.rho_air * self.c_p * (x7 * self.g_co2_person + u * (C_s - x4))
-                        
-                        # Update the Jacobian to reflect the decay
-                        F[4, 4] = -1.0 / tau
-                        F[5, 5] = -1.0 / tau
-                        F[6, 6] = -1.0 / tau
-                        
-                        Phi = np.eye(11) + F * dt_sub
-                        x_pred = x_pred + f_x * dt_sub
-                        # P_pred = Phi @ P_pred @ Phi.T + self.Q * (dt_sub / dt)
-                        P_pred = Phi @ P_pred @ Phi.T + self.Q * dt_sub
-                        P_pred = (P_pred + P_pred.T) / 2.0
-                    
-                    # --- EKF Update ---
-                    y_k = z - self.H @ x_pred
-                    S_k = self.H @ P_pred @ self.H.T + self.R
-                    try:
-                        S_inv = np.linalg.inv(S_k)
-                    except np.linalg.LinAlgError:
-                        S_inv = np.linalg.pinv(S_k + np.eye(3) * 1e-6)
-                    K_k = P_pred @ self.H.T @ S_inv
-                    
-                    self.x = x_pred + K_k @ y_k
-                    I_KH = np.eye(11) - K_k @ self.H
-                    self.P = I_KH @ P_pred @ I_KH.T + K_k @ self.R @ K_k.T
-                    self.P = (self.P + self.P.T) / 2.0
-
-                    # Calculate Normalized Innovation Squared (NIS)
-                    # This condenses multi-dimensional residual checks into a single metric
-                    self.NIS = float(y_k.T @ S_inv @ y_k)
-
-                     # Prevent EKF divergence on unmeasured states by clipping to physical bounds
-                    self.x[1] = np.clip(self.x[1], 10.0, 40.0)      # T_m: wall temp can't be lava
-                    self.x[4] = np.clip(self.x[4], -5000.0, 5000.0) # d_T: unmodeled sensible heat bounds
-                    self.x[5] = np.clip(self.x[5], -0.01, 0.01)     # d_W: unmodeled latent heat bounds
-                    
-                    self.x[6] = max(0.0, self.x[6])
-                    self.x[7] = np.clip(self.x[7], 1.0, 5000.0)
-                    self.x[8] = np.clip(self.x[8], 1.0, 5000.0)
-                    self.x[9] = np.clip(self.x[9], 1e-7, 1e-4)
-                    self.x[10] = np.clip(self.x[10], 1e-9, 1e-5)
+            x_pred = self.x.copy()
+            P_pred = self.P.copy()
             
-                    # --- MPC Formulation ---
-                    # 1. Linearization around x_0 (from updated EKF state) and u_{-1}
-                    x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11 = self.x
-                    T_in, T_m, W_in, C_in = x1, x2, x3, x4
-                    u0 = self.u_prev
-                    
-                    f_x = np.zeros(4)
-                    f_x[0] = x10 * (x8*(T_out - T_in) + x9*(T_m - T_in) + x7 * self.q_person + self.rho_air * self.c_p * u0 * (T_s - T_in) + x5)
-                    f_x[1] = x11 * (x9*(T_in - T_m))
-                    f_x[2] = x10 * self.c_p * (x7 * self.g_w_person + self.rho_air * u0 * (W_s - W_in) + x6)
-                    f_x[3] = x10 * self.rho_air * self.c_p * (x7 * self.g_co2_person + u0 * (C_s - C_in))
-                    
-                    Ac = np.zeros((4, 4))
-                    Ac[0, 0] = x10 * (-x8 - x9 - self.rho_air * self.c_p * u0)
-                    Ac[0, 1] = x10 * x9
-                    Ac[1, 0] = x11 * x9
-                    Ac[1, 1] = -x11 * x9
-                    Ac[2, 2] = -x10 * self.c_p * self.rho_air * u0
-                    Ac[3, 3] = -x10 * self.rho_air * self.c_p * u0
-                    
-                    Bc = np.zeros((4, 1))
-                    Bc[0, 0] = x10 * self.rho_air * self.c_p * (T_s - T_in)
-                    Bc[1, 0] = 0.0
-                    Bc[2, 0] = x10 * self.c_p * self.rho_air * (W_s - W_in)
-                    Bc[3, 0] = x10 * self.rho_air * self.c_p * (C_s - C_in)
-                    
-                    x_0_mpc = np.array([T_in, T_m, W_in, C_in])
-                    cc = f_x - Ac @ x_0_mpc - Bc.flatten() * u0
-                    
-                    Ad = np.eye(4) + Ac * dt
-                    Bd = Bc * dt
-                    cd = cc * dt
-                    
-                    # 2. Prediction Matrices
-                    N = self.N
-                    Psi = np.zeros((4*N, 4))
-                    Theta = np.zeros((4*N, N))
-                    Phi_pred = np.zeros((4*N, 4))
-                    
-                    A_pows = [np.eye(4)]
-                    for i in range(1, N + 1):
-                        A_pows.append(A_pows[-1] @ Ad)
-                        
-                    sum_A = np.zeros((4, 4))
-                    for i in range(N):
-                        Psi[i*4:(i+1)*4, :] = A_pows[i+1]
-                        sum_A = sum_A + A_pows[i]
-                        Phi_pred[i*4:(i+1)*4, :] = sum_A
-                        for j in range(i + 1):
-                            Theta[i*4:(i+1)*4, j:j+1] = A_pows[i - j] @ Bd
-                            
-                    FT = self.ST @ Theta
-                    gT = self.ST @ (Psi @ x_0_mpc + Phi_pred @ cd)
-                    
-                    FW = self.SW @ Theta
-                    gW = self.SW @ (Psi @ x_0_mpc + Phi_pred @ cd)
-                    
-                    FC = self.SC @ Theta
-                    gC = self.SC @ (Psi @ x_0_mpc + Phi_pred @ cd)
-                    
-                    # 3. Assemble QP using OSQP's native two-sided constraint format
-                    #    Decision variables: z = [u(N), eps_T(N), eps_W(N), eps_C(N)]
-                    #    Proper two-sided: l <= A_con @ z <= u_con
-                    
-                    # Build regularized Hessian (with centering quadratic in u-block)
-                    H_sparse = self._build_hessian(N, FT=FT, FW=FW)
-                    
-                    # Linear cost — rate penalty + quadratic centering gradient
-                    f_U = -2.0 * self.r_delta * self.D.T @ self.E * self.u_prev
+            for _ in range(n_steps):
+                x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11 = x_pred
 
-                    # Centering linear terms: d/du [ q * ||FT@u + gT - T_ref||^2 ]
-                    #   = 2*q * FT' @ (gT - T_ref_vec)   (the u-independent residual)
-                    T_ref_vec = np.ones(N) * self.T_ref
-                    W_ref_vec = np.ones(N) * (self.W_max + self.W_min) / 2.0
-                    f_U += 2.0 * self.q_T_center * FT.T @ (gT - T_ref_vec)
-                    f_U += 2.0 * self.q_W_center * FW.T @ (gW - W_ref_vec)
+                # --- NEW: Mean-Reverting Time Constant ---
+                # We must convert the disturbance models from a Random Walk to an Ornstein-Uhlenbeck (Mean-Reverting) Process. By adding a tiny "leakage" or decay factor, the disturbances will naturally bleed back to zero over time when there is no active data to sustain them.
+                # tau is the relaxation time in seconds (e.g., 2 hours = 7200s)
+                tau = 180.0
 
-                    f_eps_T = np.ones(N) * self.mu_T
-                    f = np.concatenate([f_U, f_eps_T, self.zeros_N, self.zeros_N])
-                    
-                    # f = np.concatenate([f_U, self.zeros_N, self.zeros_N, self.zeros_N])
-                    
-                    # --- Constraint assembly (two-sided format) ---
-                    
-                    A_con = np.block([
-                        # Temp soft constraints (upper, then lower)
-                        [FT, -self.I_N, self.O_N, self.O_N],
-                        [-FT, -self.I_N, self.O_N, self.O_N],
-                        # Humidity soft constraints (upper, then lower)
-                        [FW, self.O_N, -self.I_N, self.O_N],
-                        [-FW, self.O_N, -self.I_N, self.O_N],
-                        # CO2 soft constraint (upper only)
-                        [FC, self.O_N, self.O_N, -self.I_N],
-                        # Slack non-negativity: eps_T >= 0
-                        [self.O_N, self.I_N, self.O_N, self.O_N],
-                        # Slack non-negativity: eps_W >= 0
-                        [self.O_N, self.O_N, self.I_N, self.O_N],
-                        # Slack non-negativity: eps_C >= 0
-                        [self.O_N, self.O_N, self.O_N, self.I_N],
-                        # Input bounds
-                        [self.I_N, self.O_N, self.O_N, self.O_N],
-                        # NEW: rate constraint on u
-                        [self.D, self.O_N, self.O_N, self.O_N],   
-                    ])
+                f_x = np.zeros(11)
+                f_x[0] = x10 * (x8*(T_out - x1) + x9*(x2 - x1) + x7 * self.q_person + self.rho_air * self.c_p * u * (T_s - x1) + x5)
+                f_x[1] = x11 * (x9*(x1 - x2))
+                f_x[2] = x10 * self.c_p * (x7 * self.g_w_person + self.rho_air * u * (W_s - x3) + x6)
+                f_x[3] = x10 * self.rho_air * self.c_p * (x7 * self.g_co2_person + u * (C_s - x4))
+                
+                # Apply leakage to disturbances so they decay to 0 when unobserved
+                f_x[4] = -(1.0 / tau) * x5
+                f_x[5] = -(1.0 / tau) * x6
+                f_x[6] = -(1.0 / tau) * x7
+                
+                # Jacobian matrix
+                F = np.zeros((11, 11))
+                F[0, 0] = x10 * (-x8 - x9 - self.rho_air * self.c_p * u)
+                F[0, 1] = x10 * x9
+                F[0, 4] = x10
+                F[0, 6] = x10 * self.q_person
+                F[0, 7] = x10 * (T_out - x1)
+                F[0, 8] = x10 * (x2 - x1)
+                F[0, 9] = x8 * (T_out - x1) + x9 * (x2 - x1) + x7 * self.q_person + self.rho_air * self.c_p * u * (T_s - x1) + x5
+                F[1, 0] = x11 * x9
+                F[1, 1] = -x11 * x9
+                F[1, 8] = x11 * (x1 - x2)
+                F[1, 10] = x9 * (x1 - x2)
+                F[2, 2] = -x10 * self.c_p * self.rho_air * u
+                F[2, 5] = x10 * self.c_p
+                F[2, 6] = x10 * self.c_p * self.g_w_person
+                F[2, 9] = self.c_p * (x7 * self.g_w_person + self.rho_air * u * (W_s - x3) + x6)
+                F[3, 3] = -x10 * self.rho_air * self.c_p * u
+                F[3, 6] = x10 * self.rho_air * self.c_p * self.g_co2_person
+                F[3, 9] = self.rho_air * self.c_p * (x7 * self.g_co2_person + u * (C_s - x4))
+                
+                # Update the Jacobian to reflect the decay
+                F[4, 4] = -1.0 / tau
+                F[5, 5] = -1.0 / tau
+                F[6, 6] = -1.0 / tau
+                
+                Phi = np.eye(11) + F * dt_sub
+                x_pred = x_pred + f_x * dt_sub
+                # P_pred = Phi @ P_pred @ Phi.T + self.Q * (dt_sub / dt)
+                P_pred = Phi @ P_pred @ Phi.T + self.Q * dt_sub
+                P_pred = (P_pred + P_pred.T) / 2.0
+            
+            # --- EKF Update ---
+            y_k = z - self.H @ x_pred
+            S_k = self.H @ P_pred @ self.H.T + self.R
+            try:
+                S_inv = np.linalg.inv(S_k)
+            except np.linalg.LinAlgError:
+                S_inv = np.linalg.pinv(S_k + np.eye(3) * 1e-6)
+            K_k = P_pred @ self.H.T @ S_inv
+            
+            self.x = x_pred + K_k @ y_k
+            I_KH = np.eye(11) - K_k @ self.H
+            self.P = I_KH @ P_pred @ I_KH.T + K_k @ self.R @ K_k.T
+            self.P = (self.P + self.P.T) / 2.0
 
-                    n_con = 10 * N
-                    l_con = np.zeros(n_con)
-                    u_con = np.zeros(n_con)
+            # Calculate Normalized Innovation Squared (NIS)
+            self.NIS = float(y_k.T @ S_inv @ y_k)
 
-                    # Block 1: FT@u - eps_T <= T_max - gT
-                    l_con[0:N] = -np.inf
-                    u_con[0:N] = np.ones(N) * self.T_max - gT
+            # Prevent EKF divergence on unmeasured states by clipping to physical bounds
+            self.x[1] = np.clip(self.x[1], 10.0, 40.0)      # T_m: wall temp can't be lava
+            self.x[4] = np.clip(self.x[4], -5000.0, 5000.0) # d_T: unmodeled sensible heat bounds
+            self.x[5] = np.clip(self.x[5], -0.01, 0.01)     # d_W: unmodeled latent heat bounds
+            
+            self.x[6] = max(0.0, self.x[6])
+            self.x[7] = np.clip(self.x[7], 1.0, 5000.0)
+            self.x[8] = np.clip(self.x[8], 1.0, 5000.0)
+            self.x[9] = np.clip(self.x[9], 1e-7, 1e-4)
+            self.x[10] = np.clip(self.x[10], 1e-9, 1e-5)
+    
+            # --- MPC Formulation ---
+            # 1. Linearization around x_0 (from updated EKF state) and u_{-1}
+            x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11 = self.x
+            T_in, T_m, W_in, C_in = x1, x2, x3, x4
+            u0 = self.u_prev
+            
+            f_x = np.zeros(4)
+            f_x[0] = x10 * (x8*(T_out - T_in) + x9*(T_m - T_in) + x7 * self.q_person + self.rho_air * self.c_p * u0 * (T_s - T_in) + x5)
+            f_x[1] = x11 * (x9*(T_in - T_m))
+            f_x[2] = x10 * self.c_p * (x7 * self.g_w_person + self.rho_air * u0 * (W_s - W_in) + x6)
+            f_x[3] = x10 * self.rho_air * self.c_p * (x7 * self.g_co2_person + u0 * (C_s - C_in))
+            
+            Ac = np.zeros((4, 4))
+            Ac[0, 0] = x10 * (-x8 - x9 - self.rho_air * self.c_p * u0)
+            Ac[0, 1] = x10 * x9
+            Ac[1, 0] = x11 * x9
+            Ac[1, 1] = -x11 * x9
+            Ac[2, 2] = -x10 * self.c_p * self.rho_air * u0
+            Ac[3, 3] = -x10 * self.rho_air * self.c_p * u0
+            
+            Bc = np.zeros((4, 1))
+            Bc[0, 0] = x10 * self.rho_air * self.c_p * (T_s - T_in)
+            Bc[1, 0] = 0.0
+            Bc[2, 0] = x10 * self.c_p * self.rho_air * (W_s - W_in)
+            Bc[3, 0] = x10 * self.rho_air * self.c_p * (C_s - C_in)
+            
+            x_0_mpc = np.array([T_in, T_m, W_in, C_in])
+            cc = f_x - Ac @ x_0_mpc - Bc.flatten() * u0
+            
+            Ad = np.eye(4) + Ac * dt
+            Bd = Bc * dt
+            cd = cc * dt
+            
+            # 2. Prediction Matrices
+            N = self.N
+            Psi = np.zeros((4*N, 4))
+            Theta = np.zeros((4*N, N))
+            Phi_pred = np.zeros((4*N, 4))
+            
+            A_pows = [np.eye(4)]
+            for i in range(1, N + 1):
+                A_pows.append(A_pows[-1] @ Ad)
+                
+            sum_A = np.zeros((4, 4))
+            for i in range(N):
+                Psi[i*4:(i+1)*4, :] = A_pows[i+1]
+                sum_A = sum_A + A_pows[i]
+                Phi_pred[i*4:(i+1)*4, :] = sum_A
+                for j in range(i + 1):
+                    Theta[i*4:(i+1)*4, j:j+1] = A_pows[i - j] @ Bd
+                    
+            FT = self.ST @ Theta
+            gT = self.ST @ (Psi @ x_0_mpc + Phi_pred @ cd)
+            
+            FW = self.SW @ Theta
+            gW = self.SW @ (Psi @ x_0_mpc + Phi_pred @ cd)
+            
+            FC = self.SC @ Theta
+            gC = self.SC @ (Psi @ x_0_mpc + Phi_pred @ cd)
+            
+            # 3. Assemble QP using OSQP's native two-sided constraint format
+            #    Decision variables: z = [u(N), eps_T(N), eps_W(N), eps_C(N)]
+            #    Proper two-sided: l <= A_con @ z <= u_con
+            
+            # Build regularized Hessian (with centering quadratic in u-block)
+            H_sparse = self._build_hessian(N, FT=FT, FW=FW)
+            
+            # Linear cost — rate penalty + quadratic centering gradient
+            f_U = -2.0 * self.r_delta * self.D.T @ self.E * self.u_prev
 
-                    # Block 2: -FT@u - eps_T <= -T_min + gT
-                    l_con[N:2*N] = -np.inf
-                    u_con[N:2*N] = -np.ones(N) * self.T_min + gT
+            # Centering linear terms: d/du [ q * ||FT@u + gT - T_ref||^2 ]
+            #   = 2*q * FT' @ (gT - T_ref_vec)   (the u-independent residual)
+            T_ref_vec = np.ones(N) * self.T_ref
+            W_ref_vec = np.ones(N) * (self.W_max + self.W_min) / 2.0
+            f_U += 2.0 * self.q_T_center * FT.T @ (gT - T_ref_vec)
+            f_U += 2.0 * self.q_W_center * FW.T @ (gW - W_ref_vec)
 
-                    # Block 3: FW@u - eps_W <= W_max - gW
-                    l_con[2*N:3*N] = -np.inf
-                    u_con[2*N:3*N] = np.ones(N) * self.W_max - gW
+            f_eps_T = np.ones(N) * self.mu_T
+            f = np.concatenate([f_U, f_eps_T, self.zeros_N, self.zeros_N])
+            
+            # --- Constraint assembly (two-sided format) ---
+            
+            A_con = np.block([
+                # Temp soft constraints (upper, then lower)
+                [FT, -self.I_N, self.O_N, self.O_N],
+                [-FT, -self.I_N, self.O_N, self.O_N],
+                # Humidity soft constraints (upper, then lower)
+                [FW, self.O_N, -self.I_N, self.O_N],
+                [-FW, self.O_N, -self.I_N, self.O_N],
+                # CO2 soft constraint (upper only)
+                [FC, self.O_N, self.O_N, -self.I_N],
+                # Slack non-negativity: eps_T >= 0
+                [self.O_N, self.I_N, self.O_N, self.O_N],
+                # Slack non-negativity: eps_W >= 0
+                [self.O_N, self.O_N, self.I_N, self.O_N],
+                # Slack non-negativity: eps_C >= 0
+                [self.O_N, self.O_N, self.O_N, self.I_N],
+                # Input bounds
+                [self.I_N, self.O_N, self.O_N, self.O_N],
+                # NEW: rate constraint on u
+                [self.D, self.O_N, self.O_N, self.O_N],   
+            ])
 
-                    # Block 4: -FW@u - eps_W <= -W_min + gW
-                    l_con[3*N:4*N] = -np.inf
-                    u_con[3*N:4*N] = -np.ones(N) * self.W_min + gW
+            n_con = 10 * N
+            l_con = np.zeros(n_con)
+            u_con = np.zeros(n_con)
 
-                    # Block 5: FC@u - eps_C <= C_max - gC
-                    l_con[4*N:5*N] = -np.inf
-                    u_con[4*N:5*N] = np.ones(N) * self.C_max - gC
+            # Block 1: FT@u - eps_T <= T_max - gT
+            l_con[0:N] = -np.inf
+            u_con[0:N] = np.ones(N) * self.T_max - gT
 
-                    # Block 6-8: 0 <= eps <= inf
-                    l_con[5*N:8*N] = 0.0
-                    u_con[5*N:8*N] = np.inf
+            # Block 2: -FT@u - eps_T <= -T_min + gT
+            l_con[N:2*N] = -np.inf
+            u_con[N:2*N] = -np.ones(N) * self.T_min + gT
 
-                    # Block 9: u_min <= u <= u_max
-                    l_con[8*N:9*N] = np.ones(N) * self.u_min_vent
-                    u_con[8*N:9*N] = np.ones(N) * self.u_max
+            # Block 3: FW@u - eps_W <= W_max - gW
+            l_con[2*N:3*N] = -np.inf
+            u_con[2*N:3*N] = np.ones(N) * self.W_max - gW
 
-                    l_con[9*N:10*N] = -self.du_max * np.ones(N) + self.E * self.u_prev
-                    u_con[9*N:10*N] =  self.du_max * np.ones(N) + self.E * self.u_prev
+            # Block 4: -FW@u - eps_W <= -W_min + gW
+            l_con[3*N:4*N] = -np.inf
+            u_con[3*N:4*N] = -np.ones(N) * self.W_min + gW
 
-                    A_sparse = sparse.csc_matrix(A_con)
-                    
-                    solver = osqp.OSQP()
-                    solver.setup(
-                        P=H_sparse, q=f, A=A_sparse, l=l_con, u=u_con,
-                        verbose=False,
-                        max_iter=self.max_iter,
-                        eps_abs=self.eps_abs,
-                        eps_rel=self.eps_rel,
-                        polish=True,
-                        adaptive_rho=True,
-                    )
-                    res = solver.solve()
-                    mpc_status = res.info.status_val
-                    print(f"[{self.zone_name}] OSQP solved, status={mpc_status}")
-                    
-                    if mpc_status in [1, 2]:  # 1: SOLVED, 2: SOLVED_INACCURATE
-                        u_cmd_raw = np.clip(res.x[0], self.u_min_vent, self.u_max)
-                    else:
-                        # Proportional fallback instead of blindly using u_prev
-                        u_cmd_raw = self._fallback_control(state_data)
-                        print(f"[{self.zone_name}] MPC failed (status={mpc_status}), fallback u={u_cmd_raw:.3f}")
-                    
-                    # EMA output smoothing: absorbs high-frequency chatter
-                    u_cmd = self.u_smooth_alpha * u_cmd_raw + (1.0 - self.u_smooth_alpha) * self.u_ema
-                    u_cmd = np.clip(u_cmd, self.u_min_vent, self.u_max)
-                    self.u_ema = u_cmd
-                    self.u_prev = u_cmd
-                    
-                    u_mass_cmd = u_cmd * self.rho_air
-                    
-                    # --- Logging ---
-                    exec_time_ms = (time.perf_counter() - start_time) * 1000.0
-                    logger.add(f"{self.zone_name}_MPC_Time_ms", exec_time_ms)
-                    logger.add(f"{self.zone_name}_MPC_Status", mpc_status)
-                    
-                    
-                    state_names = ["T_in", "T_m", "W_in", "C_in", "d_T", "d_W", "N_occ", "alpha_ext", "alpha_int", "beta_air", "beta_mass"]
-                    for i, name in enumerate(state_names):
-                        logger.add(f"{self.zone_name}_EKF_x_{name}", self.x[i])
-                        logger.add(f"{self.zone_name}_EKF_P_{name}", self.P[i, i])
-                        
-                    # 2. Log EKF Health Diagnostics
-                    # Innovation/Residuals (Expected to be zero-mean white noise)
-                    logger.add(f"{self.zone_name}_EKF_y_T_in", y_k[0])
-                    logger.add(f"{self.zone_name}_EKF_y_W_in", y_k[1])
-                    logger.add(f"{self.zone_name}_EKF_y_C_in", y_k[2])
-                    
-                    # NIS (For 3 measurements, 95% of samples should fall between 0.216 and 7.815)
-                    logger.add(f"{self.zone_name}_EKF_NIS", self.NIS)
-                    
-                    # Trace of P (Expected to drop initially and then stabilize)
-                    logger.add(f"{self.zone_name}_EKF_P_trace", float(np.trace(self.P)))
-                    
-                    # 3. Log Critical Kalman Gains
-                    logger.add(f"{self.zone_name}_EKF_K_T_in", K_k[0, 0])
-                    logger.add(f"{self.zone_name}_EKF_K_W_in", K_k[2, 1])
-                    logger.add(f"{self.zone_name}_EKF_K_C_in", K_k[3, 2])
-                    logger.add(f"{self.zone_name}_EKF_K_N_occ_from_C_in", K_k[6, 2])
-                    
-                    # --- Ideal Ask Logic ---
-                    T_in, T_m, W_in, C_in = self.x[0], self.x[1], self.x[2], self.x[3]
-                    
-                    # Target values
-                    T_ref = self.T_ref
-                    W_ref = (self.W_max + self.W_min) / 2.0
-                    C_limit = self.C_max
-                    
-                    # Correction vector e
-                    e_T = T_ref - T_in
-                    e_W = W_ref - W_in
-                    e_C = min(0.0, C_limit - C_in)
-                    
-                    # AHU Physical limits (see FIX note on self.W_s_min in __init__)
-                    T_s_min = self.T_s_min
-                    T_s_max = self.T_s_max
-                    T_neutral = T_in
-                    
-                    W_s_min = self.W_s_min
-                    W_s_max = self.W_s_max
-                    W_neutral = W_in
-                    
-                    C_s_min = 400.0
-                    C_recirc = C_in
-                    
-                    # Proportional Ideal Ask (replaces bang-bang for better coordination)
-                    if e_T > 0.5:
-                        T_s_star = T_s_max
-                    elif e_T > 0.1:
-                        # Proportional range: interpolate between neutral and max
-                        alpha = (e_T - 0.1) / 0.4
-                        T_s_star = T_neutral + alpha * (T_s_max - T_neutral)
-                    elif e_T < -0.5:
-                        T_s_star = T_s_min
-                    elif e_T < -0.1:
-                        alpha = (-e_T - 0.1) / 0.4
-                        T_s_star = T_neutral - alpha * (T_neutral - T_s_min)
-                    else:
-                        T_s_star = T_neutral
-                        
-                    if e_W < -0.001:
-                        # Room is very humid (e_W is negative), request dry air to dehumidify
-                        W_s_star = W_s_min
-                    elif e_W < -0.0005:
-                        alpha = (-e_W - 0.0005) / 0.0005
-                        W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
-                    else:
-                        # Room is dry or neutral (e_W >= -0.0005). 
-                        # Since the AHU lacks a humidifier, we can't actively add moisture.
-                        # The best we can do is ask for neutral air so we don't dry it out further.
-                        W_s_star = W_neutral
-                        
-                    if not hasattr(self, 'prev_C_in'):
-                        self.prev_C_in = C_in
-                    dC_in = C_in - self.prev_C_in
-                    self.prev_C_in = C_in
-                    
-                    C_s_min = 420.0
-                    C_recirc = C_in
+            # Block 5: FC@u - eps_C <= C_max - gC
+            l_con[4*N:5*N] = -np.inf
+            u_con[4*N:5*N] = np.ones(N) * self.C_max - gC
 
-                    if dC_in > 0.5:
-                        if C_in < 600.0:
-                            C_s_star = max(420.0, C_in - 50.0)
-                        else:
-                            alpha = min(1.0, max(0.0, (C_in - 600.0) / 350.0))
-                            C_s_star = 800.0 - alpha * 380.0
-                    else:
-                        # Stable or decreasing: tolerate up to the limit
-                        C_s_star = self.C_max
-                        
-                    saturation_index = u_cmd / self.u_max
+            # Block 6-8: 0 <= eps <= inf
+            l_con[5*N:8*N] = 0.0
+            u_con[5*N:8*N] = np.inf
 
-                    logger.add(f"{self.zone_name}_ideal_temp", T_s_star)
-                    logger.add(f"{self.zone_name}_ideal_hum", W_s_star)
-                    logger.add(f"{self.zone_name}_ideal_co2", C_s_star)
-                    logger.add(f"{self.zone_name}_u_cmd", u_mass_cmd)
-                    logger.add(f"{self.zone_name}_saturation_index", saturation_index)
-                    
-                    return {
-                        'ideal_temp': T_s_star,
-                        'ideal_hum': W_s_star,
-                        'ideal_co2': C_s_star,
-                        'u_cmd': u_mass_cmd,
-                        'saturation_index': saturation_index
-                    }
+            # Block 9: u_min <= u <= u_max
+            l_con[8*N:9*N] = np.ones(N) * self.u_min
+            u_con[8*N:9*N] = np.ones(N) * self.u_max
+
+            l_con[9*N:10*N] = -self.du_max * np.ones(N) + self.E * self.u_prev
+            u_con[9*N:10*N] =  self.du_max * np.ones(N) + self.E * self.u_prev
+
+            A_sparse = sparse.csc_matrix(A_con)
+            
+            solver = osqp.OSQP()
+            solver.setup(
+                P=H_sparse, q=f, A=A_sparse, l=l_con, u=u_con,
+                verbose=False,
+                max_iter=self.max_iter,
+                eps_abs=self.eps_abs,
+                eps_rel=self.eps_rel,
+                polish=True,
+                adaptive_rho=True,
+            )
+            res = solver.solve()
+            mpc_status = res.info.status_val
+            print(f"[{self.zone_name}] OSQP solved, status={mpc_status}")
+            
+            if mpc_status in [1, 2]:  # 1: SOLVED, 2: SOLVED_INACCURATE
+                u_cmd_raw = np.clip(res.x[0], self.u_min, self.u_max)
+            else:
+                # Proportional fallback instead of blindly using u_prev
+                u_cmd_raw = self._fallback_control(state_data)
+                print(f"[{self.zone_name}] MPC failed (status={mpc_status}), fallback u={u_cmd_raw:.3f}")
+            
+            # EMA output smoothing: absorbs high-frequency chatter
+            u_cmd = self.u_smooth_alpha * u_cmd_raw + (1.0 - self.u_smooth_alpha) * self.u_ema
+            u_cmd = np.clip(u_cmd, self.u_min, self.u_max)
+            self.u_ema = u_cmd
+            self.u_prev = u_cmd
+            
+            u_mass_cmd = u_cmd * self.rho_air
+            
+            # --- Logging ---
+            exec_time_ms = (time.perf_counter() - start_time) * 1000.0
+            logger.add(f"{self.zone_name}_MPC_Time_ms", exec_time_ms)
+            logger.add(f"{self.zone_name}_MPC_Status", mpc_status)
+            
+            
+            state_names = ["T_in", "T_m", "W_in", "C_in", "d_T", "d_W", "N_occ", "alpha_ext", "alpha_int", "beta_air", "beta_mass"]
+            for i, name in enumerate(state_names):
+                logger.add(f"{self.zone_name}_EKF_x_{name}", self.x[i])
+                logger.add(f"{self.zone_name}_EKF_P_{name}", self.P[i, i])
+                
+            # 2. Log EKF Health Diagnostics
+            # Innovation/Residuals (Expected to be zero-mean white noise)
+            logger.add(f"{self.zone_name}_EKF_y_T_in", y_k[0])
+            logger.add(f"{self.zone_name}_EKF_y_W_in", y_k[1])
+            logger.add(f"{self.zone_name}_EKF_y_C_in", y_k[2])
+            
+            # NIS (For 3 measurements, 95% of samples should fall between 0.216 and 7.815)
+            logger.add(f"{self.zone_name}_EKF_NIS", self.NIS)
+            
+            # Trace of P (Expected to drop initially and then stabilize)
+            logger.add(f"{self.zone_name}_EKF_P_trace", float(np.trace(self.P)))
+            
+            # 3. Log Critical Kalman Gains
+            logger.add(f"{self.zone_name}_EKF_K_T_in", K_k[0, 0])
+            logger.add(f"{self.zone_name}_EKF_K_W_in", K_k[2, 1])
+            logger.add(f"{self.zone_name}_EKF_K_C_in", K_k[3, 2])
+            logger.add(f"{self.zone_name}_EKF_K_N_occ_from_C_in", K_k[6, 2])
+            
+            # --- Ideal Ask Logic ---
+            T_in, T_m, W_in, C_in = self.x[0], self.x[1], self.x[2], self.x[3]
+            
+            # Target values
+            T_ref = self.T_ref
+            W_ref = (self.W_max + self.W_min) / 2.0
+            C_limit = self.C_max
+            
+            # Correction vector e
+            e_T = T_ref - T_in
+            e_W = W_ref - W_in
+            e_C = min(0.0, C_limit - C_in)
+            
+            # AHU Physical limits (see FIX note on self.W_s_min in __init__)
+            T_s_min = self.T_s_min
+            T_s_max = self.T_s_max
+            T_neutral = T_in
+            
+            W_s_min = self.W_s_min
+            W_s_max = self.W_s_max
+            W_neutral = W_in
+            
+            C_s_min = 400.0
+            C_recirc = C_in
+            
+            # Proportional Ideal Ask (replaces bang-bang for better coordination)
+            if e_T > 0.5:
+                T_s_star = T_s_max
+            elif e_T > 0.1:
+                # Proportional range: interpolate between neutral and max
+                alpha = (e_T - 0.1) / 0.4
+                T_s_star = T_neutral + alpha * (T_s_max - T_neutral)
+            elif e_T < -0.5:
+                T_s_star = T_s_min
+            elif e_T < -0.1:
+                alpha = (-e_T - 0.1) / 0.4
+                T_s_star = T_neutral - alpha * (T_neutral - T_s_min)
+            else:
+                T_s_star = T_neutral
+                
+            if e_W < -0.001:
+                # Room is very humid (e_W is negative), request dry air to dehumidify
+                W_s_star = W_s_min
+            elif e_W < -0.0005:
+                alpha = (-e_W - 0.0005) / 0.0005
+                W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
+            else:
+                # Room is dry or neutral (e_W >= -0.0005). 
+                # Since the AHU lacks a humidifier, we can't actively add moisture.
+                # The best we can do is ask for neutral air so we don't dry it out further.
+                W_s_star = W_neutral
+                
+            if not hasattr(self, 'prev_C_in'):
+                self.prev_C_in = C_in
+            dC_in = C_in - self.prev_C_in
+            self.prev_C_in = C_in
+            
+            C_s_min = 420.0
+            C_recirc = C_in
+
+            if dC_in > 0.5:
+                if C_in < 600.0:
+                    C_s_star = max(420.0, C_in - 50.0)
+                else:
+                    alpha = min(1.0, max(0.0, (C_in - 600.0) / 350.0))
+                    C_s_star = 800.0 - alpha * 380.0
+            else:
+                # Stable or decreasing: tolerate up to the limit
+                C_s_star = self.C_max
+                
+            saturation_index = u_cmd / self.u_max
+
+            logger.add(f"{self.zone_name}_ideal_temp", T_s_star)
+            logger.add(f"{self.zone_name}_ideal_hum", W_s_star)
+            logger.add(f"{self.zone_name}_ideal_co2", C_s_star)
+            logger.add(f"{self.zone_name}_u_cmd", u_mass_cmd)
+            logger.add(f"{self.zone_name}_saturation_index", saturation_index)
+            
+            return {
+                'ideal_temp': T_s_star,
+                'ideal_hum': W_s_star,
+                'ideal_co2': C_s_star,
+                'u_cmd': u_mass_cmd,
+                'saturation_index': saturation_index
+            }
         except Exception as e:
             import traceback
             print(f'Exception in ZoneController.step for {self.zone_name}: {e}')

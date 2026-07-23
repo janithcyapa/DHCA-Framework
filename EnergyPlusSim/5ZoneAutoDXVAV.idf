@@ -2873,6 +2873,7 @@
   Output:Variable, *, Zone Mean Air Humidity Ratio, Timestep;
   Output:Variable, *, Zone Mean Radiant Temperature, Timestep;
   Output:Variable, *, System Node Humidity Ratio, Timestep;
+  Output:Variable, *, Site Outdoor Air CO2 Concentration, Timestep;
 
 ! CO2 Tracking
 
