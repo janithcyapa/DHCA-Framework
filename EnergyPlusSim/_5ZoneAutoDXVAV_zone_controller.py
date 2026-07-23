@@ -93,11 +93,11 @@ class ZoneController:
         self.N = 20
         
         # Compress the dynamic range to keep the condition number < 10^5
-        self.r = 0.1              # Increased from 0.001
-        self.r_delta = 50.0       # Reduced from 325
+        self.r = 1e-1             # Increased from 0.001
+        self.r_delta = 5e1       # Reduced from 325
         self.lambda_T = 1e3       # Reduced from 1e4
-        self.lambda_W = 1e6       # Increased from 1e2 (W^2 is tiny, needs massive weight)
-        self.lambda_C = 10.0      # Increased from 1e1
+        self.lambda_W = 1e8       # Increased from 1e2 (W^2 is tiny, needs massive weight)
+        self.lambda_C = 1e1      # Increased from 1e1
         self.mu_T = 1e4           # Reduced massively from 1e6
 
         # Centering weights
@@ -111,12 +111,12 @@ class ZoneController:
         self.eps_rel=1e-3
 
         
-        self.u_min_vent = 0.02  # m³/s — small but keeps duct temp sensor valid
+        self.u_min_vent = 0.05  # m³/s — small but keeps duct temp sensor valid
 
         # EMA output smoothing — low-pass filter on MPC output to absorb any
         # residual high-frequency chatter that the rate constraint can't prevent
         # (e.g., oscillation between 0 and du_max which satisfies the rate limit).
-        self.u_smooth_alpha = 0.6  # Blend: 30% new MPC, 70% previous smoothed
+        self.u_smooth_alpha = 1.0  # Blend: 30% new MPC, 70% previous smoothed
 
         self.u_prev = 0.5  # Start at a moderate flow, not 0 — avoids stuck-at-zero fallback
         self.u_ema = 0.5   # Smoothed output state

@@ -215,14 +215,6 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         
         self.zone_ideal_conditions = {}
         self.ahu_setpoints = {}
-        self._fan_dT_est = 0.5  # Running estimate of fan heat rise (°C)
-        self._prev_co2_error = 0.0  # Previous CO2 error for derivative term
-        
-        # Direct ON/OFF override states
-        self._dx_state = False
-        self._dx_last_toggle_time = -999.0
-        self._heater_state = False
-        self._heater_last_toggle_time = -999.0
 
     def _init(self, state):
         self.initializer.setup(state)
@@ -425,16 +417,6 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
         # Apply AHU Setpoints
         if self.ahu_setpoints:
-            # 1. CO2 Control via Outdoor Air Flow — PD Controller
-            #    Kp: proportional gain (kg/s per ppm error)
-            #    Kd: derivative gain (kg/s per ppm/timestep rate of change)
-            Kp = 0.008   # Aggressive proportional: 100 ppm error → +0.8 kg/s
-            Kd = 0.003   # Derivative: reacts to rate of CO2 change
-            OA_MIN = 0.1  # Minimum for air quality (near-zero, not blind 0.5)
-            OA_MAX = 2.5  # Physical max outdoor air flow
-
-            co2_sp = self.ahu_setpoints.get('ahu_co2_sp', 400.0)
-            
             actual_co2 = self._val(state, "Fan_Out_CO2")
             if actual_co2 <= 0.0:
                 actual_co2 = self._val(state, "Mixed_Air_CO2")
@@ -445,138 +427,30 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 for z in self.zones:
                     if self.handles.get(f"{z}_CO2", -1) != -1:
                         actual_co2 = max(actual_co2, self._val(state, f"{z}_CO2"))
+                        
+            system_state = {
+                'actual_co2': actual_co2,
+                'fan_out_T': self._val(state, "Fan_Out_Temp"),
+                'hc_out_T': self._val(state, "HC_Out_Temp"),
+            }
+            
+            cmds = self.ahu_coordinator.step(self.zone_ideal_conditions, system_state, time, self.logger)
 
-            co2_error = actual_co2 - co2_sp
-            
-            if not hasattr(self, '_co2_integral'):
-                self._co2_integral = 0.0
-                
-            co2_error = actual_co2 - co2_sp
-            
-            # PI controller logic (fast response + eliminates steady-state error)
-            Kp_oa = 0.003  # proportional "kick"
-            Ki_oa = 0.002  # integral accumulation per timestep
-            
-            self._co2_integral += co2_error
-            # Anti-windup clamp (bound between 0 and max required integral contribution)
-            self._co2_integral = max(min(self._co2_integral, (OA_MAX - OA_MIN)/Ki_oa), 0.0)
-            
-            oa_flow = OA_MIN + Kp_oa * co2_error + Ki_oa * self._co2_integral
-            oa_flow = min(max(oa_flow, OA_MIN), OA_MAX)
-
+            # Apply commands
             if self.actuators.get("OA_Flow_SP", -1) != -1:
-                sa(state, self.actuators["OA_Flow_SP"], oa_flow)
-            
-            # 2. Temperature & Humidity Setpoints with compensation
-            temp_sp = self.ahu_setpoints.get('ahu_temp_sp', 13.0)
-            hum_sp  = self.ahu_setpoints.get('ahu_hum_sp', 0.008)
-
-            # 2a. Fan heat rise compensation
-            #     The draw-through fan adds waste heat.
-            #     Measure it from last timestep's actual data and use an EMA.
-            fan_out_T = self._val(state, "Fan_Out_Temp")
-            hc_out_T  = self._val(state, "HC_Out_Temp")
-            if fan_out_T > 0 and hc_out_T > 0:
-                measured_dT = fan_out_T - hc_out_T
-                if measured_dT > 0:
-                    # Use a very slow EMA (alpha=0.01) so ON/OFF compressor cycles don't cause the estimate to bounce
-                    self._fan_dT_est = 0.99 * self._fan_dT_est + 0.01 * measured_dT
-
-            # Subtract fan heat rise so the POST-fan supply temperature hits temp_sp on average
-            coil_temp_sp = temp_sp - self._fan_dT_est
-
-            # 2b. Psychrometric coupling for dehumidification
-            import math
-            P_w = hum_sp * 101325.0 / (0.62198 + hum_sp)
-            if P_w > 0:
-                ln_ratio = math.log(P_w / 610.94)
-                T_dew_target = 243.04 * ln_ratio / (17.625 - ln_ratio)
-                # If dehumidification requires a colder coil, use the lower value
-                coil_temp_sp = min(coil_temp_sp, T_dew_target)
-
-            # Clamp to physical AHU limits
-            T_s_min = 5.0   # Hard physical floor for the coil
-            coil_temp_sp = max(coil_temp_sp, T_s_min)
-            
-            # COIL SPLIT LOGIC:
-            # Cooling Coil targets the COLDER of the sensible or latent requirement
-            cc_temp_sp = max(min(coil_temp_sp, T_dew_target), T_s_min)
-            
-            # Heating Coil targets the sensible requirement (reheats the subcooled air)
-            hc_temp_sp = max(coil_temp_sp, T_s_min)
-            
-            # The final duct setpoint is the post-reheat sensible temperature
-            sat_sch_sp = hc_temp_sp
-            
-            # --- Direct ON/OFF Control (Option 1 with Anti-Short Cycle) ---
-            # (Keep your existing override logic here, but ensure it overrides 
-            # BOTH cc_temp_sp and hc_temp_sp if forced)
-
-            
-            current_time = self.api.exchange.current_time(state) # in hours
-            dx_override = self.ahu_setpoints.get('ahu_dx_override', None)
-            heater_override = self.ahu_setpoints.get('ahu_heater_override', None)
-            
-            # 6 minutes = 0.1 hours minimum toggle delay
-            MIN_TOGGLE_DELAY = 0.5 
-            
-            if dx_override is not None:
-                requested = bool(dx_override)
-                if requested != self._dx_state:
-                    if (current_time - self._dx_last_toggle_time) >= MIN_TOGGLE_DELAY:
-                        self._dx_state = requested
-                        self._dx_last_toggle_time = current_time
-                        
-                # Option 1: Extreme Setpoints
-                cc_temp_sp = 0.0 if self._dx_state else 50.0
-
-            if heater_override is not None:
-                requested = bool(heater_override)
-                if requested != self._heater_state:
-                    if (current_time - self._heater_last_toggle_time) >= MIN_TOGGLE_DELAY:
-                        self._heater_state = requested
-                        self._heater_last_toggle_time = current_time
-                        
-                # Option 1: Extreme Setpoints
-                hc_temp_sp = 50.0 if self._heater_state else 0.0
-                
-            if dx_override is not None or heater_override is not None:
-                if self._dx_state:
-                    sat_sch_sp = 0.0
-                elif self._heater_state:
-                    sat_sch_sp = 50.0
-                else:
-                    sat_sch_sp = 25.0
-                    
-            # Prevent rapid extreme temp changes by disabling coils at low flows
-            # fan_out_flow = self._val(state, "Fan_Out_Flow")
-            # LOW_FLOW_THRESHOLD = 0.25 # kg/s
-            # if fan_out_flow < LOW_FLOW_THRESHOLD:
-            #     cc_temp_sp = 50.0  # Disable cooling
-            #     hc_temp_sp = 0.0   # Disable heating
-            #     sat_sch_sp = 25.0  # Neutral
-
-            # Apply temperature setpoints
+                sa(state, self.actuators["OA_Flow_SP"], cmds['oa_flow'])
             if self.actuators.get("SAT_Sch_SP", -1) != -1:
-                sa(state, self.actuators["SAT_Sch_SP"], sat_sch_sp)
+                sa(state, self.actuators["SAT_Sch_SP"], cmds['sat_sch_sp'])
             if self.actuators.get("CC_Temp_SP", -1) != -1:
-                sa(state, self.actuators["CC_Temp_SP"], cc_temp_sp)
+                sa(state, self.actuators["CC_Temp_SP"], cmds['cc_temp_sp'])
             if self.actuators.get("HC_Temp_SP", -1) != -1:
-                sa(state, self.actuators["HC_Temp_SP"], hc_temp_sp)
-
-            # Apply humidity setpoints
+                sa(state, self.actuators["HC_Temp_SP"], cmds['hc_temp_sp'])
             if self.actuators.get("Hum_Sch_SP", -1) != -1:
-                sa(state, self.actuators["Hum_Sch_SP"], hum_sp)
+                sa(state, self.actuators["Hum_Sch_SP"], cmds['hum_sp'])
             if self.actuators.get("CC_Hum_SP", -1) != -1:
-                sa(state, self.actuators["CC_Hum_SP"], hum_sp)
+                sa(state, self.actuators["CC_Hum_SP"], cmds['hum_sp'])
             if self.actuators.get("CC_Hum_Max_SP", -1) != -1:
-                sa(state, self.actuators["CC_Hum_Max_SP"], hum_sp)
-
-            # Log compensation values for debugging
-            self.logger.add("Fan_dT_est_C", round(self._fan_dT_est, 2))
-            self.logger.add("Coil_Temp_SP_C", round(coil_temp_sp, 2))
-            
-
+                sa(state, self.actuators["CC_Hum_Max_SP"], cmds['hum_sp'])
 
         # Apply Zone Setpoints and VAV Commands
         for z in self.zones:
@@ -593,11 +467,11 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 sa(state, h_min, flow)
                 sa(state, h_sp,  flow)
 
-            reheat_sp = 0    
-            # Apply reheat setpoint
-            h_reheat = self.actuators.get(f"{z}_Reheat_SP", -1)
-            if h_reheat != -1:
-                sa(state, h_reheat, reheat_sp)
+            # reheat_sp = 0    
+            # # Apply reheat setpoint
+            # h_reheat = self.actuators.get(f"{z}_Reheat_SP", -1)
+            # if h_reheat != -1:
+            #     sa(state, h_reheat, reheat_sp)
 
 
         return 0

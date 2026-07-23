@@ -47,6 +47,14 @@ class AHUCoordinator:
         self._prev_T = self.T_neutral
         self._prev_W = self.W_neutral
         self._prev_C = self.C_s_min
+        
+        # State variables for control logic moved from 5ZoneAutoDXVAV.py
+        self._fan_dT_est = 0.5
+        self._co2_integral = 0.0
+        self._dx_state = False
+        self._dx_last_toggle_time = -999.0
+        self._heater_state = False
+        self._heater_last_toggle_time = -999.0
 
     def calculate_setpoints(self, zone_conditions, logger):
         """
@@ -196,6 +204,104 @@ class AHUCoordinator:
             'ahu_temp_sp': T_s_AHU,
             'ahu_hum_sp': W_s_AHU,
             'ahu_co2_sp': C_s_AHU
+        }
+
+    def step(self, zone_conditions, system_state, current_time, logger):
+        """
+        Coordinates zone conditions to calculate actual actuator commands.
+        Includes CO2 PI control, psychrometric coil splits, and DX/Heater toggle.
+        Returns a dictionary of actuator commands.
+        """
+        # Calculate raw setpoints from rules
+        ahu_setpoints = self.calculate_setpoints(zone_conditions, logger)
+
+        # 1. CO2 Control via Outdoor Air Flow — PI Controller
+        Kp_oa = 0.003
+        Ki_oa = 0.002
+        OA_MIN = 0.1
+        OA_MAX = 2.5
+
+        co2_sp = ahu_setpoints.get('ahu_co2_sp', 400.0)
+        actual_co2 = system_state.get('actual_co2', 400.0)
+        
+        co2_error = actual_co2 - co2_sp
+        self._co2_integral += co2_error
+        # Anti-windup clamp
+        self._co2_integral = max(min(self._co2_integral, (OA_MAX - OA_MIN)/Ki_oa), 0.0)
+        
+        oa_flow = OA_MIN + Kp_oa * co2_error + Ki_oa * self._co2_integral
+        oa_flow = min(max(oa_flow, OA_MIN), OA_MAX)
+
+        # 2. Temperature & Humidity Setpoints with compensation
+        temp_sp = ahu_setpoints.get('ahu_temp_sp', 13.0)
+        hum_sp  = ahu_setpoints.get('ahu_hum_sp', 0.008)
+
+        # 2a. Fan heat rise compensation
+        fan_out_T = system_state.get('fan_out_T', 0.0)
+        hc_out_T = system_state.get('hc_out_T', 0.0)
+        if fan_out_T > 0 and hc_out_T > 0:
+            measured_dT = fan_out_T - hc_out_T
+            if measured_dT > 0:
+                self._fan_dT_est = 0.99 * self._fan_dT_est + 0.01 * measured_dT
+
+        sensible_temp_sp = temp_sp - self._fan_dT_est
+
+        # 2b. Psychrometric coupling for dehumidification
+        P_w = hum_sp * 101325.0 / (0.62198 + hum_sp)
+        T_dew_target = 50.0
+        if P_w > 0:
+            ln_ratio = math.log(P_w / 610.94)
+            T_dew_target = 243.04 * ln_ratio / (17.625 - ln_ratio)
+
+        T_s_min_coil = 5.0
+        cc_temp_sp = max(min(sensible_temp_sp, T_dew_target), T_s_min_coil)
+        hc_temp_sp = max(sensible_temp_sp, T_s_min_coil)
+        sat_sch_sp = hc_temp_sp
+        coil_temp_sp = cc_temp_sp
+        
+        logger.add("CC_Temp_SP_Cmd_C", round(cc_temp_sp, 2))
+        logger.add("HC_Temp_SP_Cmd_C", round(hc_temp_sp, 2))
+        logger.add("SAT_Sch_SP_Cmd_C", round(sat_sch_sp, 2))
+
+        # 3. Direct ON/OFF Control (Anti-Short Cycle)
+        dx_override = ahu_setpoints.get('ahu_dx_override', None)
+        heater_override = ahu_setpoints.get('ahu_heater_override', None)
+        
+        MIN_TOGGLE_DELAY = 0.5 
+        
+        if dx_override is not None:
+            requested = bool(dx_override)
+            if requested != self._dx_state:
+                if (current_time - self._dx_last_toggle_time) >= MIN_TOGGLE_DELAY:
+                    self._dx_state = requested
+                    self._dx_last_toggle_time = current_time
+            cc_temp_sp = 0.0 if self._dx_state else 50.0
+
+        if heater_override is not None:
+            requested = bool(heater_override)
+            if requested != self._heater_state:
+                if (current_time - self._heater_last_toggle_time) >= MIN_TOGGLE_DELAY:
+                    self._heater_state = requested
+                    self._heater_last_toggle_time = current_time
+            hc_temp_sp = 50.0 if self._heater_state else 0.0
+            
+        if dx_override is not None or heater_override is not None:
+            if self._dx_state:
+                sat_sch_sp = 0.0
+            elif self._heater_state:
+                sat_sch_sp = 50.0
+            else:
+                sat_sch_sp = 25.0
+
+        logger.add("Fan_dT_est_C", round(self._fan_dT_est, 2))
+        logger.add("Coil_Temp_SP_C", round(coil_temp_sp, 2))
+
+        return {
+            'oa_flow': oa_flow,
+            'sat_sch_sp': sat_sch_sp,
+            'cc_temp_sp': cc_temp_sp,
+            'hc_temp_sp': hc_temp_sp,
+            'hum_sp': hum_sp
         }
 
     @staticmethod
