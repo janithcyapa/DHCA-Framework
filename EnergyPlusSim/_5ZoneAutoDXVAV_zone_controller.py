@@ -58,13 +58,21 @@ class ZoneController:
         # # Process Noise Covariance Q
         # self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-10, 0.1, 1e-12, 1e-12, 1e-16, 1e-16])
 
-        # P Matrix: Give initial doubt to alpha (indices 7, 8) so they can calibrate.
-        # Keep beta (indices 9, 10) at 0.0 so the known physical mass doesn't drift.
-        self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-10, 10.0, 100.0, 100.0, 50.0, 50.0])
+        # # P Matrix: Give initial doubt to alpha (indices 7, 8) so they can calibrate.
+        # # Keep beta (indices 9, 10) at 0.0 so the known physical mass doesn't drift.
+        # self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-10, 10.0, 100.0, 100.0, 50.0, 50.0])
 
-        # Q Matrix: ALL structural parameters (7, 8, 9, 10) must be 0.0. 
-        # They will converge to their true values and stop moving.
-        self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-6, 1e-10, 0.1, 0.0, 0.0, 0.0, 0.0])
+        # # Q Matrix: ALL structural parameters (7, 8, 9, 10) must be 0.0. 
+        # # They will converge to their true values and stop moving.
+        # self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-6, 1e-10, 0.1, 0.0, 0.0, 0.0, 0.0])
+
+        # P Matrix: Start beta (indices 9, 10) with near-zero uncertainty
+        self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-10, 10.0, 10.0, 10.0, 1e-12, 1e-12])
+
+        # Q Matrix: Increase process noise on disturbances for sharper tracking
+        # Index 4 (d_T) changed from 1e-6 to 1e-2
+        # Index 6 (N_occ) changed from 0.1 to 1.0
+        self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-10, 1.0, 0.0, 0.0, 0.0, 0.0])
 
         # Measurement Noise Covariance R
         self.R = np.diag([0.01, 1e-8, 10.0])
@@ -84,36 +92,31 @@ class ZoneController:
         # --- MPC Initialization ---
         self.N = 20
         
-        # Objective Weights — Priority: Temperature >> Humidity >> CO2
-        self.r = 0.001
-        self.r_delta = 50.0        # was 1e10 — this is what was breaking everything
-        self.lambda_T = 1e4       # was 1e5
-        self.lambda_W = 1e3       # was 1e-5
-        self.lambda_C = 1e0       # was 1e-5
-        self.mu_T = 1e6           # was 1e10 — see below for why
+        # Compress the dynamic range to keep the condition number < 10^5
+        self.r = 0.1              # Increased from 0.001
+        self.r_delta = 50.0       # Reduced from 325
+        self.lambda_T = 1e3       # Reduced from 1e4
+        self.lambda_W = 1e6       # Increased from 1e2 (W^2 is tiny, needs massive weight)
+        self.lambda_C = 10.0      # Increased from 1e1
+        self.mu_T = 1e4           # Reduced massively from 1e6
 
-        # Quadratic centering weights — pulls predicted states toward deadband midpoint.
-        # These are added INTO the QP Hessian (not as separate error terms), so the
-        # corrective gradient grows linearly from zero at T_ref/W_ref — no sudden kick.
-        self.q_T_center = 100.0    # Centering pull for temperature
-        self.q_W_center = 1e5     # Centering pull for humidity ratio (W drifts silently)
+        # Centering weights
+        self.q_T_center = 5.0     # Reduced slightly
+        self.q_W_center = 1e5     # Increased massively to account for W ~ 0.005 range
 
-        self.du_max = 0.02
+        self.du_max = 0.05
 
         self.max_iter=50000
-        self.eps_abs=1e-4
-        self.eps_rel=1e-4
+        self.eps_abs=1e-3
+        self.eps_rel=1e-3
 
-        # Minimum ventilation flow — prevents MPC from shutting VAV to exactly 0,
-        # which causes EnergyPlus to report stale duct temperature (~20°C) instead
-        # of actual supply temp (~11°C), creating a plant-model mismatch that
-        # drives perfect bang-bang oscillation every timestep.
+        
         self.u_min_vent = 0.02  # m³/s — small but keeps duct temp sensor valid
 
         # EMA output smoothing — low-pass filter on MPC output to absorb any
         # residual high-frequency chatter that the rate constraint can't prevent
         # (e.g., oscillation between 0 and du_max which satisfies the rate limit).
-        self.u_smooth_alpha = 0.9  # Blend: 30% new MPC, 70% previous smoothed
+        self.u_smooth_alpha = 0.6  # Blend: 30% new MPC, 70% previous smoothed
 
         self.u_prev = 0.5  # Start at a moderate flow, not 0 — avoids stuck-at-zero fallback
         self.u_ema = 0.5   # Smoothed output state
@@ -250,7 +253,7 @@ class ZoneController:
         return u_fb
 
     def step(self, dt, state_data, logger):
-        print(f"[{self.zone_name}] Starting step with dt={dt}")
+        
         start_time = time.perf_counter()
         
         T_out = state_data.get('T_out', 22.0)

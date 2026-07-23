@@ -286,6 +286,14 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         # Run Zone Controllers
         self.zone_ideal_conditions = {}
         for z in self.zones:
+            # Compute effective T_out as simple average of adjacent zone temps
+            adj_list = self.zone_params.get(z, {}).get('adj_zones', [])
+            if adj_list:
+                adj_temps = [self._val(state, f"{adj['zone']}_Temp") for adj in adj_list]
+                T_out_zone = sum(adj_temps) / len(adj_temps)
+            else:
+                T_out_zone = self._val(state, "Out_Temp")
+
             # Build state data for the zone
             state_data = {
                 'T_in': self._val(state, f"{z}_Temp"),
@@ -293,12 +301,14 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 'C_in': self._val(state, f"{z}_CO2"),
                 'Occ': self._val(state, f"{z}_Occ"),
                 'VAV_Flow': self._val(state, f"{z}_VAV_Flow"),
-                'T_out': self._val(state, "Out_Temp"),
+                'T_out': T_out_zone,
                 'T_s': self._val(state, f"{z}_T_s"),
                 'W_s': self._val(state, f"{z}_W_s"),
                 'C_s': self._val(state, f"{z}_C_s"),
                 'Equip': self._val(state, f"{z}_Equip")
             }
+
+            print(f"[{z}][{day}-{h}:{m}] Starting step with dt={dt}")
             # Execute zone controller step
             ideal_cond = self.zone_controllers[z].step(dt, state_data, self.logger)
             self.zone_ideal_conditions[z] = ideal_cond
@@ -333,6 +343,15 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             self.logger.add(f"{z}_W_kg_kg", round(self._val(state, f"{z}_W_in"), 5))
             self.logger.add(f"{z}_RH_pct", round(self._val(state, f"{z}_RH"), 2))
             self.logger.add(f"{z}_CO2_ppm", round(self._val(state, f"{z}_CO2"), 2))
+
+            # Log effective outside temp (avg of adjacent zones)
+            adj_list = self.zone_params.get(z, {}).get('adj_zones', [])
+            if adj_list:
+                adj_temps = [self._val(state, f"{adj['zone']}_Temp") for adj in adj_list]
+                z_out_temp = sum(adj_temps) / len(adj_temps)
+            else:
+                z_out_temp = self._val(state, "Out_Temp")
+            self.logger.add(f"{z}_out_temp_c", round(z_out_temp, 2))
 
             self.logger.add(f"{z}_Occupants", round(self._val(state, f"{z}_Occ"), 2))
             self.logger.add(f"{z}_EquipLoad_W", round(self._val(state, f"{z}_Equip"), 2))
