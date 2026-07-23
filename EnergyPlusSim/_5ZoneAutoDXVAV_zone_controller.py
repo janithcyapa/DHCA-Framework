@@ -36,7 +36,7 @@ class ZoneController:
         self.x[0] = 22.0    # x1: T_in (C) - Typical room temperature (71.6 F)
         self.x[1] = 22.0    # x2: T_m (C) - Assume walls/furniture are in thermal equilibrium with the air
         self.x[2] = 0.008   # x3: W_in (kg/kg) - Roughly 50% Relative Humidity at 22C
-        self.x[3] = 400.0   # x4: C_in (ppm) - Standard outdoor baseline CO2 concentration
+        self.x[3] = 420.0   # x4: C_in (ppm) - Standard outdoor baseline CO2 concentration
         
         # --- Disturbances ---
         # Let the EKF discover these; it is safe to start them at 0
@@ -259,7 +259,7 @@ class ZoneController:
         T_out = state_data.get('T_out', 22.0)
         T_s = max(5.0, state_data.get('T_s', 13.0))
         W_s = max(0.004, state_data.get('W_s', 0.008))
-        C_s = max(400.0, state_data.get('C_s', 400.0))
+        C_s = max(420.0, state_data.get('C_s', 420.0))
         u_mass = state_data.get('VAV_Flow', 0.0)
         u = u_mass / self.rho_air
 
@@ -278,12 +278,24 @@ class ZoneController:
                     
                     for _ in range(n_steps):
                         x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11 = x_pred
+
+                        # --- NEW: Mean-Reverting Time Constant ---
+                        # We must convert the disturbance models from a Random Walk to an Ornstein-Uhlenbeck (Mean-Reverting) Process. By adding a tiny "leakage" or decay factor, the disturbances will naturally bleed back to zero over time when there is no active data to sustain them.
+                        # tau is the relaxation time in seconds (e.g., 2 hours = 7200s)
+                        tau = 7200.0
+
+
                         f_x = np.zeros(11)
                         f_x[0] = x10 * (x8*(T_out - x1) + x9*(x2 - x1) + x7 * self.q_person + self.rho_air * self.c_p * u * (T_s - x1) + x5)
                         f_x[1] = x11 * (x9*(x1 - x2))
                         f_x[2] = x10 * self.c_p * (x7 * self.g_w_person + self.rho_air * u * (W_s - x3) + x6)
                         f_x[3] = x10 * self.rho_air * self.c_p * (x7 * self.g_co2_person + u * (C_s - x4))
                         
+                        # Apply leakage to disturbances so they decay to 0 when unobserved
+                        f_x[4] = -(1.0 / tau) * x5
+                        f_x[5] = -(1.0 / tau) * x6
+                        f_x[6] = -(1.0 / tau) * x7  # Occupancy decay
+
                         F = np.zeros((11, 11))
                         F[0, 0] = x10 * (-x8 - x9 - self.rho_air * self.c_p * u)
                         F[0, 1] = x10 * x9
@@ -303,6 +315,11 @@ class ZoneController:
                         F[3, 3] = -x10 * self.rho_air * self.c_p * u
                         F[3, 6] = x10 * self.rho_air * self.c_p * self.g_co2_person
                         F[3, 9] = self.rho_air * self.c_p * (x7 * self.g_co2_person + u * (C_s - x4))
+                        
+                        # Update the Jacobian to reflect the decay
+                        F[4, 4] = -1.0 / tau
+                        F[5, 5] = -1.0 / tau
+                        F[6, 6] = -1.0 / tau
                         
                         Phi = np.eye(11) + F * dt_sub
                         x_pred = x_pred + f_x * dt_sub
@@ -596,14 +613,15 @@ class ZoneController:
                     dC_in = C_in - self.prev_C_in
                     self.prev_C_in = C_in
                     
+                    C_s_min = 420.0
+                    C_recirc = C_in
+
                     if dC_in > 0.5:
-                        # Actively increasing: scale setpoint to take proactive action before hitting C_max
                         if C_in < 600.0:
-                            C_s_star = max(400.0, C_in - 50.0)
+                            C_s_star = max(420.0, C_in - 50.0)
                         else:
-                            # Scale from 800 down to 400 as C_in goes from 600 to 950
                             alpha = min(1.0, max(0.0, (C_in - 600.0) / 350.0))
-                            C_s_star = 800.0 - alpha * 400.0
+                            C_s_star = 800.0 - alpha * 380.0
                     else:
                         # Stable or decreasing: tolerate up to the limit
                         C_s_star = self.C_max

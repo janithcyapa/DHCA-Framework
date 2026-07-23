@@ -85,11 +85,11 @@ class AHUCoordinator:
         C_s_AHU = min(ideal_co2s) if ideal_co2s else 400.0
 
         
-        # Rule 2: Humidity Arbitration — use min/max aggregation, not exact equality
-        # Dehumidification requests (low W) take priority over humidification
-        W_demands_low = [w for w in ideal_hums if w < self.W_neutral - 0.001]
-        W_demands_high = [w for w in ideal_hums if w > self.W_neutral + 0.001]
-        W_demands_neutral = [w for w in ideal_hums if abs(w - self.W_neutral) <= 0.001]
+        # Rule 2: Humidity Arbitration
+        # Tighten the deadband from 0.001 to 0.0001 to catch slight nighttime drifts
+        W_demands_low = [w for w in ideal_hums if w < self.W_neutral - 0.0001]
+        W_demands_high = [w for w in ideal_hums if w > self.W_neutral + 0.0001]
+        W_demands_neutral = [w for w in ideal_hums if abs(w - self.W_neutral) <= 0.0001]
         
         if W_demands_low:
             # At least one zone wants dehumidification — dehumidification priority

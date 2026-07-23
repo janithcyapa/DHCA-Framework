@@ -498,10 +498,20 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             T_s_min = 5.0   # Hard physical floor for the coil
             coil_temp_sp = max(coil_temp_sp, T_s_min)
             
+            # COIL SPLIT LOGIC:
+            # Cooling Coil targets the COLDER of the sensible or latent requirement
+            cc_temp_sp = max(min(coil_temp_sp, T_dew_target), T_s_min)
+            
+            # Heating Coil targets the sensible requirement (reheats the subcooled air)
+            hc_temp_sp = max(coil_temp_sp, T_s_min)
+            
+            # The final duct setpoint is the post-reheat sensible temperature
+            sat_sch_sp = hc_temp_sp
+            
             # --- Direct ON/OFF Control (Option 1 with Anti-Short Cycle) ---
-            cc_temp_sp = coil_temp_sp
-            hc_temp_sp = coil_temp_sp
-            sat_sch_sp = coil_temp_sp
+            # (Keep your existing override logic here, but ensure it overrides 
+            # BOTH cc_temp_sp and hc_temp_sp if forced)
+
             
             current_time = self.api.exchange.current_time(state) # in hours
             dx_override = self.ahu_setpoints.get('ahu_dx_override', None)
