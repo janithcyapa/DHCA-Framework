@@ -449,25 +449,28 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
             # Apply commands
             if self.actuators.get("OA_Flow_SP", -1) != -1:
-                sa(state, self.actuators["OA_Flow_SP"], cmds['oa_flow'])
-            if self.actuators.get("SAT_Sch_SP", -1) != -1:
-                sa(state, self.actuators["SAT_Sch_SP"], cmds['sat_sch_sp'])
+                sa(state, self.actuators["OA_Flow_SP"], cmds['oa_flow_sp'])
+
+            if 'cc_temp_sp' in cmds and self.actuators.get("SAT_Sch_SP", -1) != -1:
+                sa(state, self.actuators["SAT_Sch_SP"], cmds['hc_temp_sp'])
+
             if self.actuators.get("CC_Temp_SP", -1) != -1:
                 sa(state, self.actuators["CC_Temp_SP"], cmds['cc_temp_sp'])
             if self.actuators.get("HC_Temp_SP", -1) != -1:
                 sa(state, self.actuators["HC_Temp_SP"], cmds['hc_temp_sp'])
+
+
             if self.actuators.get("Hum_Sch_SP", -1) != -1:
-                sa(state, self.actuators["Hum_Sch_SP"], cmds['hum_sp'])
+                sa(state, self.actuators["Hum_Sch_SP"], cmds['hum_w_sp'])
             if self.actuators.get("CC_Hum_SP", -1) != -1:
-                sa(state, self.actuators["CC_Hum_SP"], cmds['hum_sp'])
+                sa(state, self.actuators["CC_Hum_SP"], cmds['hum_w_sp'])
             if self.actuators.get("CC_Hum_Max_SP", -1) != -1:
-                sa(state, self.actuators["CC_Hum_Max_SP"], cmds['hum_sp'])
+                sa(state, self.actuators["CC_Hum_Max_SP"], cmds['hum_w_sp'])
 
         # Apply Zone Setpoints and VAV Commands
         for z in self.zones:
             cond = self.zone_ideal_conditions.get(z, {})
             flow = cond.get('u_cmd', 0.1)
-            
             
             # Clamp Flow
             h_sp  = self.actuators.get(f"{z}_Flow_SP",  -1)

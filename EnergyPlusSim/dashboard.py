@@ -359,23 +359,27 @@ def get_ekf_config(zone):
 ahu_config = [
     {
         "title": "AHU Coordinator Status", "y_label": "Status (0=Off, 1=On)", "y_range": [-0.5, 1.5],
-        "traces": [{"col": "AHU_Coordinator_Status", "name": "Status Indicator", "type": "status", "colorscale": [[0.0, "red"], [1.0, "green"]], "cmin": 0, "cmax": 1}]
+        "traces": [{"col": "AHU_Coordinator_Status", "name": "Status Indicator", "type": "status", "colorscale": [[0.0, "#e74c3c"], [1.0, "#2ecc71"]], "cmin": 0, "cmax": 1}]
     },
     {
         "title": "VAV Flow", "y_label": "Mass Flow (kg/s)", 
-        "traces": [{"col": "Fan_Out_Flow_kg_s", "source": "Zone", "name": "Fan Flow"}, {"col": "Outdoor_Air_Flow_kg_s", "source": "Other_1", "name": "OA Flow"}, {"col": "Relief_Air_Flow_kg_s", "source": "Outside", "name": "Relief Flow"}]
+        "traces": [{"col": "Fan_Out_Flow_kg_s", "color": "#9b59b6", "name": "Fan Flow"}, {"col": "Outdoor_Air_Flow_kg_s", "color": "#2ecc71", "dash": "dash", "name": "OA Flow"}]
     },
     {
         "title": "Temperature", "y_label": "Temperature (°C)", "range_color": "rgba(46, 204, 113, 0.15)", "expected_label": "Target Supply Range",
-        "traces": [{"col": "AHU_Supply_Temp_C", "source": "Zone", "name": "Temp"}, {"col": "AHU_Temp_SP_C", "source": "Supply", "name": "Temp Setpoint", "dash": "dash"}]
+        "traces": [{"col": "AHU_Supply_Temp_C", "color": "#3498db", "name": "Actual Temp"}, {"col": "Cord_Temp_SP_C", "color": "#f39c12", "dash": "dash", "name": "Coordinator SP"}]
+    },
+    {
+        "title": "Internal AHU Temps", "y_label": "Temperature (°C)",
+        "traces": [{"col": "CC_Temp_SP_Cmd_C", "color": "#3498db", "dash": "dash", "name": "Cooling Coil SP"}, {"col": "CC_Out_Temp_C", "color": "#3498db", "name": "Cooling Coil Actual"}, {"col": "HC_Temp_SP_Cmd_C", "color": "#e74c3c", "dash": "dash", "name": "Heating Coil SP"}, {"col": "HC_Out_Temp_C", "color": "#e74c3c", "name": "Heating Coil Actual"}, {"col": "Fan_dT_est_C", "color": "#f1c40f", "dash": "dot", "name": "Fan dT Est"}]
     },
     {
         "title": "Humidity", "y_label": "Humidity (kg/kg)", "range_color": "rgba(52, 152, 219, 0.15)", "expected_label": "Typical Supply W",
-        "traces": [{"col": "AHU_Supply_W_kg_kg", "source": "Zone", "name": "W"}, {"col": "AHU_W_kg_kg", "source": "Supply", "name": "W Setpoint", "dash": "dash"}]
+        "traces": [{"col": "AHU_Supply_W_kg_kg", "color": "#3498db", "name": "Actual W"}, {"col": "Cord_W_kg_kg", "color": "#f39c12", "dash": "dash", "name": "Coordinator W SP"}]
     },
     {
         "title": "CO2", "y_label": "CO2 (ppm)", "range_color": "rgba(241, 196, 15, 0.15)", "expected_label": "Acceptable CO2",
-        "traces": [{"col": "AHU_Supply_CO2_ppm", "source": "Zone", "name": "CO2"}, {"col": "AHU_CO2_ppm", "source": "Supply", "name": "CO2 Setpoint", "dash": "dash"}, {"col": "Relief_Air_CO2_ppm", "source": "Outside", "name": "CO2 Relief"}, {"col": "Outdoor_Air_CO2_ppm", "source": "Setpoint", "name": "CO2 Outdoor"}]
+        "traces": [{"col": "AHU_Supply_CO2_ppm", "color": "#3498db", "name": "Actual CO2"}, {"col": "Cord_CO2_ppm", "color": "#f39c12", "dash": "dash", "name": "Coordinator CO2 SP"}, {"col": "Relief_Air_CO2_ppm", "color": "#95a5a6", "dash": "dot", "name": "CO2 Relief"}, {"col": "Outdoor_Air_CO2_ppm", "color": "#2ecc71", "dash": "dot", "name": "CO2 Outdoor"}]
     },
     {
         "title": "Energy Consumption", "y_label": "Energy (Joules)",
@@ -384,6 +388,10 @@ ahu_config = [
     {
         "title": "Component Power", "y_label": "Power (W)",
         "traces": [{"col": "CC_Power_W", "source": "Zone", "name": "Cooling Coil Power"}, {"col": "HC_Power_W", "source": "Outside", "name": "Heating Coil Power"}, {"col": "Fan_Power_W", "source": "Other_1", "name": "Fan Power"}]
+    },
+    {
+        "title": "VAV Reheaters Power", "y_label": "Power (W)",
+        "traces": [{"col": "SPACE1-1_Reheater_W", "source": "Zone", "name": "Space 1-1"}, {"col": "SPACE2-1_Reheater_W", "source": "Outside", "name": "Space 2-1"}, {"col": "SPACE3-1_Reheater_W", "source": "Other_1", "name": "Space 3-1"}, {"col": "SPACE4-1_Reheater_W", "source": "Setpoint", "name": "Space 4-1"}, {"col": "SPACE5-1_Reheater_W", "source": "Other_2", "name": "Space 5-1"}]
     }
 ]
 

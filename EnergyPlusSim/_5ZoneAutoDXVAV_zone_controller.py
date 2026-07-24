@@ -604,11 +604,11 @@ class ZoneController:
             # AHU Physical limits (see FIX note on self.W_s_min in __init__)
             T_s_min = self.T_s_min
             T_s_max = self.T_s_max
-            T_neutral = T_in
+            T_neutral = 22.0
             
             W_s_min = self.W_s_min
             W_s_max = self.W_s_max
-            W_neutral = W_in
+            W_neutral = 0.015
             
             C_s_min = 400.0
             C_recirc = C_in
