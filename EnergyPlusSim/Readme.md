@@ -11,6 +11,8 @@
 energyplus -w weather.epw -d ./baseline_results 5ZoneAutoDXVAV.idf
 
 
+fuser -k 8050/tcp
+
 python dashboard.py
 
 python dashboard.py -s 

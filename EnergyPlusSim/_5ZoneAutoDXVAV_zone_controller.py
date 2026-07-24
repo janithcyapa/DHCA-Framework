@@ -33,8 +33,8 @@ class ZoneController:
         self.ready = False
         
         # --- EKF Initialization ---
-        # State vector x: [T_in, T_m, W_in, C_in, d_T, d_W, N_occ, alpha_ext, alpha_int, beta_air, beta_mass]
-        self.x = np.zeros(11)
+        # State vector x: [T_in, T_m, W_in, C_in, d_T, d_W, N_occ, alpha_ext, alpha_int, beta_air, beta_mass, d_C]
+        self.x = np.zeros(12)
         
         # --- Physical States ---
         self.x[0] = 22.0    # x1: T_in (C)
@@ -46,6 +46,7 @@ class ZoneController:
         self.x[4] = 0.0     # x5: d_T
         self.x[5] = 0.0     # x6: d_W
         self.x[6] = 0.0     # x7: N_occ
+        self.x[11] = 0.0    # x12: d_C (CO2 disturbance)
         
         # --- Structural Parameters ---
 
@@ -56,13 +57,24 @@ class ZoneController:
 
 
         # P Matrix - Error Covariance matrix
-        self.P = np.diag([1.0, 1.0, 1e-4, 100.0, 1.0, 1e-10, 10.0, 10.0, 10.0, 1e-12, 1e-12])
-        # Q Matrix - Process Noise Covariance matrix
-        self.Q = np.diag([1e-7, 1e-4, 1e-7, 1e-7, 1e-2, 1e-10, 1.0, 0.0, 0.0, 0.0, 0.0])
+        self.P = np.diag([
+            1.0, 1.0, 1e-4, 100.0,          # T_in, T_m, W_in, C_in
+            10.0, 1e-6, 1.0,                # d_T, d_W, N_occ (allow learning from the start!)
+            100.0, 100.0, 1e-11, 1e-13,     # alpha_ext, alpha_int, beta_air, beta_mass
+            10.0                            # d_C (allow learning from the start!)
+        ])
+        # Q Matrix - baseline (will be overridden in step based on phase)
+        self.Q = np.diag([
+            1e-7, 1e-4, 1e-7, 1e-7,         # State process noise
+            1e-2, 1e-10, 1.0,               # d_T, d_W, N_occ 
+            0.0, 0.0, 1e-16, 1e-18,         # alpha, beta (beta_air and beta_mass given tiny continuous drift)
+            1e-4                            # d_C
+        ])
+ 
         # Measurement Noise Covariance R
         self.R = np.diag([0.01, 1e-8, 10.0])
         
-        self.H = np.zeros((3, 11))
+        self.H = np.zeros((3, 12))
         self.H[0, 0] = 1.0
         self.H[1, 2] = 1.0
         self.H[2, 3] = 1.0
@@ -234,6 +246,25 @@ class ZoneController:
         
         start_time = time.perf_counter()
         
+        # Track elapsed simulation time
+        self.sim_time_hours = getattr(self, 'sim_time_hours', 0.0) + (dt / 3600.0)
+
+        
+        tuneup_time_a1 = 6.0
+        tuneup_time_a2 = 20.0
+        tuneup_phase = self.sim_time_hours <= 24.0
+        if self.sim_time_hours <= tuneup_time_a1:
+            self.Q[8, 8] = 1e-1
+        else:
+            self.Q[8, 8] = 1e-40
+
+        if self.sim_time_hours <= tuneup_time_a2:
+            self.Q[7, 7] = 1e-1
+        else:
+            self.Q[7, 7] = 1e-40
+
+ 
+        
         T_out = state_data.get('T_out', 22.0)
         T_s = max(self.T_s_min, state_data.get('T_s', 13.0))
         W_s = max(self.W_s_min, state_data.get('W_s', 0.008))
@@ -249,33 +280,38 @@ class ZoneController:
         ])
 
         # --- EKF Predict Phase ---
-        n_steps = max(1, int(dt / 5.0))
+        n_steps = max(1, int(dt / 1.0))
         dt_sub = dt / n_steps
         try:
             x_pred = self.x.copy()
             P_pred = self.P.copy()
             
             for _ in range(n_steps):
-                x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11 = x_pred
+                x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12 = x_pred
 
                 # --- NEW: Mean-Reverting Time Constant ---
                 # We must convert the disturbance models from a Random Walk to an Ornstein-Uhlenbeck (Mean-Reverting) Process. By adding a tiny "leakage" or decay factor, the disturbances will naturally bleed back to zero over time when there is no active data to sustain them.
                 # tau is the relaxation time in seconds (e.g., 2 hours = 7200s)
-                tau = 180.0
+                tau = 7200.0  # <-- FIXED: 180.0 was way too aggressive (3 minutes)
 
-                f_x = np.zeros(11)
+                f_x = np.zeros(12)
                 f_x[0] = x10 * (x8*(T_out - x1) + x9*(x2 - x1) + x7 * self.q_person + self.rho_air * self.c_p * u * (T_s - x1) + x5)
                 f_x[1] = x11 * (x9*(x1 - x2))
                 f_x[2] = x10 * self.c_p * (x7 * self.g_w_person + self.rho_air * u * (W_s - x3) + x6)
-                f_x[3] = x10 * self.rho_air * self.c_p * (x7 * self.g_co2_person + u * (C_s - x4))
+                f_x[3] = x10 * self.rho_air * self.c_p * (x7 * self.g_co2_person + u * (C_s - x4) + x12)
                 
                 # Apply leakage to disturbances so they decay to 0 when unobserved
                 f_x[4] = -(1.0 / tau) * x5
                 f_x[5] = -(1.0 / tau) * x6
                 f_x[6] = -(1.0 / tau) * x7
+                f_x[7] = 0.0  # alpha_ext
+                f_x[8] = 0.0  # alpha_int
+                f_x[9] = 0.0  # beta_air
+                f_x[10] = 0.0  # beta_mass
+                f_x[11] = -(1.0 / tau) * x12  # d_C mean-reversion
                 
                 # Jacobian matrix
-                F = np.zeros((11, 11))
+                F = np.zeros((12, 12))
                 F[0, 0] = x10 * (-x8 - x9 - self.rho_air * self.c_p * u)
                 F[0, 1] = x10 * x9
                 F[0, 4] = x10
@@ -293,14 +329,16 @@ class ZoneController:
                 F[2, 9] = self.c_p * (x7 * self.g_w_person + self.rho_air * u * (W_s - x3) + x6)
                 F[3, 3] = -x10 * self.rho_air * self.c_p * u
                 F[3, 6] = x10 * self.rho_air * self.c_p * self.g_co2_person
-                F[3, 9] = self.rho_air * self.c_p * (x7 * self.g_co2_person + u * (C_s - x4))
+                F[3, 9] = self.rho_air * self.c_p * (x7 * self.g_co2_person + u * (C_s - x4) + x12)
+                F[3, 11] = x10 * self.rho_air * self.c_p  # ∂ẋ₄/∂d_C
                 
                 # Update the Jacobian to reflect the decay
                 F[4, 4] = -1.0 / tau
                 F[5, 5] = -1.0 / tau
                 F[6, 6] = -1.0 / tau
+                F[11, 11] = -1.0 / tau  # d_C mean-reversion
                 
-                Phi = np.eye(11) + F * dt_sub
+                Phi = np.eye(12) + F * dt_sub
                 x_pred = x_pred + f_x * dt_sub
                 # P_pred = Phi @ P_pred @ Phi.T + self.Q * (dt_sub / dt)
                 P_pred = Phi @ P_pred @ Phi.T + self.Q * dt_sub
@@ -316,7 +354,7 @@ class ZoneController:
             K_k = P_pred @ self.H.T @ S_inv
             
             self.x = x_pred + K_k @ y_k
-            I_KH = np.eye(11) - K_k @ self.H
+            I_KH = np.eye(12) - K_k @ self.H
             self.P = I_KH @ P_pred @ I_KH.T + K_k @ self.R @ K_k.T
             self.P = (self.P + self.P.T) / 2.0
 
@@ -333,10 +371,11 @@ class ZoneController:
             self.x[8] = np.clip(self.x[8], 1.0, 5000.0)
             self.x[9] = np.clip(self.x[9], 1e-7, 1e-4)
             self.x[10] = np.clip(self.x[10], 1e-9, 1e-5)
+            self.x[11] = np.clip(self.x[11], -500.0, 500.0) # d_C: unmodeled CO2 source bounds
     
             # --- MPC Formulation ---
             # 1. Linearization around x_0 (from updated EKF state) and u_{-1}
-            x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11 = self.x
+            x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12 = self.x
             T_in, T_m, W_in, C_in = x1, x2, x3, x4
             u0 = self.u_prev
             
@@ -344,7 +383,7 @@ class ZoneController:
             f_x[0] = x10 * (x8*(T_out - T_in) + x9*(T_m - T_in) + x7 * self.q_person + self.rho_air * self.c_p * u0 * (T_s - T_in) + x5)
             f_x[1] = x11 * (x9*(T_in - T_m))
             f_x[2] = x10 * self.c_p * (x7 * self.g_w_person + self.rho_air * u0 * (W_s - W_in) + x6)
-            f_x[3] = x10 * self.rho_air * self.c_p * (x7 * self.g_co2_person + u0 * (C_s - C_in))
+            f_x[3] = x10 * self.rho_air * self.c_p * (x7 * self.g_co2_person + u0 * (C_s - C_in) + x12)
             
             Ac = np.zeros((4, 4))
             Ac[0, 0] = x10 * (-x8 - x9 - self.rho_air * self.c_p * u0)
@@ -474,26 +513,43 @@ class ZoneController:
 
             A_sparse = sparse.csc_matrix(A_con)
             
-            solver = osqp.OSQP()
-            solver.setup(
-                P=H_sparse, q=f, A=A_sparse, l=l_con, u=u_con,
-                verbose=False,
-                max_iter=self.max_iter,
-                eps_abs=self.eps_abs,
-                eps_rel=self.eps_rel,
-                polish=True,
-                adaptive_rho=True,
-            )
-            res = solver.solve()
-            mpc_status = res.info.status_val
-            print(f"[{self.zone_name}] OSQP solved, status={mpc_status}")
-            
-            if mpc_status in [1, 2]:  # 1: SOLVED, 2: SOLVED_INACCURATE
-                u_cmd_raw = np.clip(res.x[0], self.u_min, self.u_max)
+            if tuneup_phase:
+                self.tuneup_timer = getattr(self, 'tuneup_timer', 0.0) + dt
+                if self.tuneup_timer > 3600.0 * 2:  # Flip excitation every 2 hours
+                    self.tuneup_flip = not getattr(self, 'tuneup_flip', False)
+                    self.tuneup_timer = 0.0
+                
+                self.tuneup_flip = getattr(self, 'tuneup_flip', False)
+                
+                # "maximum and then half minimum"
+                u_cmd_raw = self.u_max if self.tuneup_flip else max(self.u_min, self.u_max * 0.5)
+                self.T_s_star_tune = self.T_s_min if self.tuneup_flip else self.T_s_max
+                self.W_s_star_tune = self.W_s_min if self.tuneup_flip else self.W_s_max
+                self.C_s_star_tune = 420.0 if self.tuneup_flip else 800.0
+                
+                mpc_status = -1
+                print(f"[{self.zone_name}] Tune-up phase: bypassing MPC, applying excitation U={u_cmd_raw}")
             else:
-                # Proportional fallback instead of blindly using u_prev
-                u_cmd_raw = self._fallback_control(state_data)
-                print(f"[{self.zone_name}] MPC failed (status={mpc_status}), fallback u={u_cmd_raw:.3f}")
+                solver = osqp.OSQP()
+                solver.setup(
+                    P=H_sparse, q=f, A=A_sparse, l=l_con, u=u_con,
+                    verbose=False,
+                    max_iter=self.max_iter,
+                    eps_abs=self.eps_abs,
+                    eps_rel=self.eps_rel,
+                    polish=True,
+                    adaptive_rho=True,
+                )
+                res = solver.solve()
+                mpc_status = res.info.status_val
+                print(f"[{self.zone_name}] OSQP solved, status={mpc_status}")
+                
+                if mpc_status in [1, 2]:  # 1: SOLVED, 2: SOLVED_INACCURATE
+                    u_cmd_raw = np.clip(res.x[0], self.u_min, self.u_max)
+                else:
+                    # Proportional fallback instead of blindly using u_prev
+                    u_cmd_raw = self._fallback_control(state_data)
+                    print(f"[{self.zone_name}] MPC failed (status={mpc_status}), fallback u={u_cmd_raw:.3f}")
             
             # EMA output smoothing: absorbs high-frequency chatter
             u_cmd = self.u_smooth_alpha * u_cmd_raw + (1.0 - self.u_smooth_alpha) * self.u_ema
@@ -509,7 +565,7 @@ class ZoneController:
             logger.add(f"{self.zone_name}_MPC_Status", mpc_status)
             
             
-            state_names = ["T_in", "T_m", "W_in", "C_in", "d_T", "d_W", "N_occ", "alpha_ext", "alpha_int", "beta_air", "beta_mass"]
+            state_names = ["T_in", "T_m", "W_in", "C_in", "d_T", "d_W", "N_occ", "alpha_ext", "alpha_int", "beta_air", "beta_mass", "d_C"]
             for i, name in enumerate(state_names):
                 logger.add(f"{self.zone_name}_EKF_x_{name}", self.x[i])
                 logger.add(f"{self.zone_name}_EKF_P_{name}", self.P[i, i])
@@ -558,49 +614,54 @@ class ZoneController:
             C_recirc = C_in
             
             # Proportional Ideal Ask (replaces bang-bang for better coordination)
-            if e_T > 0.5:
-                T_s_star = T_s_max
-            elif e_T > 0.1:
-                # Proportional range: interpolate between neutral and max
-                alpha = (e_T - 0.1) / 0.4
-                T_s_star = T_neutral + alpha * (T_s_max - T_neutral)
-            elif e_T < -0.5:
-                T_s_star = T_s_min
-            elif e_T < -0.1:
-                alpha = (-e_T - 0.1) / 0.4
-                T_s_star = T_neutral - alpha * (T_neutral - T_s_min)
+            if tuneup_phase:
+                T_s_star = getattr(self, 'T_s_star_tune', T_s_min)
+                W_s_star = getattr(self, 'W_s_star_tune', W_s_min)
+                C_s_star = getattr(self, 'C_s_star_tune', 420.0)
             else:
-                T_s_star = T_neutral
-                
-            if e_W < -0.001:
-                # Room is very humid (e_W is negative), request dry air to dehumidify
-                W_s_star = W_s_min
-            elif e_W < -0.0005:
-                alpha = (-e_W - 0.0005) / 0.0005
-                W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
-            else:
-                # Room is dry or neutral (e_W >= -0.0005). 
-                # Since the AHU lacks a humidifier, we can't actively add moisture.
-                # The best we can do is ask for neutral air so we don't dry it out further.
-                W_s_star = W_neutral
-                
-            if not hasattr(self, 'prev_C_in'):
-                self.prev_C_in = C_in
-            dC_in = C_in - self.prev_C_in
-            self.prev_C_in = C_in
-            
-            C_s_min = 420.0
-            C_recirc = C_in
-
-            if dC_in > 0.5:
-                if C_in < 600.0:
-                    C_s_star = max(420.0, C_in - 50.0)
+                if e_T > 0.5:
+                    T_s_star = T_s_max
+                elif e_T > 0.1:
+                    # Proportional range: interpolate between neutral and max
+                    alpha = (e_T - 0.1) / 0.4
+                    T_s_star = T_neutral + alpha * (T_s_max - T_neutral)
+                elif e_T < -0.5:
+                    T_s_star = T_s_min
+                elif e_T < -0.1:
+                    alpha = (-e_T - 0.1) / 0.4
+                    T_s_star = T_neutral - alpha * (T_neutral - T_s_min)
                 else:
-                    alpha = min(1.0, max(0.0, (C_in - 600.0) / 350.0))
-                    C_s_star = 800.0 - alpha * 380.0
-            else:
-                # Stable or decreasing: tolerate up to the limit
-                C_s_star = self.C_max
+                    T_s_star = T_neutral
+                    
+                if e_W < -0.001:
+                    # Room is very humid (e_W is negative), request dry air to dehumidify
+                    W_s_star = W_s_min
+                elif e_W < -0.0005:
+                    alpha = (-e_W - 0.0005) / 0.0005
+                    W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
+                else:
+                    # Room is dry or neutral (e_W >= -0.0005). 
+                    # Since the AHU lacks a humidifier, we can't actively add moisture.
+                    # The best we can do is ask for neutral air so we don't dry it out further.
+                    W_s_star = W_neutral
+                    
+                if not hasattr(self, 'prev_C_in'):
+                    self.prev_C_in = C_in
+                dC_in = C_in - self.prev_C_in
+                self.prev_C_in = C_in
+                
+                C_s_min = 420.0
+                C_recirc = C_in
+    
+                if dC_in > 0.5:
+                    if C_in < 600.0:
+                        C_s_star = max(420.0, C_in - 50.0)
+                    else:
+                        alpha = min(1.0, max(0.0, (C_in - 600.0) / 350.0))
+                        C_s_star = 800.0 - alpha * 380.0
+                else:
+                    # Stable or decreasing: tolerate up to the limit
+                    C_s_star = self.C_max
                 
             saturation_index = u_cmd / self.u_max
 

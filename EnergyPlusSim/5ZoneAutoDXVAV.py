@@ -272,8 +272,6 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         self.logger.add("Hour", h)
         self.logger.add("Minute", m)
 
-        # if not self.USE_CUSTOM_CONTROLLERS:
-        #     return 0
 
         # Run Zone Controllers
         self.zone_ideal_conditions = {}
@@ -466,12 +464,6 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 sa(state, h_max, flow)
                 sa(state, h_min, flow)
                 sa(state, h_sp,  flow)
-
-            # reheat_sp = 0    
-            # # Apply reheat setpoint
-            # h_reheat = self.actuators.get(f"{z}_Reheat_SP", -1)
-            # if h_reheat != -1:
-            #     sa(state, h_reheat, reheat_sp)
 
 
         return 0
