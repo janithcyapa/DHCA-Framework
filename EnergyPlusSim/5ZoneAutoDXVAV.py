@@ -378,6 +378,19 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         # Write to CSV
         self.logger.log_timestep()
         
+        # --- Save P Matrices periodically (e.g., every hour) ---
+        if not hasattr(self, "last_p_save_time"):
+            self.last_p_save_time = -1
+            
+        current_time = self.api.exchange.current_time(state)
+        if current_time - self.last_p_save_time >= 1.0 or current_time < self.last_p_save_time:
+            self.last_p_save_time = current_time
+            import numpy as np
+            import os
+            os.makedirs("./results", exist_ok=True)
+            for z in self.zones:
+                np.savetxt(f"./results/final_P_{z}.csv", self.zone_controllers[z].P, delimiter=",")
+        
         return 0
 
     #  HOOK 3 — Actuation

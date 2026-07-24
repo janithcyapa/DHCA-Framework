@@ -50,27 +50,27 @@ class ZoneController:
         
         # --- Structural Parameters ---
 
-        self.x[7] = 200.0   # x8: alpha_ext (1/R_ext)
-        self.x[8] = 500.0   # x9: alpha_int (1/R_int)
-        self.x[9] = 3.3e-6  # x10: beta_air (1/C_air)
-        self.x[10] = 1e-7   # x11: beta_mass (1/C_mass)
+        self.x[7] = 1000   # x8: alpha_ext (1/R_ext)
+        self.x[8] = 1000   # x9: alpha_int (1/R_int)
+        self.x[9] = 0  # x10: beta_air (1/C_air)
+        self.x[10] = 0  # x11: beta_mass (1/C_mass)
 
 
-        # P Matrix - Error Covariance matrix
+        # P Matrix - Error Covariance matrix (Initial Uncertainty)
         self.P = np.diag([
             1.0, 1.0, 1e-4, 100.0,          # T_in, T_m, W_in, C_in
-            10.0, 1e-6, 1.0,                # d_T, d_W, N_occ (allow learning from the start!)
-            100.0, 100.0, 1e-11, 1e-13,     # alpha_ext, alpha_int, beta_air, beta_mass
-            10.0                            # d_C (allow learning from the start!)
+            10.0, 1e-6, 1.0,                # d_T, d_W, N_occ
+            2500.0, 2500.0, 100, 100,   # alpha_ext, alpha_int (Massive initial uncertainty!)
+            10.0                            # d_C
         ])
-        # Q Matrix - baseline (will be overridden in step based on phase)
+        
+        # Q Matrix - baseline (Time-Scale Separation Enforced)
         self.Q = np.diag([
-            1e-7, 1e-4, 1e-7, 1e-7,         # State process noise
-            1e-2, 1e-10, 1.0,               # d_T, d_W, N_occ 
-            0.0, 0.0, 1e-16, 1e-18,         # alpha, beta (beta_air and beta_mass given tiny continuous drift)
-            1e-4                            # d_C
+            1e-6, 1e-4, 1e-8, 1e-4,         # Core Physics
+            1e-4, 1e-10, 1e-3,              # Fast Disturbances
+            1e-8, 1e-10, 1e-12, 1e-15,       # Parameters (Baseline floor prevents float collapse)
+            1e-4                            # Slow CO2 Disturbance
         ])
- 
         # Measurement Noise Covariance R
         self.R = np.diag([0.01, 1e-8, 10.0])
         
@@ -250,20 +250,20 @@ class ZoneController:
         self.sim_time_hours = getattr(self, 'sim_time_hours', 0.0) + (dt / 3600.0)
 
         
-        tuneup_time_a1 = 6.0
-        tuneup_time_a2 = 20.0
-        tuneup_phase = self.sim_time_hours <= 24.0
-        if self.sim_time_hours <= tuneup_time_a1:
-            self.Q[8, 8] = 1e-1
-        else:
-            self.Q[8, 8] = 1e-40
+        tuneup_time_a1 = 0.0
+        tuneup_time_a2 = 0.0
+        tuneup_phase = self.sim_time_hours <= 0.0
+        
+        # # Alpha_int tuning
+        # if self.sim_time_hours >= tuneup_time_a1:
+        #     self.Q[8, 8] = 1e-6
+        #     self.Q[9, 9] = 1e-12
+        #     self.Q[10, 10] = 1e-15
 
-        if self.sim_time_hours <= tuneup_time_a2:
-            self.Q[7, 7] = 1e-1
-        else:
-            self.Q[7, 7] = 1e-40
+        # if self.sim_time_hours >= tuneup_time_a2:
+        #     self.Q[7, 7] = 1e-6
 
- 
+
         
         T_out = state_data.get('T_out', 22.0)
         T_s = max(self.T_s_min, state_data.get('T_s', 13.0))

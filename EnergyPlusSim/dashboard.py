@@ -21,7 +21,7 @@ base_year = 2014
 
 # --- Configuration Flags ---
 # Change this to False if you want to see the first hour of EKF data
-REMOVE_FIRST_HOUR_EKF = True
+REMOVE_FIRST_HOUR_EKF = False
 
 def filter_first_hour(df):
     if df is None or df.empty:
@@ -427,6 +427,62 @@ if args.save_plots:
         except Exception as e:
             print(f"  PNG export failed for {z} EKF: {e}")
 
+    print("Generating unified P Matrix heatmap (Real and Log)...")
+    subplot_titles = []
+    for z in ZONES:
+        subplot_titles.extend([f"{z} (Real)", f"{z} (Log10)"])
+        
+    fig_p = make_subplots(rows=5, cols=2, subplot_titles=subplot_titles, horizontal_spacing=0.1, vertical_spacing=0.08)
+    state_names = ["T_in", "T_m", "W_in", "C_in", "d_T", "d_W", "N_occ", "alpha_ext", "alpha_int", "beta_air", "beta_mass", "d_C"]
+    has_data = False
+    
+    for i, z in enumerate(ZONES):
+        p_csv_path = f"./results/final_P_{z}.csv"
+        if os.path.exists(p_csv_path):
+            has_data = True
+            p_matrix = np.loadtxt(p_csv_path, delimiter=",")
+            p_log = np.sign(p_matrix) * np.log10(np.abs(p_matrix) + 1e-15)
+            row = i + 1
+            
+            # Real Plot
+            fig_p.add_trace(go.Heatmap(
+                z=p_matrix, x=state_names, y=state_names, colorscale="Viridis",
+                hovertemplate="Row: %{y}<br>Col: %{x}<br>Value: %{z:.2e}<extra></extra>",
+                coloraxis="coloraxis"
+            ), row=row, col=1)
+            
+            # Log Plot
+            fig_p.add_trace(go.Heatmap(
+                z=p_log, x=state_names, y=state_names, colorscale="Viridis", customdata=p_matrix,
+                hovertemplate="Row: %{y}<br>Col: %{x}<br>Log10: %{z:.2f}<br>Real: %{customdata:.2e}<extra></extra>",
+                coloraxis="coloraxis2"
+            ), row=row, col=2)
+            
+            fig_p.update_yaxes(autorange="reversed", row=row, col=1)
+            fig_p.update_yaxes(autorange="reversed", row=row, col=2)
+            fig_p.update_xaxes(tickangle=45, row=row, col=1)
+            fig_p.update_xaxes(tickangle=45, row=row, col=2)
+    
+    if has_data:
+        fig_p.update_layout(
+            title=dict(text="<b>Final Error Covariance (P) Matrices (Real vs Log10)</b>", x=0.5, xanchor="center"),
+            template="plotly_dark", height=2400, width=1400,
+            coloraxis=dict(colorscale="Viridis", colorbar=dict(title="Covariance", x=1.02)),
+            coloraxis2=dict(colorscale="Viridis", colorbar=dict(title="Log10 Cov", x=1.12))
+        )
+        for j in range(1, 11):
+            y_axis = f"yaxis{j}" if j > 1 else "yaxis"
+            x_axis = f"x{j}" if j > 1 else "x"
+            fig_p.layout[y_axis].scaleanchor = x_axis
+            fig_p.layout[y_axis].scaleratio = 1
+        try:
+            fig_p.write_image("./results/All_P_matrices.png", width=1400, height=2400)
+            print("  Saved All_P_matrices.png")
+        except Exception as e:
+            print(f"  PNG export failed for unified P matrix: {e}")
+    else:
+        print("  No P matrix CSVs found.")
+
     print("All plots automatically exported to ./results.")
     sys.exit(0)
 
@@ -446,7 +502,8 @@ app.layout = html.Div([
                 options=[
                     {"label": "AHU Monitor", "value": "AHU"},
                     {"label": "Zone Monitor", "value": "ZONE"},
-                    {"label": "EKF Monitor", "value": "EKF"}
+                    {"label": "EKF Monitor", "value": "EKF"},
+                    {"label": "P Matrix Heatmap", "value": "P_MATRIX"}
                 ],
                 value="AHU",
                 clearable=False,
@@ -510,6 +567,61 @@ def update_dashboard(selected_view, selected_zone, n_intervals):
     elif selected_view == "EKF":
         plot_df = filter_first_hour(current_df) if REMOVE_FIRST_HOUR_EKF else current_df
         return build_zone_subplots(plot_df, f"{selected_zone} (EKF)", get_ekf_config(selected_zone))
+    elif selected_view == "P_MATRIX":
+        subplot_titles = []
+        for z in ZONES:
+            subplot_titles.extend([f"{z} (Real)", f"{z} (Log10)"])
+            
+        fig = make_subplots(rows=5, cols=2, subplot_titles=subplot_titles, horizontal_spacing=0.1, vertical_spacing=0.08)
+        state_names = ["T_in", "T_m", "W_in", "C_in", "d_T", "d_W", "N_occ", "alpha_ext", "alpha_int", "beta_air", "beta_mass", "d_C"]
+        has_data = False
+        
+        for i, z in enumerate(ZONES):
+            p_csv_path = f"./results/final_P_{z}.csv"
+            if os.path.exists(p_csv_path):
+                has_data = True
+                p_matrix = np.loadtxt(p_csv_path, delimiter=",")
+                p_log = np.sign(p_matrix) * np.log10(np.abs(p_matrix) + 1e-15)
+                row = i + 1
+                
+                # Real Plot
+                fig.add_trace(go.Heatmap(
+                    z=p_matrix, x=state_names, y=state_names, colorscale="Viridis",
+                    hovertemplate="Row: %{y}<br>Col: %{x}<br>Value: %{z:.2e}<extra></extra>",
+                    coloraxis="coloraxis"
+                ), row=row, col=1)
+                
+                # Log Plot
+                fig.add_trace(go.Heatmap(
+                    z=p_log, x=state_names, y=state_names, colorscale="Viridis", customdata=p_matrix,
+                    hovertemplate="Row: %{y}<br>Col: %{x}<br>Log10: %{z:.2f}<br>Real: %{customdata:.2e}<extra></extra>",
+                    coloraxis="coloraxis2"
+                ), row=row, col=2)
+                
+                fig.update_yaxes(autorange="reversed", row=row, col=1)
+                fig.update_yaxes(autorange="reversed", row=row, col=2)
+                fig.update_xaxes(tickangle=45, row=row, col=1)
+                fig.update_xaxes(tickangle=45, row=row, col=2)
+                
+        if not has_data:
+            fig = go.Figure()
+            fig.add_annotation(text="P Matrix CSV not found (Wait for simulation to run)", x=0.5, y=0.5, showarrow=False, font=dict(size=20))
+            fig.update_layout(template="plotly_dark", xaxis=dict(visible=False), yaxis=dict(visible=False))
+            return fig
+            
+        fig.update_layout(
+            title=dict(text="<b>Final Error Covariance (P) Matrices (Real vs Log10)</b>", x=0.5, xanchor="center"),
+            template="plotly_dark", height=2400, width=1400,
+            coloraxis=dict(colorscale="Viridis", colorbar=dict(title="Covariance", x=1.02)),
+            coloraxis2=dict(colorscale="Viridis", colorbar=dict(title="Log10 Cov", x=1.12))
+        )
+        for j in range(1, 11):
+            y_axis = f"yaxis{j}" if j > 1 else "yaxis"
+            x_axis = f"x{j}" if j > 1 else "x"
+            fig.layout[y_axis].scaleanchor = x_axis
+            fig.layout[y_axis].scaleratio = 1
+            
+        return fig
     return go.Figure()
 
 if __name__ == "__main__":
