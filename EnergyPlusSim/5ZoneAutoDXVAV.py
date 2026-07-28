@@ -73,8 +73,15 @@ class Initializer:
         
     def setup(self, state):
         self.discover_zones(state)
+        
+        try:
+            self.plugin.steps_per_hour = self.api.exchange.num_time_steps_in_hour(state)
+        except AttributeError:
+            dt_h = self.api.exchange.zone_time_step(state)
+            self.plugin.steps_per_hour = int(round(1.0 / dt_h)) if dt_h > 0 else 12
+
         self.load_params()
-        self.load_datasets()
+        self.load_datasets(state)
         self.register_env_handles(state)
         self.register_central_handles(state)
         self.register_zone_handles(state)
@@ -94,20 +101,56 @@ class Initializer:
             with open(path, "r") as f:
                 self.plugin.zone_params = json.load(f)
 
-    def load_datasets(self):
+    def load_datasets(self, state):
+        import numpy as np
         for i in range(1, 6):
             z = f"SPACE{i}-1"
             csv_file = f"./SupplementaryData/combined_Room{i}.csv"
             if not os.path.exists(csv_file):
                 continue
+                
             rows = []
             with open(csv_file, 'r') as f:
-                for r in csv.DictReader(f):
+                reader = list(csv.DictReader(f))
+                n = len(reader)
+                
+                # Configuration for random setpoint generation
+                temp_min = 20.0
+                temp_max = 25.0
+                hours_min = 8
+                hours_max = 8
+                steps_per_hour = self.plugin.steps_per_hour
+
+                rng = np.random.RandomState(2026 + i * 13)
+                setpoints = np.zeros(n)
+                idx = 0
+                
+                # Pick initial value
+                curr_val = round(rng.uniform(temp_min, temp_max), 1)
+                
+                while idx < n:
+                    if hours_min == hours_max:
+                        step_len = hours_min * steps_per_hour
+                    else:
+                        step_len = rng.randint(hours_min * steps_per_hour, hours_max * steps_per_hour)
+                        
+                    # Ensure the new setpoint is at least slightly different
+                    new_val = curr_val
+                    while abs(new_val - curr_val) < 0.5: 
+                        new_val = round(rng.uniform(temp_min, temp_max), 1)
+                    curr_val = new_val
+                    
+                    end_idx = min(idx + step_len, n)
+                    setpoints[idx:end_idx] = curr_val
+                    idx = end_idx
+                
+                for r_idx, r in enumerate(reader):
                     rows.append({
                         'plug_W':   float(r['plug_load_energy [kWh]']) * 12_000.0,
                         'light_W':  float(r['lighting_energy [kWh]'])  * 12_000.0,
                         'occupant_count': float(r['occupant_count [number]']),
                         'outdoor_co2':    float(r.get('outdoor_co2 [ppm]', 420.0)),
+                        'temp_setpoint':  float(setpoints[r_idx]),
                     })
             self.plugin.datasets[z] = rows
             print(f" 📥 Loaded {len(rows)} rows for {z}")
@@ -171,6 +214,10 @@ class Initializer:
             self.plugin.actuators[f"{z}_People_SP"]= ga(state, "People",               "Number of People",     f"{z} PEOPLE 1")
             self.plugin.actuators[f"{z}_Equip_SP"] = ga(state, "ElectricEquipment",    "Electricity Rate",     f"{z} ELECEQ 1")
             self.plugin.actuators[f"{z}_Lights_SP"]= ga(state, "Lights",               "Electricity Rate",     f"{z} LIGHTS 1")
+            
+            # Thermostat actuators for Benchmark Mode
+            self.plugin.actuators[f"{z}_Heat_SP"]  = ga(state, "Zone Temperature Control", "Heating Setpoint", z)
+            self.plugin.actuators[f"{z}_Cool_SP"]  = ga(state, "Zone Temperature Control", "Cooling Setpoint", z)
 
         self.plugin.actuators["CC_Temp_SP"] = ga(state, "System Node Setpoint", "Temperature Setpoint", "Main Cooling Coil 1 Outlet Node")
         self.plugin.actuators["CC_Hum_SP"] = ga(state, "System Node Setpoint", "Humidity Ratio Setpoint", "Main Cooling Coil 1 Outlet Node")
@@ -203,11 +250,13 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         self.datasets  = {}
         self.start_day = None
         self.zone_params = {}
+        self.steps_per_hour = 12
 
-        # Toggle for custom controllers
-        self.USE_CUSTOM_CONTROLLERS = True
+        # Toggle for custom controllers (Benchmark mode uses False)
+        self.USE_CUSTOM_CONTROLLERS = os.environ.get("USE_CUSTOM_CONTROLLERS", "1") != "0"
         
-        self.logger = SimulationLogger()
+        csv_path = "./results/state_log.csv" if self.USE_CUSTOM_CONTROLLERS else "./results/baseline_results.csv"
+        self.logger = SimulationLogger(csv_path=csv_path)
         self.initializer = Initializer(self.api, self)
         
         self.zone_controllers = {}
@@ -275,6 +324,22 @@ class HVAC_Coordinator(EnergyPlusPlugin):
 
         # Run Zone Controllers
         self.zone_ideal_conditions = {}
+        
+        # Time sync for dataset schedules
+        elapsed = (day - 1) * 24.0 + t
+        idx = int(elapsed * self.steps_per_hour)
+        
+        # If Benchmark mode is ON (Custom Controllers OFF), apply thermostat setpoints and skip custom logic
+        if not self.USE_CUSTOM_CONTROLLERS:
+            for z in self.zones:
+                if z in self.datasets:
+                    sp = self.datasets[z][idx % len(self.datasets[z])]['temp_setpoint']
+                    heat_h = self.actuators.get(f"{z}_Heat_SP", -1)
+                    cool_h = self.actuators.get(f"{z}_Cool_SP", -1)
+                    if heat_h != -1: self.api.exchange.set_actuator_value(state, heat_h, sp - 0.5)
+                    if cool_h != -1: self.api.exchange.set_actuator_value(state, cool_h, sp + 0.5)
+            return 0
+        
         for z in self.zones:
             # Compute effective T_out as simple average of adjacent zone temps
             adj_list = self.zone_params.get(z, {}).get('adj_zones', [])
@@ -297,6 +362,9 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 'C_s': self._val(state, f"{z}_C_s"),
                 'Equip': self._val(state, f"{z}_Equip")
             }
+            
+            if z in self.datasets:
+                state_data['temp_setpoint'] = self.datasets[z][idx % len(self.datasets[z])]['temp_setpoint']
 
             print(f"[{z}][{day}-{h}:{m}] Starting step with dt={dt}")
             # Execute zone controller step
@@ -404,10 +472,8 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         # Time sync for dataset schedules
         day  = self.api.exchange.day_of_year(state)
         time = self.api.exchange.current_time(state)
-        if self.start_day is None:
-            self.start_day = day
-        elapsed = (day - self.start_day) * 24.0 + time
-        idx     = int(elapsed * 12)
+        elapsed = (day - 1) * 24.0 + time
+        idx     = int(elapsed * self.steps_per_hour)
 
         # Dataset overrides
         if "SPACE1-1" in self.datasets:
@@ -443,6 +509,10 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 'actual_co2': actual_co2,
                 'fan_out_T': self._val(state, "Fan_Out_Temp"),
                 'hc_out_T': self._val(state, "HC_Out_Temp"),
+                'T_out': self._val(state, "Out_Temp"),
+                'T_ret': self._val(state, "Mixer_Inlet_Temp"),
+                'C_out': self._val(state, "Out_CO2"),
+                'C_ret': self._val(state, "Mixer_Inlet_CO2")
             }
             
             cmds = self.ahu_coordinator.step(self.zone_ideal_conditions, system_state, time, self.logger)
@@ -480,6 +550,11 @@ class HVAC_Coordinator(EnergyPlusPlugin):
                 sa(state, h_max, flow)
                 sa(state, h_min, flow)
                 sa(state, h_sp,  flow)
+                
+            # NEW: Explicitly disable the reheater by setting the target node temp to the AHU SAT
+            h_reheat = self.actuators.get(f"{z}_Reheat_SP", -1)
+            if h_reheat != -1:
+                sa(state, h_reheat, 10.0)
 
 
         return 0

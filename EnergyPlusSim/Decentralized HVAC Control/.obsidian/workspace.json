@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "4. Controllability Maximization  The \"Ideal Ask\".md",
+                "file": "HVAC Multi-Zone Control Strategy — SummarySummary.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "4. Controllability Maximization  The \"Ideal Ask\""
+              "title": "HVAC Multi-Zone Control Strategy — SummarySummary"
             }
           }
         ]
@@ -78,7 +78,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 300,
+    "collapsed": true
   },
   "right": {
     "id": "bcbd8b886a2b73e3",
@@ -185,6 +186,11 @@
   },
   "active": "63830765bb069a2e",
   "lastOpenFiles": [
+    "Results.md",
+    "HVAC Multi-Zone Control Strategy — SummarySummary.md",
+    "5. The AHU Coordinator Multi-Zone Arbitration Logic.md",
+    "Simulation 5 Zone Values.md",
+    "4. Controllability Maximization  The \"Ideal Ask\".md",
     "3. Actuation-Minimizing Deadband Zone MPC.md",
     "2. The Extended Kalman Filter (EKF).md",
     "1. Modeling a thermal zone using an RC (Resistor-Capacitor) model.md"

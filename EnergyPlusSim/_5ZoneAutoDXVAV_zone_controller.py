@@ -71,6 +71,7 @@ class ZoneController:
             1e-8, 1e-10, 1e-12, 1e-15,       # Parameters (Baseline floor prevents float collapse)
             1e-4                            # Slow CO2 Disturbance
         ])
+        
         # Measurement Noise Covariance R
         self.R = np.diag([0.01, 1e-8, 10.0])
         
@@ -94,7 +95,7 @@ class ZoneController:
         self.r_delta = 5e1 
 
         self.lambda_T = 1e3 
-        self.lambda_W = 1e8  
+        self.lambda_W = 1e10  
         self.lambda_C = 1e1
 
         self.mu_T = 1e4  
@@ -102,7 +103,12 @@ class ZoneController:
 
         # Centering weights
         self.q_T_center = 5.0
-        self.q_W_center = 1e5 
+        self.q_W_center = 1e7 
+
+        # --- Phase 2 QP (Ideal Ask) weights & reference points ---
+        self.q_T_ask = 1.0
+        self.q_W_ask = 1.0e6
+        self.q_C_ask = 1.0e-3
 
         # Solver Config
         self.max_iter=50000
@@ -138,6 +144,9 @@ class ZoneController:
         self.W_s_min = w_sat(self.T_s_min) 
         self.W_s_max = 0.015
         self.C_s_min = 420.0
+        self.C_s_max = self.C_max
+        
+     
 
         
         self.setup_mpc_constants()
@@ -242,8 +251,247 @@ class ZoneController:
         u_fb = np.clip(u_fb, self.u_prev - self.du_max, self.u_prev + self.du_max)  # NEW
         return u_fb
 
+    def _fallback_ideal_ask(self, T_in, W_in, C_in, T_neutral, W_neutral):
+        """
+        Fallback for the Phase-2 Ideal-Ask QP when it fails to solve.
+        This is the old proportional/bang-bang heuristic, kept only as a
+        safety net (mirrors _fallback_control's role for the flow QP).
+        """
+        T_ref = self.T_ref
+        W_ref = (self.W_max + self.W_min) / 2.0
+        e_T = T_ref - T_in
+        e_W = W_ref - W_in
+
+        T_s_min, T_s_max = self.T_s_min, self.T_s_max
+        W_s_min = self.W_s_min
+
+        if e_T > 0.5:
+            T_s_star = T_s_max
+        elif e_T > 0.1:
+            alpha = (e_T - 0.1) / 0.4
+            T_s_star = T_neutral + alpha * (T_s_max - T_neutral)
+        elif e_T < -0.5:
+            T_s_star = T_s_min
+        elif e_T < -0.1:
+            alpha = (-e_T - 0.1) / 0.4
+            T_s_star = T_neutral - alpha * (T_neutral - T_s_min)
+        else:
+            T_s_star = T_neutral
+
+        if e_W < -0.001:
+            W_s_star = W_s_min
+        elif e_W < -0.0005:
+            alpha = (-e_W - 0.0005) / 0.0005
+            W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
+        else:
+            W_s_star = W_neutral
+
+        if not hasattr(self, 'prev_C_in'):
+            self.prev_C_in = C_in
+        dC_in = C_in - self.prev_C_in
+        self.prev_C_in = C_in
+
+        if dC_in > 0.5:
+            if C_in < 600.0:
+                C_s_star = max(self.C_s_min, C_in - 50.0)
+            else:
+                alpha = min(1.0, max(0.0, (C_in - 600.0) / 350.0))
+                C_s_star = 800.0 - alpha * 380.0
+        else:
+            C_s_star = self.C_max
+
+        return T_s_star, W_s_star, C_s_star
+
+    def _solve_ideal_ask(self, T_out, T_s0, W_s0, C_s0, u_star, dt, logger, T_neutral, W_neutral, C_neutral):
+        """
+        Phase 2 of the Sequential (Alternating) Linearization scheme
+        (doc "4. Controllability Maximization - The Ideal Ask").
+
+        With the VAV flow frozen at u_star (the just-solved Phase-1
+        optimum), the bilinear u*T_s term becomes linear in the AHU
+        supply request Z = [T_s, W_s, C_s], so this solves a small
+        secondary QP for the mathematically optimal ask -- replacing the
+        proportional/bang-bang heuristic.
+
+        Design choices made where the derivation doc under-specifies:
+        - u_star is taken as u_cmd (the final, smoothed & clipped flow
+          actually sent to the VAV box this step), not the raw QP output,
+          so the ask is linearized about what is actually happening.
+        - The ask Z is solved as ONE constant triple (not a per-step
+          trajectory) held over the same N-step horizon as Phase 1, so the
+          AHU coordinator receives a request that keeps the zone
+          comfortable over the prediction horizon, not just next instant.
+        - C_s_max / C_neutral (undefined in the doc) are taken from
+          self.C_s_max / self.C_neutral -- see the note at their
+          definition in __init__.
+        """
+        N = self.N
+        x0 = self.x[0:4].copy()
+        T_in, T_m, W_in, C_in = x0
+        d_T, d_W = self.x[4], self.x[5]
+        N_occ, alpha_ext, alpha_int, beta_air, beta_mass, d_C = self.x[6:12]
+        rho, c_p = self.rho_air, self.c_p
+
+        # --- Linearize the physics about (x0, u_star, v_s0) ---
+        f_ask = np.zeros(4)
+        f_ask[0] = beta_air * (alpha_ext*(T_out - T_in) + alpha_int*(T_m - T_in)
+                                + N_occ*self.q_person + rho*c_p*u_star*(T_s0 - T_in) + d_T)
+        f_ask[1] = beta_mass * (alpha_int*(T_in - T_m))
+        f_ask[2] = beta_air*c_p*(N_occ*self.g_w_person + rho*u_star*(W_s0 - W_in) + d_W)
+        f_ask[3] = beta_air*rho*c_p*(N_occ*self.g_co2_person + u_star*(C_s0 - C_in) + d_C)
+
+        Ac_ask = np.zeros((4, 4))
+        Ac_ask[0, 0] = beta_air * (-alpha_ext - alpha_int - rho*c_p*u_star)
+        Ac_ask[0, 1] = beta_air * alpha_int
+        Ac_ask[1, 0] = beta_mass * alpha_int
+        Ac_ask[1, 1] = -beta_mass * alpha_int
+        Ac_ask[2, 2] = -beta_air*c_p*rho*u_star
+        Ac_ask[3, 3] = -beta_air*rho*c_p*u_star
+
+        B_ask = np.zeros((4, 3))
+        B_ask[0, 0] = beta_air * rho * c_p * u_star   # d(T_in_dot)/d(T_s)
+        B_ask[2, 1] = beta_air * c_p * rho * u_star    # d(W_in_dot)/d(W_s)
+        B_ask[3, 2] = beta_air * rho * c_p * u_star    # d(C_in_dot)/d(C_s)
+
+        v_s0 = np.array([T_s0, W_s0, C_s0])
+        cc_ask = f_ask - Ac_ask @ x0 - B_ask @ v_s0
+
+        Ad_ask = np.eye(4) + Ac_ask * dt
+        Bd_ask = B_ask * dt
+        cd_ask = cc_ask * dt
+
+        # --- Horizon prediction with Z held constant across N steps ---
+        A_pows = [np.eye(4)]
+        for i in range(1, N + 1):
+            A_pows.append(A_pows[-1] @ Ad_ask)
+
+        Psi_ask = np.zeros((4*N, 4))
+        Phi_ask = np.zeros((4*N, 4))
+        sum_A = np.zeros((4, 4))
+        for i in range(N):
+            Psi_ask[i*4:(i+1)*4, :] = A_pows[i+1]
+            sum_A = sum_A + A_pows[i]
+            Phi_ask[i*4:(i+1)*4, :] = sum_A
+
+        # Since Z is constant (not a per-step trajectory), the effective
+        # input map collapses to Phi_ask @ Bd_ask -- the same simplification
+        # that makes Rule 4's persistent T_s_opt tractable in the coordinator.
+        Theta_ask = Phi_ask @ Bd_ask               # (4N, 3)
+        g_ask = Psi_ask @ x0 + Phi_ask @ cd_ask    # (4N,)
+
+        FT = self.ST @ Theta_ask; gT = self.ST @ g_ask
+        FW = self.SW @ Theta_ask; gW = self.SW @ g_ask
+        FC = self.SC @ Theta_ask; gC = self.SC @ g_ask
+
+        # --- QP assembly: z = [T_s, W_s, C_s, eps_T(N), eps_W(N), eps_C(N)] ---
+        n_vars = 3 + 3*N
+
+        H = np.zeros((n_vars, n_vars))
+        H[0:3, 0:3] = 2.0 * np.diag([self.q_T_ask, self.q_W_ask, self.q_C_ask])
+        H[3:3+N, 3:3+N] = 2.0 * np.eye(N) * self.lambda_T
+        H[3+N:3+2*N, 3+N:3+2*N] = 2.0 * np.eye(N) * self.lambda_W
+        H[3+2*N:3+3*N, 3+2*N:3+3*N] = 2.0 * np.eye(N) * self.lambda_C
+        H += np.eye(n_vars) * 1e-6
+        H_sparse = sparse.csc_matrix(H)
+
+        f = np.zeros(n_vars)
+        f[0] = -2.0 * self.q_T_ask * T_neutral
+        f[1] = -2.0 * self.q_W_ask * W_neutral
+        f[2] = -2.0 * self.q_C_ask * C_neutral
+
+        I_N, O_N = self.I_N, self.O_N
+        O_N3 = np.zeros((N, 3))
+        I_3 = np.eye(3)
+        O_3N = np.zeros((3, N))
+
+        A_con = np.block([
+            [FT,   -I_N,  O_N,  O_N],   # T upper (soft)
+            [-FT,  -I_N,  O_N,  O_N],   # T lower (soft)
+            [FW,    O_N, -I_N,  O_N],   # W upper (soft)
+            [-FW,   O_N, -I_N,  O_N],   # W lower (soft)
+            [FC,    O_N,  O_N, -I_N],   # C ceiling only (soft)
+            [O_N3,  I_N,  O_N,  O_N],   # eps_T >= 0
+            [O_N3,  O_N,  I_N,  O_N],   # eps_W >= 0
+            [O_N3,  O_N,  O_N,  I_N],   # eps_C >= 0
+            [I_3,  O_3N, O_3N, O_3N],   # AHU physical box bounds on Z
+        ])
+
+        n_con = 8*N + 3
+        l_con = np.zeros(n_con)
+        u_con = np.zeros(n_con)
+
+        l_con[0:N] = -np.inf
+        u_con[0:N] = self.T_max*np.ones(N) - gT
+
+        l_con[N:2*N] = -np.inf
+        u_con[N:2*N] = -self.T_min*np.ones(N) + gT
+
+        l_con[2*N:3*N] = -np.inf
+        u_con[2*N:3*N] = self.W_max*np.ones(N) - gW
+
+        l_con[3*N:4*N] = -np.inf
+        u_con[3*N:4*N] = -self.W_min*np.ones(N) + gW
+
+        l_con[4*N:5*N] = -np.inf
+        u_con[4*N:5*N] = self.C_max*np.ones(N) - gC
+
+        l_con[5*N:8*N] = 0.0
+        u_con[5*N:8*N] = np.inf
+
+        l_con[8*N:8*N+3] = [self.T_s_min, self.W_s_min, self.C_s_min]
+        u_con[8*N:8*N+3] = [self.T_s_max, self.W_s_max, self.C_s_max]
+
+        A_sparse = sparse.csc_matrix(A_con)
+
+        solver = osqp.OSQP()
+        solver.setup(
+            P=H_sparse, q=f, A=A_sparse, l=l_con, u=u_con,
+            verbose=False, max_iter=self.max_iter,
+            eps_abs=self.eps_abs, eps_rel=self.eps_rel,
+            polish=True, adaptive_rho=True,
+        )
+        res = solver.solve()
+        status = res.info.status_val
+
+        if status in (1, 2):  # SOLVED or SOLVED_INACCURATE
+            T_s_star = float(np.clip(res.x[0], self.T_s_min, self.T_s_max))
+            W_s_star = float(np.clip(res.x[1], self.W_s_min, self.W_s_max))
+            C_s_star = float(np.clip(res.x[2], self.C_s_min, self.C_s_max))
+        else:
+            T_s_star, W_s_star, C_s_star = self._fallback_ideal_ask(T_in, W_in, C_in, T_neutral, W_neutral)
+            print(f"[{self.zone_name}] Ideal-Ask QP failed (status={status}), using fallback ask")
+
+        logger.add(f"{self.zone_name}_AskQP_Status", status)
+        return T_s_star, W_s_star, C_s_star
+
     def step(self, dt, state_data, logger):
         
+        # Retrieve CO2 values
+        C_out = state_data.get('C_out', 420.0)
+        C_in = self.x[3] 
+        C_s = max(self.C_s_min, state_data.get('C_s', 420.0))
+
+        # Estimate Gamma 
+        if abs(C_in - C_out) > 10.0: 
+            gamma = (C_in - C_s) / (C_in - C_out)
+            gamma = np.clip(gamma, 0.0, 1.0)  
+        else:
+            gamma = 0.1 
+
+        # Calculate Mixed Air states
+        T_out = state_data.get('T_out', 22.0)
+        W_out = state_data.get('W_out', 0.008)
+        T_in = self.x[0]
+        W_in = self.x[2]
+
+        T_mix = gamma * T_out + (1.0 - gamma) * T_in
+        W_mix = gamma * W_out + (1.0 - gamma) * W_in
+
+        # Set the Dynamic Neutral Targets for Solver 2
+        T_neutral_dynamic = np.clip(T_mix, self.T_s_min, self.T_s_max)
+        W_neutral_dynamic = np.clip(W_mix, self.W_s_min, self.W_s_max)
+        C_neutral_dynamic = C_in  
+
         start_time = time.perf_counter()
         
         # Track elapsed simulation time
@@ -269,6 +517,11 @@ class ZoneController:
         T_s = max(self.T_s_min, state_data.get('T_s', 13.0))
         W_s = max(self.W_s_min, state_data.get('W_s', 0.008))
         C_s = max(self.C_s_min, state_data.get('C_s', 420.0))
+
+        # Dynamically update MPC references
+        self.T_ref = state_data.get('temp_setpoint', self.T_ref)
+        self.T_max = self.T_ref + self.T_delta
+        self.T_min = self.T_ref - self.T_delta
 
         u_mass = state_data.get('VAV_Flow', 0.0)
         u = u_mass / self.rho_air
@@ -570,6 +823,11 @@ class ZoneController:
                 logger.add(f"{self.zone_name}_EKF_x_{name}", self.x[i])
                 logger.add(f"{self.zone_name}_EKF_P_{name}", self.P[i, i])
                 
+            # Log references
+            logger.add(f"{self.zone_name}_T_ref_C", self.T_ref)
+            logger.add(f"{self.zone_name}_T_max_C", self.T_max)
+            logger.add(f"{self.zone_name}_T_min_C", self.T_min)
+                
             # 2. Log EKF Health Diagnostics
             # Innovation/Residuals (Expected to be zero-mean white noise)
             logger.add(f"{self.zone_name}_EKF_y_T_in", y_k[0])
@@ -588,81 +846,22 @@ class ZoneController:
             logger.add(f"{self.zone_name}_EKF_K_C_in", K_k[3, 2])
             logger.add(f"{self.zone_name}_EKF_K_N_occ_from_C_in", K_k[6, 2])
             
-            # --- Ideal Ask Logic ---
+            # --- Ideal Ask Logic (Phase 2: Sequential Linearization) ---
             T_in, T_m, W_in, C_in = self.x[0], self.x[1], self.x[2], self.x[3]
-            
-            # Target values
-            T_ref = self.T_ref
-            W_ref = (self.W_max + self.W_min) / 2.0
-            C_limit = self.C_max
-            
-            # Correction vector e
-            e_T = T_ref - T_in
-            e_W = W_ref - W_in
-            e_C = min(0.0, C_limit - C_in)
-            
-            # AHU Physical limits (see FIX note on self.W_s_min in __init__)
-            T_s_min = self.T_s_min
-            T_s_max = self.T_s_max
-            T_neutral = 22.0
-            
-            W_s_min = self.W_s_min
-            W_s_max = self.W_s_max
-            W_neutral = 0.015
-            
-            C_s_min = 400.0
-            C_recirc = C_in
-            
-            # Proportional Ideal Ask (replaces bang-bang for better coordination)
+
             if tuneup_phase:
-                T_s_star = getattr(self, 'T_s_star_tune', T_s_min)
-                W_s_star = getattr(self, 'W_s_star_tune', W_s_min)
+                T_s_star = getattr(self, 'T_s_star_tune', self.T_s_min)
+                W_s_star = getattr(self, 'W_s_star_tune', self.W_s_min)
                 C_s_star = getattr(self, 'C_s_star_tune', 420.0)
             else:
-                if e_T > 0.5:
-                    T_s_star = T_s_max
-                elif e_T > 0.1:
-                    # Proportional range: interpolate between neutral and max
-                    alpha = (e_T - 0.1) / 0.4
-                    T_s_star = T_neutral + alpha * (T_s_max - T_neutral)
-                elif e_T < -0.5:
-                    T_s_star = T_s_min
-                elif e_T < -0.1:
-                    alpha = (-e_T - 0.1) / 0.4
-                    T_s_star = T_neutral - alpha * (T_neutral - T_s_min)
-                else:
-                    T_s_star = T_neutral
-                    
-                if e_W < -0.001:
-                    # Room is very humid (e_W is negative), request dry air to dehumidify
-                    W_s_star = W_s_min
-                elif e_W < -0.0005:
-                    alpha = (-e_W - 0.0005) / 0.0005
-                    W_s_star = W_neutral - alpha * (W_neutral - W_s_min)
-                else:
-                    # Room is dry or neutral (e_W >= -0.0005). 
-                    # Since the AHU lacks a humidifier, we can't actively add moisture.
-                    # The best we can do is ask for neutral air so we don't dry it out further.
-                    W_s_star = W_neutral
-                    
-                if not hasattr(self, 'prev_C_in'):
-                    self.prev_C_in = C_in
-                dC_in = C_in - self.prev_C_in
-                self.prev_C_in = C_in
-                
-                C_s_min = 420.0
-                C_recirc = C_in
-    
-                if dC_in > 0.5:
-                    if C_in < 600.0:
-                        C_s_star = max(420.0, C_in - 50.0)
-                    else:
-                        alpha = min(1.0, max(0.0, (C_in - 600.0) / 350.0))
-                        C_s_star = 800.0 - alpha * 380.0
-                else:
-                    # Stable or decreasing: tolerate up to the limit
-                    C_s_star = self.C_max
-                
+                # u_cmd is the final, smoothed & clipped Phase-1 flow that is
+                # actually being sent to the VAV box this step -- freezing
+                # the ask's linearization on this (rather than the raw QP
+                # output) keeps the ask self-consistent with reality.
+                T_s_star, W_s_star, C_s_star = self._solve_ideal_ask(
+                    T_out, T_s, W_s, C_s, u_cmd, dt, logger,
+                    T_neutral_dynamic, W_neutral_dynamic, C_neutral_dynamic)
+
             saturation_index = u_cmd / self.u_max
 
             logger.add(f"{self.zone_name}_ideal_temp", T_s_star)

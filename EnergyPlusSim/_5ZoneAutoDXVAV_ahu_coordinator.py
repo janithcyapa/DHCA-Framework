@@ -4,6 +4,9 @@ Coordinates the zone ideal conditions to determine AHU setpoints.
 Implements multi-zone arbitration logic with comprehensive logging.
 """
 import math
+import numpy as np
+import scipy.sparse as sparse
+import osqp
 
 def w_sat(T_C, P_atm=101325.0):
     """
@@ -21,129 +24,63 @@ class AHUCoordinator:
         self.ready = False
         
         # AHU physical limits corresponding to the Ideal Ask limits
-        self.T_s_min = 10.0
-        self.T_s_max = 40.0
+        self.T_coil_min = 5.0
+        self.T_coil_max = 40.0
         self.T_neutral = 22.0 
 
-        self.W_s_min = w_sat(self.T_s_min)
+        self.W_s_min = w_sat(self.T_coil_min)
         self.W_s_max = 0.015
         self.W_neutral = 0.015
         
-        self.C_s_min = 400.0
-        
-        # Rule 4 state variables
-        self.T_s_opt = 13.0
-        self.delta_T_step = 0.2
+        self.C_max = 1000.0
+        self.gamma_min = 0.04 # (OA_MIN=0.1 / OA_MAX=2.5)
 
         # Setpoint smoothing — protect equipment from rapid changes
-        # EMA alpha: 0.0 = no change, 1.0 = no smoothing (instant)
-        self.SMOOTH_ALPHA = 0.1   # Blend: 40% new, 60% previous
-        # Max change per timestep (rate limiter, on top of EMA)
+        self.SMOOTH_ALPHA = 0.4   # Blend: 40% new, 60% previous
         self.MAX_dT = 1.5         # °C per timestep
-        self.MAX_dW = 0.001       # kg/kg per timestep
-        self.MAX_dC = 50.0        # ppm per timestep
-        # Previous smoothed setpoints
-        self._prev_T = self.T_neutral
-        self._prev_W = self.W_neutral
-        self._prev_C = self.C_s_min
         
-        # State variables for control logic moved from 5ZoneAutoDXVAV.py
+        # Previous smoothed setpoints
+        self._prev_T_cc = 13.0
+        self._prev_T_hc = 13.0
+        self._prev_gamma = 0.1
+        
         self._fan_dT_est = 0.5
-        self._co2_integral = 0.0
-        self._dx_state = False
-        self._dx_last_toggle_time = -999.0
-        self._heater_state = False
-        self._heater_last_toggle_time = -999.0
+        
+        # QP Weights
+        self.q_T = 1.0
+        self.q_W = 1.0e8
+        # self.q_C = 1.0e-3
+        self.q_C = 1.0e-2
+        self.phi_c = 0.1
+        self.phi_h = 0.1
+        self.phi_v = 10.0
+
 
     def calculate_setpoints(self, zone_conditions, logger):
         """
-        Calculates central AHU setpoints based on worst-case logic.
+        Dummy calculation to satisfy the plugin loop. The real QP is solved in step().
         """
         if not zone_conditions:
             logger.add("AHU_Coordinator_Status", 0)
-            return {
-                'ahu_temp_sp': self.T_neutral,
-                'ahu_hum_sp': self.W_neutral,
-                'ahu_co2_sp': self.C_s_min
-            }
+            return {}
         
         logger.add("AHU_Coordinator_Status", 1)
-        
-        ideal_temps = []
-        ideal_hums = []
-        ideal_co2s = []
-        
-        for z_name, cond in zone_conditions.items():
-            ideal_temps.append(cond.get('ideal_temp', self.T_neutral))
-            ideal_hums.append(cond.get('ideal_hum', self.W_neutral))
-            ideal_co2s.append(cond.get('ideal_co2', 400.0))
-
-        # CO2: min requested (most fresh air)
-        C_s_AHU = min(ideal_co2s) if ideal_co2s else 400.0
-        
-        # Humidity: min requested (most dehumidification)
-        W_s_AHU = min(ideal_hums) if ideal_hums else self.W_neutral
-        
-        # Temperature: if any zone wants cooling, provide max cooling requested.
-        # Otherwise, if any zone wants heating, provide max heating requested.
-        T_demands_cool = [t for t in ideal_temps if t < self.T_neutral - 0.5]
-        T_demands_heat = [t for t in ideal_temps if t > self.T_neutral + 0.5]
-        
-        if T_demands_cool:
-            T_s_AHU = min(T_demands_cool)
-        elif T_demands_heat:
-            T_s_AHU = max(T_demands_heat)
-        else:
-            T_s_AHU = self.T_neutral
-            
-        # Final setpoints — apply smoothing to protect equipment
-        T_s_AHU = self._smooth(T_s_AHU, self._prev_T, self.SMOOTH_ALPHA, self.MAX_dT)
-        W_s_AHU = self._smooth(W_s_AHU, self._prev_W, self.SMOOTH_ALPHA, self.MAX_dW)
-        C_s_AHU = self._smooth(C_s_AHU, self._prev_C, self.SMOOTH_ALPHA, self.MAX_dC)
-        self._prev_T = T_s_AHU
-        self._prev_W = W_s_AHU
-        self._prev_C = C_s_AHU
-
-        logger.add("Cord_Temp_SP_C", round(T_s_AHU, 2))
-        logger.add("Cord_W_kg_kg", round(W_s_AHU, 5))
-        logger.add("Cord_CO2_ppm", round(C_s_AHU, 2))
-
-        return {
-            'ahu_temp_sp': T_s_AHU,
-            'ahu_hum_sp': W_s_AHU,
-            'ahu_co2_sp': C_s_AHU
-        }
+        return {'ready': True}
 
     def step(self, zone_conditions, system_state, current_time, logger):
         """
-        Coordinates zone conditions to calculate actual actuator commands.
-        Includes CO2 PI control, psychrometric coil splits, and heating/cooling.
+        Coordinates zone conditions to calculate actual actuator commands using a QP.
         Returns a dictionary of actuator commands.
         """
-        # Calculate raw setpoints from rules
-        ahu_setpoints = self.calculate_setpoints(zone_conditions, logger)
-
-        # 1. CO2 Control via Outdoor Air Flow — PI Controller
-        Kp_oa = 0.003
-        Ki_oa = 0.002
-        OA_MIN = 0.1
-        OA_MAX = 2.5
-
-        co2_sp = ahu_setpoints.get('ahu_co2_sp', 400.0)
-        actual_co2 = system_state.get('actual_co2', 400.0)
-        
-        co2_error = actual_co2 - co2_sp
-        self._co2_integral += co2_error
-        self._co2_integral = max(min(self._co2_integral, (OA_MAX - OA_MIN)/Ki_oa), 0.0)
-        
-        oa_flow_sp = OA_MIN + Kp_oa * co2_error + Ki_oa * self._co2_integral
-        oa_flow_sp = min(max(oa_flow_sp, OA_MIN), OA_MAX)
-
-        # 2. Temperature & Humidity Setpoints with compensation
-        temp_sp = ahu_setpoints.get('ahu_temp_sp', 13.0)
-        hum_w_sp  = ahu_setpoints.get('ahu_hum_sp', 0.015)
-
-        # 2a. Fan heat rise compensation
+        if not zone_conditions:
+            return {
+                'oa_flow_sp': 0.1,
+                'cc_temp_sp': self.T_neutral,
+                'hc_temp_sp': self.T_neutral,
+                'hum_w_sp': self.W_neutral
+            }
+            
+        # Fan heat rise compensation
         fan_out_T = system_state.get('fan_out_T', 0.0)
         hc_out_T = system_state.get('hc_out_T', 0.0)
         if fan_out_T > 0 and hc_out_T > 0:
@@ -151,42 +88,156 @@ class AHUCoordinator:
             if measured_dT > 0:
                 self._fan_dT_est = 0.99 * self._fan_dT_est + 0.01 * measured_dT
 
-        temp_sp = temp_sp - self._fan_dT_est
-
-        # 2b. Psychrometric coupling for dehumidification
-        P_w = hum_w_sp * 101325.0 / (0.62198 + hum_w_sp)
-        T_dew_target = 50.0
-        if P_w > 0:
-            ln_ratio = math.log(P_w / 610.94)
-            T_dew_target = 243.04 * ln_ratio / (17.625 - ln_ratio)
-
-        T_s_min_coil = 5.0
-        cc_temp_sp = max(min(temp_sp, T_dew_target), T_s_min_coil)
-        hc_temp_sp = max(temp_sp, T_s_min_coil)
+        # State Variables
+        T_out = system_state.get('T_out', 22.0)
+        T_ret = system_state.get('T_ret', 22.0)
+        C_out = system_state.get('C_out', 400.0)
+        C_ret = system_state.get('C_ret', 400.0)
         
-        logger.add("CC_Temp_SP_Cmd_C", round(cc_temp_sp, 2))
-        logger.add("HC_Temp_SP_Cmd_C", round(hc_temp_sp, 2))
-        logger.add("Fan_dT_est_C", round(self._fan_dT_est, 2))
-        logger.add("Humidifer_W_SP_kg_kg", round(hum_w_sp, 5))
+        if C_ret <= 0.0:
+            C_ret = system_state.get('actual_co2', 400.0)
 
+        # Linearize humidity w_sat curve at previous T_cc
+        # W_s \approx \kappa * T_cc + W_offset
+        delta_T = 0.1
+        w_plus = w_sat(self._prev_T_cc + delta_T)
+        w_minus = w_sat(self._prev_T_cc - delta_T)
+        kappa = (w_plus - w_minus) / (2 * delta_T)
+        W_offset = w_sat(self._prev_T_cc) - kappa * self._prev_T_cc
+        
+        sum_psi = 0.0
+        sum_omega = 0.0
+        sum_chi = 0.0
+        sum_psi_W_star = 0.0
+        sum_omega_T_star = 0.0
+        sum_chi_C_star = 0.0
+        
+        for z_name, cond in zone_conditions.items():
+            T_s_star = cond.get('ideal_temp', self.T_neutral)
+            W_s_star = cond.get('ideal_hum', self.W_neutral)
+            C_s_star = cond.get('ideal_co2', 400.0)
+            u_star = cond.get('u_cmd', 0.1)
+            S_i = cond.get('saturation_index', 0.5)
+            
+            omega_i = self.q_T * (u_star ** 2) * (S_i ** 3)
+            psi_i = self.q_W * (u_star ** 2) * (S_i ** 3)
+            chi_i = self.q_C * (u_star ** 2) * (S_i ** 3)
+            
+            sum_omega += omega_i
+            sum_psi += psi_i
+            sum_chi += chi_i
+            
+            sum_omega_T_star += omega_i * T_s_star
+            sum_psi_W_star += psi_i * W_s_star
+            sum_chi_C_star += chi_i * C_s_star
+            
+        # P matrix (Hessian) for x = [T_cc, T_hc, \gamma]
+        P = np.zeros((3, 3))
+        P[0, 0] = 2 * sum_psi * (kappa**2) + 2 * self.phi_c + 2 * self.phi_h
+        P[1, 1] = 2 * sum_omega + 2 * self.phi_h
+        P[2, 2] = 2 * self.phi_c * ((T_out - T_ret)**2) + 2 * sum_chi * ((C_ret - C_out)**2) + 2 * self.phi_v
+        
+        P[0, 1] = -2 * self.phi_h
+        P[1, 0] = -2 * self.phi_h
+        
+        P[0, 2] = -2 * self.phi_c * (T_out - T_ret)
+        P[2, 0] = -2 * self.phi_c * (T_out - T_ret)
+
+        # Add regularization
+        P += np.eye(3) * 1e-6
+        
+        # q matrix (Gradient)
+        q = np.zeros(3)
+        q[0] = 2 * sum_psi * kappa * W_offset - 2 * kappa * sum_psi_W_star - 2 * self.phi_c * T_ret
+        q[1] = 2 * sum_omega * self._fan_dT_est - 2 * sum_omega_T_star
+        q[2] = 2 * self.phi_c * T_ret * (T_out - T_ret) - 2 * (C_ret - C_out) * (sum_chi * C_ret - sum_chi_C_star)
+        
+        # Constraints A x \le u
+        A = np.zeros((6, 3))
+        l_con = np.zeros(6)
+        u_con = np.zeros(6)
+        
+        # 1. T_cc bounds
+        A[0, 0] = 1.0
+        l_con[0] = self.T_coil_min
+        u_con[0] = self.T_coil_max
+        
+        # 2. T_hc bounds
+        A[1, 1] = 1.0
+        l_con[1] = self.T_coil_min
+        u_con[1] = self.T_coil_max
+        
+        # 3. \gamma bounds
+        A[2, 2] = 1.0
+        l_con[2] = self.gamma_min
+        u_con[2] = 1.0
+        
+        # 4. Cooling Restriction: T_cc + \gamma (T_ret - T_out) \le T_ret
+        A[3, 0] = 1.0
+        A[3, 2] = T_ret - T_out
+        l_con[3] = -np.inf
+        u_con[3] = T_ret
+        
+        # 5. Heating Restriction: -T_cc + T_hc \ge 0
+        A[4, 0] = -1.0
+        A[4, 1] = 1.0
+        l_con[4] = 0.0
+        u_con[4] = np.inf
+        
+        # 6. CO2 Safety: \gamma (C_out - C_ret) \le C_max - C_ret
+        A[5, 2] = C_out - C_ret
+        l_con[5] = -np.inf
+        u_con[5] = self.C_max - C_ret
+
+        # Solve QP
+        solver = osqp.OSQP()
+        solver.setup(P=sparse.csc_matrix(P), q=q, A=sparse.csc_matrix(A), l=l_con, u=u_con, verbose=False)
+        res = solver.solve()
+        
+        if res.info.status_val in [1, 2]:
+            T_cc_cmd = res.x[0]
+            T_hc_cmd = res.x[1]
+            gamma_cmd = res.x[2]
+            logger.add("AHU_QP_Status", res.info.status_val)
+        else:
+            # Fallback
+            T_cc_cmd = self._prev_T_cc
+            T_hc_cmd = self._prev_T_hc
+            gamma_cmd = self._prev_gamma
+            logger.add("AHU_QP_Status", -1)
+            
+        # Smoothing
+        T_cc_cmd = self._smooth(T_cc_cmd, self._prev_T_cc, self.SMOOTH_ALPHA, self.MAX_dT)
+        T_hc_cmd = self._smooth(T_hc_cmd, self._prev_T_hc, self.SMOOTH_ALPHA, self.MAX_dT)
+        gamma_cmd = self._smooth(gamma_cmd, self._prev_gamma, self.SMOOTH_ALPHA, 0.1) # max delta gamma = 0.1
+        
+        self._prev_T_cc = T_cc_cmd
+        self._prev_T_hc = T_hc_cmd
+        self._prev_gamma = gamma_cmd
+        
+        # Map gamma to OA_Flow_SP
+        OA_MAX = 2.5
+        oa_flow_sp = gamma_cmd * OA_MAX
+        
+        hum_w_sp = w_sat(T_cc_cmd)
+        
+        logger.add("CC_Temp_SP_Cmd_C", round(T_cc_cmd, 2))
+        logger.add("HC_Temp_SP_Cmd_C", round(T_hc_cmd, 2))
+        logger.add("OA_Frac_Cmd", round(gamma_cmd, 3))
+        logger.add("OA_Flow_SP_kg_s", round(oa_flow_sp, 3))
+        logger.add("Humidifer_W_SP_kg_kg", round(hum_w_sp, 5))
+        logger.add("Fan_dT_est_C", round(self._fan_dT_est, 2))
 
         return {
             'oa_flow_sp': oa_flow_sp,
-            'cc_temp_sp': cc_temp_sp,
-            'hc_temp_sp': hc_temp_sp,
+            'cc_temp_sp': T_cc_cmd,
+            'hc_temp_sp': T_hc_cmd,
             'hum_w_sp': hum_w_sp
         }
 
     @staticmethod
     def _smooth(new_val, prev_val, alpha, max_delta):
-        """
-        Smooth a setpoint with EMA + rate limiter.
-        alpha: blend weight for new value (0..1)
-        max_delta: maximum allowed change per timestep
-        """
-        # EMA blend
         blended = alpha * new_val + (1.0 - alpha) * prev_val
-        # Rate limiter
         delta = blended - prev_val
         if abs(delta) > max_delta:
             blended = prev_val + max_delta * (1.0 if delta > 0 else -1.0)

@@ -78,7 +78,32 @@ def load_data(csv_path, window=None):
     df = append_json_ground_truths(df, "./zone_thermal_params.json")
     return df
 
+def append_energy_metrics(df):
+    if df is None or df.empty or len(df) < 2:
+        return df
+    df = df.copy()
+    try:
+        dt_seconds = (df['Datetime'].iloc[1] - df['Datetime'].iloc[0]).total_seconds()
+        if dt_seconds == 0: dt_seconds = 300
+    except Exception:
+        dt_seconds = 300
+        
+    if 'Meter_Bldg_Elec_J' in df.columns:
+        df['Bldg_Elec_kW'] = df['Meter_Bldg_Elec_J'] / (dt_seconds * 1000.0)
+        df['HVAC_Elec_kW'] = df['Meter_HVAC_Elec_J'] / (dt_seconds * 1000.0)
+        df['HVAC_Gas_kW'] = df['Meter_Bldg_Gas_J'] / (dt_seconds * 1000.0)
+        
+        j_to_kwh = 1.0 / 3.6e6
+        df['Bldg_Elec_kWh_cum'] = (df['Meter_Bldg_Elec_J'] * j_to_kwh).cumsum()
+        df['HVAC_Elec_kWh_cum'] = (df['Meter_HVAC_Elec_J'] * j_to_kwh).cumsum()
+        df['HVAC_Gas_kWh_cum'] = (df['Meter_Bldg_Gas_J'] * j_to_kwh).cumsum()
+        
+        df['Total_Elec_kWh_cum'] = df['Bldg_Elec_kWh_cum'] + df['HVAC_Elec_kWh_cum']
+        df['Total_Energy_kWh_cum'] = df['Total_Elec_kWh_cum'] + df['HVAC_Gas_kWh_cum']
+    return df
+
 global_df = load_data(CSV_PATH)
+global_df = append_energy_metrics(global_df)
 if not global_df.empty:
     print(f'Loaded {len(global_df)} timesteps, columns: {len(global_df.columns)}')
 
@@ -107,7 +132,6 @@ def build_zone_subplots(df, zone_name, subplot_config, source_styles=SOURCE_STYL
     fig = make_subplots(
         rows=total_rows,
         cols=1,
-        shared_xaxes=True,
         subplot_titles=[panel["title"] for panel in subplot_config],
         specs=[[{"secondary_y": True}]] * total_rows,
         vertical_spacing=safe_spacing
@@ -148,39 +172,55 @@ def build_zone_subplots(df, zone_name, subplot_config, source_styles=SOURCE_STYL
                     line_dash = trace_info.get("dash", base_style["dash"])
                     line_width = trace_info.get("width", base_style["width"])
                     
+                    scatter_kwargs = {
+                        "x": df["Datetime"],
+                        "y": df[col_name],
+                        "name": display_name,
+                        "line": dict(color=line_color, dash=line_dash, width=line_width),
+                        "legend": leg_ref
+                    }
+                    if "fill" in trace_info:
+                        scatter_kwargs["fill"] = trace_info["fill"]
+                    if "fillcolor" in trace_info:
+                        scatter_kwargs["fillcolor"] = trace_info["fillcolor"]
+                    if "showlegend" in trace_info:
+                        scatter_kwargs["showlegend"] = trace_info["showlegend"]
+                    if "mode" in trace_info:
+                        scatter_kwargs["mode"] = trace_info["mode"]
+
                     fig.add_trace(
-                        go.Scatter(
-                            x=df["Datetime"], y=df[col_name], name=display_name,
-                            line=dict(color=line_color, dash=line_dash, width=line_width),
-                            legend=leg_ref # Assign to specific subplot legend
-                        ),
+                        go.Scatter(**scatter_kwargs),
                         row=row_idx, col=1, secondary_y=is_secondary
                     )
 
-        if "expected_range" in panel:
-            ymin, ymax = panel["expected_range"]
-            range_label = panel.get("expected_label", "Expected Range")
-            range_color = panel.get("range_color", "rgba(46, 204, 113, 0.2)") # Slightly more opaque for dark mode
-            
-            fig.add_hrect(
-                y0=ymin, y1=ymax, fillcolor=range_color,
-                line_width=0, layer="below", row=row_idx, col=1, secondary_y=False
-            )
-            
-            # Map the expected range label to the legend as well
-            if not df.empty:
-                first_valid_time = str(df["Datetime"].iloc[0]) 
-                fig.add_trace(
-                    go.Scatter(
-                        x=[first_valid_time], y=[None],
-                        mode="markers",
-                        marker=dict(size=10, color=range_color, symbol="square"),
-                        name=f"{range_label} ({ymin}-{ymax})",
-                        legend=leg_ref,
-                        showlegend=True
-                    ),
-                    row=row_idx, col=1, secondary_y=False
+        if "expected_range" in panel or "dynamic_expected_range" in panel:
+            if "expected_range" in panel:
+                ymin, ymax = panel["expected_range"]
+                range_label = panel.get("expected_label", "Expected Range")
+                range_color = panel.get("range_color", "rgba(46, 204, 113, 0.2)") # Slightly more opaque for dark mode
+                
+                fig.add_hrect(
+                    y0=ymin, y1=ymax, fillcolor=range_color,
+                    line_width=0, layer="below", row=row_idx, col=1, secondary_y=False
                 )
+                
+                # Map the expected range label to the legend as well
+                if not df.empty:
+                    first_valid_time = str(df["Datetime"].iloc[0]) 
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[first_valid_time], y=[None],
+                            mode="markers",
+                            marker=dict(size=10, color=range_color, symbol="square"),
+                            name=f"{range_label} ({ymin}-{ymax})",
+                            legend=leg_ref,
+                            showlegend=True
+                        ),
+                        row=row_idx, col=1, secondary_y=False
+                    )
+            else:
+                ymin = df[panel["dynamic_expected_range"][0]] if panel["dynamic_expected_range"][0] in df.columns else -np.inf
+                ymax = df[panel["dynamic_expected_range"][1]] if panel["dynamic_expected_range"][1] in df.columns else np.inf
             
             if "eval_col" in panel and panel["eval_col"] in df.columns:
                 col_to_check = panel["eval_col"]
@@ -248,24 +288,136 @@ def build_zone_subplots(df, zone_name, subplot_config, source_styles=SOURCE_STYL
         **layout_updates # Applies all the separate legends
     )
     
-    # Force tick labels to show on all x-axes despite being shared
-    fig.update_xaxes(showticklabels=True)
+    # Force tick labels to show on all x-axes and link their zoom
+    fig.update_xaxes(showticklabels=True, matches='x')
     
     return fig
 
 # --- 4. Configurations Generator Helpers ---
+ZONE_COLORS = {
+    "SPACE1-1": "#ef476f", 
+    "SPACE2-1": "#ffd166", 
+    "SPACE3-1": "#06d6a0", 
+    "SPACE4-1": "#118ab2", 
+    "SPACE5-1": "#073b4c"  
+}
+
+bms_config = [
+    {
+        "title": "BMS: Zone Reference Setpoints (T_ref)",
+        "y_label": "Temperature (°C)",
+        "traces": [
+            {"col": f"{z}_T_ref_C", "name": f"{z} T_ref", "color": ZONE_COLORS.get(z, "#ffffff"), "dash": "dot", "width": 1} for z in ZONES
+        ]
+    },
+    {
+        "title": "BMS: Temperature Monitoring",
+        "y_label": "Temperature (°C)",
+        "traces": [
+            {"col": f"{z}_Temp_C", "name": f"{z} Temp", "color": ZONE_COLORS.get(z, "#ffffff"), "dash": "solid", "width": 1} for z in ZONES
+        ] + [
+            {"col": "AHU_Supply_Temp_C", "name": "Supply Temp", "dash": "solid", "color": "#00b4d8", "width": 2},
+            {"col": "Out_Temp_C", "name": "Outdoor Temp", "dash": "dash", "color": "#f1faee", "width": 2}
+        ]
+    },
+    {
+        "title": "BMS: Ideal Ask vs AHU Decision (Temperature)",
+        "y_label": "Temperature (°C)",
+        "traces": [
+            {"col": f"{z}_ideal_temp", "name": f"{z} Ideal Ask", "color": ZONE_COLORS.get(z, "#ffffff"), "dash": "dot", "width": 1} for z in ZONES
+        ] + [
+            {"col": "CC_Temp_SP_Cmd_C", "name": "AHU Decision (CC SP)", "dash": "solid", "width": 2, "color": "#00b4d8"},
+            {"col": "HC_Temp_SP_Cmd_C", "name": "AHU Decision (HC SP)", "dash": "solid", "width": 2, "color": "#e74c3c"}
+        ]
+    },
+    {
+        "title": "BMS: Absolute Humidity Monitoring",
+        "y_label": "Humidity Ratio (kg/kg)",
+        "traces": [
+            {"col": f"{z}_W_kg_kg", "name": f"{z} Abs Hum", "color": ZONE_COLORS.get(z, "#ffffff"), "dash": "solid", "width": 1} for z in ZONES
+        ] + [
+            {"col": "AHU_Supply_W_kg_kg", "name": "Supply Abs Hum", "dash": "solid", "color": "#00b4d8", "width": 2},
+            {"col": "Out_W_kg_kg", "name": "Outdoor Abs Hum", "dash": "dash", "color": "#f1faee", "width": 2}
+        ]
+    },
+    {
+        "title": "BMS: Ideal Ask vs AHU Decision (Humidity)",
+        "y_label": "Humidity Ratio (kg/kg)",
+        "traces": [
+            {"col": f"{z}_ideal_hum", "name": f"{z} Ideal Ask", "color": ZONE_COLORS.get(z, "#ffffff"), "dash": "dot", "width": 1} for z in ZONES
+        ] + [
+            {"col": "Humidifer_W_SP_kg_kg", "name": "AHU Decision (Humidifier SP)", "dash": "solid", "width": 2, "color": "#00b4d8"}
+        ]
+    },
+    {
+        "title": "BMS: CO2 Monitoring",
+        "y_label": "CO2 Concentration (ppm)",
+        "traces": [
+            {"col": f"{z}_CO2_ppm", "name": f"{z} CO2", "color": ZONE_COLORS.get(z, "#ffffff"), "dash": "solid", "width": 1} for z in ZONES
+        ] + [
+            {"col": "AHU_Supply_CO2_ppm", "name": "Supply CO2", "dash": "solid", "color": "#00b4d8", "width": 2},
+            {"col": "Out_CO2_ppm", "name": "Outdoor CO2", "dash": "dash", "color": "#f1faee", "width": 2}
+        ]
+    },
+    {
+        "title": "BMS: Ideal Ask vs AHU Decision (CO2)",
+        "y_label": "CO2 Concentration (ppm)",
+        "traces": [
+            {"col": f"{z}_ideal_co2", "name": f"{z} Ideal Ask", "color": ZONE_COLORS.get(z, "#ffffff"), "dash": "dot", "width": 1} for z in ZONES
+        ] + [
+            {"col": "Cord_CO2_ppm", "name": "AHU Decision (SP)", "dash": "solid", "width": 2, "color": "#00b4d8"}
+        ]
+    },
+    {
+        "title": "BMS: VAV Flow Rates",
+        "y_label": "Flow Rate (kg/s)",
+        "traces": [
+            {"col": f"{z}_VAV_Flow_kg_s", "name": f"{z} Flow", "color": ZONE_COLORS.get(z, "#ffffff"), "dash": "solid", "width": 1} for z in ZONES
+        ] + [
+            {"col": "AHU_Supply_Flow_kg_s", "name": "AHU Total Supply Flow", "dash": "solid", "color": "#00b4d8", "width": 2},
+            {"col": "OA_Flow_SP_kg_s", "name": "AHU Decision (OA Flow SP)", "dash": "solid", "color": "#2ecc71", "width": 2}
+        ]
+    },
+    {
+        "title": "BMS: Instantaneous Power Usage",
+        "y_label": "Power (kW)",
+        "traces": [
+            {"col": "Bldg_Elec_kW", "name": "Building Loads (kW)", "dash": "solid", "color": "#f1c40f", "width": 2},
+            {"col": "HVAC_Elec_kW", "name": "HVAC AC Electric (kW)", "dash": "solid", "color": "#3498db", "width": 2},
+            {"col": "HVAC_Gas_kW", "name": "HVAC Gas Heat (kW)", "dash": "solid", "color": "#e74c3c", "width": 2}
+        ]
+    },
+    {
+        "title": "BMS: Cumulative Energy Used",
+        "y_label": "Energy (kWh)",
+        "traces": [
+            {"col": "Bldg_Elec_kWh_cum", "name": "Building Loads (kWh)", "dash": "dash", "color": "#f1c40f", "width": 2},
+            {"col": "HVAC_Elec_kWh_cum", "name": "HVAC AC Electric (kWh)", "dash": "dash", "color": "#3498db", "width": 2},
+            {"col": "HVAC_Gas_kWh_cum", "name": "HVAC Gas Heat (kWh)", "dash": "dash", "color": "#e74c3c", "width": 2},
+            {"col": "Total_Energy_kWh_cum", "name": "Total Energy (kWh)", "dash": "solid", "color": "#2ecc71", "width": 3}
+        ]
+    }
+]
+
 def get_zone_config(zone):
     return [
         {
             "title": "MPC Solver Status",
             "y_label": "OSQP Status Code",
             "y_range": [0, 8],
-            "traces": [{"col": f"{zone}_MPC_Status", "name": "Status (1=Green, 7=Red)", "type": "status", "colorscale": [[0.0, "green"], [0.5, "yellow"], [1.0, "red"]], "cmin": 1, "cmax": 7}]
+            "traces": [
+                {"col": f"{zone}_MPC_Status", "name": "Zone MPC Status", "type": "status", "colorscale": [[0.0, "green"], [0.5, "yellow"], [1.0, "red"]], "cmin": 1, "cmax": 7},
+                {"col": f"{zone}_AskQP_Status", "name": "Ask MPC Status", "type": "status", "colorscale": [[0.0, "cyan"], [0.5, "orange"], [1.0, "magenta"]], "cmin": 1, "cmax": 7}
+            ]
         },
         {
-            "title": "Temperature", "y_label": "Temperature (°C)", "y_range": [5, 35], "expected_range": [20, 24], 
-            "eval_col": f"{zone}_Temp_C", "range_color": "rgba(52, 152, 219, 0.15)", "expected_label": "Comfort Zone",
+            "title": "Temperature", "y_label": "Temperature (°C)", "y_range": [5, 35],
+            "eval_col": f"{zone}_Temp_C", "dynamic_expected_range": [f"{zone}_T_min_C", f"{zone}_T_max_C"],
             "traces": [
+                {"col": f"{zone}_ideal_temp", "color": ZONE_COLORS.get(zone, "#a9a9a9"), "dash": "dot", "width": 1, "name": "Ideal Ask Temp"},
+                {"col": f"{zone}_T_max_C", "color": "rgba(52, 152, 219, 0.0)", "name": "Upper Bound", "showlegend": False, "width": 0},
+                {"col": f"{zone}_T_min_C", "color": "rgba(52, 152, 219, 0.0)", "fillcolor": "rgba(52, 152, 219, 0.15)", "name": "Comfort Zone", "fill": "tonexty", "mode": "lines", "width": 0},
+                {"col": f"{zone}_T_ref_C", "color": "rgba(52, 152, 219, 0.6)", "dash": "dash", "name": "Target Setpoint", "width": 1},
                 {"col": f"{zone}_Temp_C", "source": "Zone", "name": "Zone Temp"},
                 {"col": "Out_Temp_C", "source": "Outside", "name": "Outdoor Temp"},
                 {"col": "Fan_Out_Temp_C", "source": "Supply", "name": "Supply Temp"},
@@ -276,6 +428,7 @@ def get_zone_config(zone):
             "title": "Humidity Ratio", "y_label": "Humidity (kg/kg)", "expected_range": [0, 0.012], "eval_col": f"{zone}_W_kg_kg", 
             "range_color": "rgba(52, 152, 219, 0.15)", "expected_label": "Target W Band",
             "traces": [
+                {"col": f"{zone}_ideal_hum", "color": ZONE_COLORS.get(zone, "#a9a9a9"), "dash": "dot", "width": 1, "name": "Ideal Ask Hum"},
                 {"col": f"{zone}_W_kg_kg", "source": "Zone", "name": "Zone W"},
                 {"col": "Out_W_kg_kg", "source": "Outside", "name": "Outdoor W"},
                 {"col": "Fan_Out_W_kg_kg", "source": "Supply", "name": "Supply W"},
@@ -295,6 +448,7 @@ def get_zone_config(zone):
             "title": "CO2 & Occupancy", "y_label": "CO2 (ppm)", "secondary_y_label": "Occupants", "y_range": [0, 1500], "expected_range": [0, 1000],
             "eval_col": f"{zone}_CO2_ppm", "expected_label": "Acceptable CO2", "range_color": "rgba(52, 152, 219, 0.15)",
             "traces": [
+                {"col": f"{zone}_ideal_co2", "color": ZONE_COLORS.get(zone, "#a9a9a9"), "dash": "dot", "width": 1, "name": "Ideal Ask CO2"},
                 {"col": f"{zone}_CO2_ppm", "source": "Zone", "name": "Zone CO2"},
                 {"col": "Out_CO2_ppm", "source": "Outside", "name": "Outdoor CO2"},
                 {"col": "Fan_Out_CO2_ppm", "source": "Supply", "name": "Supply CO2"},
@@ -497,6 +651,26 @@ if args.save_plots:
 # --- 6. Dash Web Viewer App (Dark Theme) ---
 app = Dash(__name__)
 
+def generate_time_options(df):
+    options = [{"label": "Plot All", "value": "ALL"}]
+    if df is None or df.empty or "Datetime" not in df.columns:
+        return options
+    
+    min_time = df["Datetime"].min()
+    max_time = df["Datetime"].max()
+    total_days = (max_time - min_time).days + 1
+    
+    total_weeks = (total_days + 6) // 7
+    for w in range(1, total_weeks + 1):
+        options.append({"label": f"Week {w}", "value": f"WEEK_{w}"})
+        
+    for d in range(1, total_days + 1):
+        options.append({"label": f"Day {d}", "value": f"DAY_{d}"})
+        
+    return options
+
+time_options = generate_time_options(global_df)
+
 # Dark theme wrapper
 app.layout = html.Div([
     html.H2("Building Management System Dashboard Viewer", style={"textAlign": "center", "fontFamily": "sans-serif", "color": "#ecf0f1", "paddingTop": "20px"}),
@@ -508,20 +682,21 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id="view-dropdown",
                 options=[
+                    {"label": "BMS Monitor", "value": "BMS"},
                     {"label": "AHU Monitor", "value": "AHU"},
                     {"label": "Zone Monitor", "value": "ZONE"},
                     {"label": "EKF Monitor", "value": "EKF"},
                     {"label": "P Matrix Heatmap", "value": "P_MATRIX"}
                 ],
-                value="AHU",
+                value="BMS",
                 clearable=False,
                 style={"color": "#000000"} # Keep dropdown text black so it's readable against the white inputs
             ),
-        ], style={"width": "45%", "display": "inline-block", "padding": "10px"}),
+        ], style={"width": "30%", "display": "inline-block", "padding": "10px"}),
         
         # Zone Dropdown
         html.Div([
-            html.Label("Select Zone (for Zone/EKF views):", style={"fontFamily": "sans-serif", "fontWeight": "bold", "color": "#ecf0f1", "marginBottom": "8px", "display": "block"}),
+            html.Label("Select Zone:", style={"fontFamily": "sans-serif", "fontWeight": "bold", "color": "#ecf0f1", "marginBottom": "8px", "display": "block"}),
             dcc.Dropdown(
                 id="zone-dropdown",
                 options=[{"label": z, "value": z} for z in ZONES],
@@ -529,9 +704,21 @@ app.layout = html.Div([
                 clearable=False,
                 style={"color": "#000000"} # Keep dropdown text black
             ),
-        ], style={"width": "45%", "display": "inline-block", "padding": "10px", "float": "right"}),
+        ], style={"width": "30%", "display": "inline-block", "padding": "10px"}),
         
-    ], style={"width": "80%", "margin": "0 auto", "backgroundColor": "#2c3e50", "padding": "20px", "borderRadius": "8px", "boxShadow": "0 4px 8px rgba(0,0,0,0.3)"}),
+        # Time Filter Dropdown
+        html.Div([
+            html.Label("Select Time Range:", style={"fontFamily": "sans-serif", "fontWeight": "bold", "color": "#ecf0f1", "marginBottom": "8px", "display": "block"}),
+            dcc.Dropdown(
+                id="time-dropdown",
+                options=time_options,
+                value="ALL",
+                clearable=False,
+                style={"color": "#000000"} 
+            ),
+        ], style={"width": "30%", "display": "inline-block", "padding": "10px"}),
+        
+    ], style={"width": "90%", "margin": "0 auto", "backgroundColor": "#2c3e50", "padding": "20px", "borderRadius": "8px", "boxShadow": "0 4px 8px rgba(0,0,0,0.3)"}),
     
     html.Br(),
     
@@ -558,17 +745,38 @@ app.layout = html.Div([
     Output("main-graph", "figure"),
     [Input("view-dropdown", "value"),
      Input("zone-dropdown", "value"),
+     Input("time-dropdown", "value"),
      Input("interval-component", "n_intervals")]
 )
-def update_dashboard(selected_view, selected_zone, n_intervals):
+def update_dashboard(selected_view, selected_zone, selected_time, n_intervals):
     current_df = global_df
     if args.live:
         current_df = load_data(CSV_PATH, window=args.window)
         
     if current_df is None or current_df.empty:
         return go.Figure()
+        
+    if selected_time != "ALL" and "Datetime" in current_df.columns:
+        min_time = current_df["Datetime"].min()
+        if selected_time.startswith("WEEK_"):
+            week_idx = int(selected_time.split("_")[1])
+            start_time = min_time + pd.Timedelta(days=(week_idx-1)*7)
+            end_time = start_time + pd.Timedelta(days=7)
+            current_df = current_df[(current_df["Datetime"] >= start_time) & (current_df["Datetime"] < end_time)]
+        elif selected_time.startswith("DAY_"):
+            day_idx = int(selected_time.split("_")[1])
+            start_time = min_time + pd.Timedelta(days=(day_idx-1))
+            end_time = start_time + pd.Timedelta(days=1)
+            current_df = current_df[(current_df["Datetime"] >= start_time) & (current_df["Datetime"] < end_time)]
+            
+        # Recalculate metrics so cumulative energy starts from 0 for this time slice
+        current_df = append_energy_metrics(current_df)
+    elif args.live:
+        current_df = append_energy_metrics(current_df)
 
-    if selected_view == "AHU":
+    if selected_view == "BMS":
+        return build_zone_subplots(current_df, "BMS", bms_config)
+    elif selected_view == "AHU":
         return build_zone_subplots(current_df, "AHU", ahu_config)
     elif selected_view == "ZONE":
         return build_zone_subplots(current_df, selected_zone, get_zone_config(selected_zone))

@@ -1,15 +1,20 @@
-# Switch to Sri Lanka
+#### Switch to Sri Lanka
 ./switch_weather.sh colombo
 
-# Switch back to Chicago
+#### Switch back to Chicago
 ./switch_weather.sh chicago
 
-# See current active weather
+#### See current active weather
 ./switch_weather.sh
 
-# Then run simulation as normal
-energyplus -w weather.epw -d ./baseline_results 5ZoneAutoDXVAV.idf
+#### Then run simulation as normal
+energyplus -w weather.epw -d ./results 5ZoneAutoDXVAV.idf
 
+
+#### Bench mark
+USE_CUSTOM_CONTROLLERS=0 energyplus -w weather.epw -d ./results 5ZoneAutoDXVAV.idf
+
+python summary.py
 
 fuser -k 8050/tcp
 

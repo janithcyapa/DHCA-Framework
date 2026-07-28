@@ -5,3 +5,8 @@ EnergyPlusSim/baseline_results/
 EnergyPlusSim/results/
 EnergyPlusSim/__pycache__/
 EnergyPlusSim/ep_deps/
+EnergyPlusSim/ExperimentResults/fullJuly.csv
+EnergyPlusSim/baseline_results.parquet
+EnergyPlusSim/baseline_results.csv
+EnergyPlusSim/ExperimentResults/fullJuly.csv
+EnergyPlusSim/baseline_results.parquet
