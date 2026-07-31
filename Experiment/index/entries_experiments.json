@@ -1,5 +1,5 @@
 {
-  "__auto_counter__": 2,
+  "__auto_counter__": 4,
   "entry_0001": {
     "entity_id": "zone_001",
     "description": "Senosr Data Test",
@@ -23,5 +23,19 @@
     "processed_metadata": {
       "refactored_data": {}
     }
+  },
+  "entry_0003": {
+    "entity_id": "zone_002",
+    "description": "Test 1",
+    "timestamp": "1785480438",
+    "raw_csv_path": "raw_data/experiments/entry_0003_zone_002_1785480438_data.csv",
+    "processed_files": {}
+  },
+  "entry_0004": {
+    "entity_id": "zone_002",
+    "description": "Test 2",
+    "timestamp": "1785480903",
+    "raw_csv_path": "raw_data/experiments/entry_0004_zone_002_1785480903_data.csv",
+    "processed_files": {}
   }
 }
