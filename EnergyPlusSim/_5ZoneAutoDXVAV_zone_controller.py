@@ -64,16 +64,62 @@ class ZoneController:
             10.0                            # d_C
         ])
         
-        # Q Matrix - baseline (Time-Scale Separation Enforced)
+        # Q Matrix - Range-Normalized Process Noise
+        #
+        # Each entry = time_scale_weight × σᵢ²
+        # where σᵢ is the expected per-step natural variation of state xᵢ
+        # at its own physical scale.  Multiplying by σᵢ² makes every entry
+        # dimensionally equivalent so the EKF doesn't prefer small-unit states
+        # (W in kg/kg ≈ 0.008) over large-unit states (C in ppm ≈ 400-1000).
+        #
+        # Typical ranges used for normalization (1-sigma natural variation):
+        #   T_in       : σ ≈ 1 °C           → σ² = 1.0
+        #   T_m        : σ ≈ 2 °C           → σ² = 4.0     [was frozen in plot → increased]
+        #   W_in       : σ ≈ 2e-3 kg/kg     → σ² = 4e-6    [was lagging badly → increased]
+        #   C_in       : σ ≈ 50 ppm         → σ² = 2500.0  [was too slow → faster time weight]
+        #   d_T        : σ ≈ 200 W          → σ² = 4e4
+        #   d_W        : σ ≈ 2e-4 kg/s      → σ² = 4e-8    [was over-compensating → bumped]
+        #   N_occ      : σ ≈ 3 persons      → σ² = 9.0     [was exploding to 29 → tightened]
+        #   alpha_ext/int : σ ≈ 500 W/K     → σ² = 2.5e5
+        #   beta_air   : σ ≈ 1e-5 K/J       → σ² = 1e-10
+        #   beta_mass  : σ ≈ 1e-7 K/J       → σ² = 1e-14
+        #   d_C        : σ ≈ 50 ppm         → σ² = 2500.0
+        #
+        # time_scale_weight encodes how fast each state is ALLOWED to drift:
+        #   Fast (observed physics)    : ~1e-5 to 1e-6 per second
+        #   Slow disturbances          : ~1e-8 per second
+        #   Very slow (param learning) : ~1e-12 to 1e-14 per second
+        #
+        # Tuning history (see plot entry_0006):
+        #   T_m   : time weight 1e-6→1e-5   (wall temp was frozen at ceiling)
+        #   W_in  : σ 5e-4→2e-3 kg/kg       (EKF lagged raw humidity by ~0.001)
+        #   C_in  : time weight 1e-8→1e-7   (CO2 took 10+ min to respond to step changes)
+        #   N_occ : time weight 1e-8→1e-9   (diverged to ~29 persons vs actual 0–3)
+        #   d_W   : σ 5e-5→2e-4 kg/s        (latent disturbance absorbing N_occ error)
+        #   d_C   : time weight 1e-8→1e-9   (absorbing CO2 error that C_in should handle)
+
+        _q_T    = 1e-6  * 1.0       # T_in:       fast physics, σ=1°C
+        _q_Tm   = 1e-5  * 4.0       # T_m:        wall mass — allowed more freedom, σ=2°C
+        _q_W    = 1e-6  * 4e-6      # W_in:       fast physics, σ=2e-3 kg/kg (was lagging)
+        _q_C    = 1e-7  * 2500.0    # C_in:       faster tracking needed, σ=50 ppm
+        _q_dT   = 1e-8  * 4e4       # d_T:        slow disturbance, σ=200 W
+        _q_dW   = 1e-8  * 4e-8      # d_W:        latent disturbance, σ=2e-4 kg/s
+        _q_Nocc = 1e-9  * 9.0       # N_occ:      tightened — was exploding, σ=3 persons
+        _q_aext = 1e-12 * 2.5e5     # alpha_ext:  very slow param, σ=500 W/K
+        _q_aint = 1e-12 * 2.5e5     # alpha_int:  very slow param, σ=500 W/K
+        _q_bair = 1e-14 * 1e-10     # beta_air:   very slow param, σ=1e-5 K/J
+        _q_bmas = 1e-14 * 1e-14     # beta_mass:  frozen baseline floor, σ=1e-7 K/J
+        _q_dC   = 1e-9  * 2500.0    # d_C:        tightened — C_in now handles CO2 faster
+
         self.Q = np.diag([
-            1e-6, 1e-4, 1e-8, 1e-4,         # Core Physics
-            1e-4, 1e-10, 1e-3,              # Fast Disturbances
-            1e-8, 1e-10, 1e-12, 1e-15,       # Parameters (Baseline floor prevents float collapse)
-            1e-4                            # Slow CO2 Disturbance
+            _q_T, _q_Tm, _q_W, _q_C,       # Core Physics
+            _q_dT, _q_dW, _q_Nocc,         # Slow Disturbances
+            _q_aext, _q_aint, _q_bair, _q_bmas,  # Parameters (very slow)
+            _q_dC                           # Slow CO2 Disturbance
         ])
         
         # Measurement Noise Covariance R
-        self.R = np.diag([0.01, 1e-8, 10.0])
+        self.R = np.diag([0.01, 1e-8, 15.0])
         
         self.H = np.zeros((3, 12))
         self.H[0, 0] = 1.0
@@ -86,8 +132,8 @@ class ZoneController:
         self.q_person = 100.0
         self.g_w_person = 5e-5
         rho_co2 = 1.81
-        self.g_co2_person = ((3.82e-8 * 120.0) / rho_co2) * 1e6
-        
+        # self.g_co2_person = ((3.82e-8 * 120.0) / rho_co2) * 1e6
+        self.g_co2_person = 20.0
         # --- MPC Initialization ---
         self.N = 20 
 

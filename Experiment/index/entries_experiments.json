@@ -30,7 +30,7 @@
     "timestamp": "1785482758",
     "raw_csv_path": "raw_data/experiments/entry_0005_zone_002_1785482758_data.csv",
     "processed_files": {
-      "controller_evaluation": "processed_data/experiments/controller_evaluation/entry_0005_controller_evaluation.parquet"
+      "controller_evaluation": "processed_data/experiments/controller_evaluation/entry_0003_controller_evaluation.parquet"
     },
     "processed_metadata": {
       "controller_evaluation": {
@@ -44,7 +44,7 @@
     "timestamp": "1785483118",
     "raw_csv_path": "raw_data/experiments/entry_0006_zone_002_1785483118_data.csv",
     "processed_files": {
-      "controller_evaluation": "processed_data/experiments/controller_evaluation/entry_0006_controller_evaluation.parquet"
+      "controller_evaluation": "processed_data/experiments/controller_evaluation/entry_0004_controller_evaluation.parquet"
     },
     "processed_metadata": {
       "controller_evaluation": {
