@@ -1,5 +1,5 @@
 {
-  "__auto_counter__": 4,
+  "__auto_counter__": 6,
   "entry_0001": {
     "entity_id": "zone_001",
     "description": "Senosr Data Test",
@@ -27,15 +27,57 @@
   "entry_0003": {
     "entity_id": "zone_002",
     "description": "Test 1",
-    "timestamp": "1785480438",
-    "raw_csv_path": "raw_data/experiments/entry_0003_zone_002_1785480438_data.csv",
-    "processed_files": {}
+    "timestamp": "1785482758",
+    "raw_csv_path": "raw_data/experiments/entry_0005_zone_002_1785482758_data.csv",
+    "processed_files": {
+      "controller_evaluation": "processed_data/experiments/controller_evaluation/entry_0005_controller_evaluation.parquet"
+    },
+    "processed_metadata": {
+      "controller_evaluation": {
+        "description": "Offline simulation of EKF/MPC and AHU Coordinator against dataset"
+      }
+    }
   },
   "entry_0004": {
     "entity_id": "zone_002",
     "description": "Test 2",
-    "timestamp": "1785480903",
-    "raw_csv_path": "raw_data/experiments/entry_0004_zone_002_1785480903_data.csv",
-    "processed_files": {}
+    "timestamp": "1785483118",
+    "raw_csv_path": "raw_data/experiments/entry_0006_zone_002_1785483118_data.csv",
+    "processed_files": {
+      "controller_evaluation": "processed_data/experiments/controller_evaluation/entry_0006_controller_evaluation.parquet"
+    },
+    "processed_metadata": {
+      "controller_evaluation": {
+        "description": "Offline simulation of EKF/MPC and AHU Coordinator against dataset"
+      }
+    }
+  },
+  "entry_0005": {
+    "entity_id": "zone_002",
+    "description": "Test 3",
+    "timestamp": "1785483802",
+    "raw_csv_path": "raw_data/experiments/entry_0005_zone_002_1785483802_data.csv",
+    "processed_files": {
+      "controller_evaluation": "processed_data/experiments/controller_evaluation/entry_0005_controller_evaluation.parquet"
+    },
+    "processed_metadata": {
+      "controller_evaluation": {
+        "description": "Offline simulation of EKF/MPC and AHU Coordinator against dataset"
+      }
+    }
+  },
+  "entry_0006": {
+    "entity_id": "zone_002",
+    "description": "Test 3 Take 2",
+    "timestamp": "1785483851",
+    "raw_csv_path": "raw_data/experiments/entry_0006_zone_002_1785483851_data.csv",
+    "processed_files": {
+      "controller_evaluation": "processed_data/experiments/controller_evaluation/entry_0006_controller_evaluation.parquet"
+    },
+    "processed_metadata": {
+      "controller_evaluation": {
+        "description": "Offline simulation of EKF/MPC and AHU Coordinator against dataset"
+      }
+    }
   }
 }
