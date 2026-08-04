@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Simulation 5 Zone Values.md",
+                "file": "Experimental Setup Flow Calibration.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Simulation 5 Zone Values"
+              "title": "Experimental Setup Flow Calibration"
             }
           },
           {
@@ -69,7 +69,9 @@
               "type": "file-explorer",
               "state": {
                 "sortOrder": "alphabetical",
-                "autoReveal": false
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
               },
               "icon": "lucide-folder-closed",
               "title": "Files"
@@ -106,8 +108,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "right": {
     "id": "bcbd8b886a2b73e3",
@@ -215,10 +216,11 @@
   "active": "63830765bb069a2e",
   "lastOpenFiles": [
     "Experimental Plan.md",
-    "Untitled.md",
-    "Simulation 5 Zone Values.md",
-    "1. Modeling a thermal zone using an RC (Resistor-Capacitor) model.md",
+    "Experimental Setup Flow Calibration.md",
     "Results.md",
+    "Simulation 5 Zone Values.md",
+    "Untitled.md",
+    "1. Modeling a thermal zone using an RC (Resistor-Capacitor) model.md",
     "5. The AHU Coordinator Multi-Zone Arbitration Logic.md",
     "4. Controllability Maximization  The \"Ideal Ask\".md",
     "3. Actuation-Minimizing Deadband Zone MPC.md",
