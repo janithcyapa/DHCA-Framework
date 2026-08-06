@@ -43,6 +43,17 @@ ZONES = ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]
 BASE_YEAR = 2014
 
 # --- Helper Functions ---
+plasma_transparent = [
+    [0.0, "rgba(0, 0, 0, 0)"],
+    [0.001, "rgba(13, 8, 135, 0.0)"],
+    [0.05, "rgba(156, 39, 176, 0.5)"],
+    [0.15, "rgba(233, 30, 99, 0.8)"],
+    [0.3, "rgba(255, 87, 34, 1)"],
+    [0.5, "rgba(255, 193, 7, 1)"],
+    [0.7, "rgba(255, 235, 59, 1)"],
+    [1.0, "rgba(255, 255, 255, 1)"]
+]
+
 def hex_to_rgba(hex_color, opacity=1.0):
     hex_color = hex_color.lstrip('#')
     return f"rgba({int(hex_color[0:2], 16)}, {int(hex_color[2:4], 16)}, {int(hex_color[4:6], 16)}, {opacity})"
@@ -436,25 +447,21 @@ def build_view2_zone(df, zone):
     # 2.6 Psychrometric and RH Scatters
     add_psychrometric_background(fig, 6, 1)
     add_psychrometric_comfort(fig, 6, 1)
-    fig.add_trace(go.Scatter(
-        x=df[f'{zone}_Temp_C'], y=df[f'{zone}_W_kg_kg'], mode='markers',
-        marker=dict(color=df[f'{zone}_CO2_ppm'], coloraxis="coloraxis1", size=3, opacity=0.6), showlegend=False
+    fig.add_trace(go.Histogram2d(
+        x=df[f'{zone}_Temp_C'], y=df[f'{zone}_W_kg_kg'],
+        colorscale=plasma_transparent, showscale=False, nbinsx=60, nbinsy=60
     ), row=6, col=1)
 
-
-
     add_rh_co2_comfort(fig, 7, 1)
-    fig.add_trace(go.Scatter(
-        x=df[f'{zone}_RH_pct'], y=df[f'{zone}_CO2_ppm'], mode='markers',
-        marker=dict(color=df[f'{zone}_Temp_C'], coloraxis="coloraxis2", size=3, opacity=0.6), showlegend=False
+    fig.add_trace(go.Histogram2d(
+        x=df[f'{zone}_RH_pct'], y=df[f'{zone}_CO2_ppm'],
+        colorscale=plasma_transparent, showscale=False, nbinsx=60, nbinsy=60
     ), row=7, col=1)
 
 
 
     fig.update_layout(
-        height=2800, template="plotly_dark", title_text=f"{zone} Single Zone Deep Dive",
-        coloraxis1=dict(colorscale='Turbo', colorbar=dict(title="CO2", orientation='v', x=0.95, y=0.27, len=0.18, thickness=8)),
-        coloraxis2=dict(colorscale='Thermal', colorbar=dict(title="Temp", orientation='v', x=0.95, y=0.07, len=0.18, thickness=8))
+        height=2800, template="plotly_dark", title_text=f"{zone} Single Zone Deep Dive"
     )
     
     for c in [1]: 
@@ -607,16 +614,14 @@ def build_view4_building(df):
     # Row 5 (Psychrometric)
     add_psychrometric_background(fig, 5, 1)
     add_psychrometric_comfort(fig, 5, 1)
-    fig.add_trace(go.Scatter(x=all_T_P, y=all_W_P, mode='markers', marker=dict(color=all_C_P, coloraxis="coloraxis1", size=3, opacity=0.6), showlegend=False), row=5, col=1)
+    fig.add_trace(go.Histogram2d(x=all_T_P, y=all_W_P, colorscale=plasma_transparent, showscale=False, nbinsx=100, nbinsy=100), row=5, col=1)
 
     # Row 7 (RH vs CO2)
     add_rh_co2_comfort(fig, 7, 1)
-    fig.add_trace(go.Scatter(x=all_RH_P, y=all_C_P, mode='markers', marker=dict(color=all_T_P, coloraxis="coloraxis2", size=3, opacity=0.6), showlegend=False), row=7, col=1)
+    fig.add_trace(go.Histogram2d(x=all_RH_P, y=all_C_P, colorscale=plasma_transparent, showscale=False, nbinsx=100, nbinsy=100), row=7, col=1)
 
     fig.update_layout(
-        height=2200, template="plotly_dark", barmode='group', title_text="Whole Building Aggregation",
-        coloraxis1=dict(colorscale='Turbo', colorbar=dict(title="CO2", orientation='v', x=0.95, y=0.50, len=0.2, thickness=8)),
-        coloraxis2=dict(colorscale='Thermal', colorbar=dict(title="Temp", orientation='v', x=0.95, y=0.1, len=0.2, thickness=8))
+        height=2200, template="plotly_dark", barmode='group', title_text="Whole Building Aggregation"
     )
     
     for c in [1]: 
