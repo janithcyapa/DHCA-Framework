@@ -1,5 +1,5 @@
 {
-  "__auto_counter__": 8,
+  "__auto_counter__": 9,
   "entry_0001": {
     "entity_id": "zone_001",
     "description": "Senosr Data Test",
@@ -107,5 +107,12 @@
         "description": "Offline simulation of EKF/MPC and AHU Coordinator against dataset"
       }
     }
+  },
+  "entry_0009": {
+    "entity_id": "zone_002",
+    "description": "Controller Test",
+    "timestamp": "1785989318",
+    "raw_csv_path": "raw_data/experiments/entry_0009_zone_002_1785989318_data.csv",
+    "processed_files": {}
   }
 }
