@@ -215,20 +215,20 @@
   },
   "active": "63830765bb069a2e",
   "lastOpenFiles": [
-    "Experimental Plan.md",
-    "Experimental Setup Flow Calibration.md",
-    "Results.md",
-    "Simulation 5 Zone Values.md",
-    "Untitled.md",
     "1. Modeling a thermal zone using an RC (Resistor-Capacitor) model.md",
+    "0. Appendix.md",
+    "2. The Extended Kalman Filter (EKF).md",
     "5. The AHU Coordinator Multi-Zone Arbitration Logic.md",
     "4. Controllability Maximization  The \"Ideal Ask\".md",
     "3. Actuation-Minimizing Deadband Zone MPC.md",
-    "2. The Extended Kalman Filter (EKF).md",
-    "0. Appendix.md",
+    "6. HVAC Multi-Zone Control Strategy.md",
+    "Experimental Plan.md",
+    "Untitled.md",
+    "Simulation 5 Zone Values.md",
+    "Results.md",
+    "Experimental Setup Flow Calibration.md",
     "HVAC Multi-Zone Control Strategy.md",
     "6. HVAC Multi-Zone Control Strategy",
-    "6. HVAC Multi-Zone Control Strategy.md",
     "HVAC Multi-Zone Control Strategy — SummarySummary.md"
   ]
 }
