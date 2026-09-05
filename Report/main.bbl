@@ -1,0 +1,73 @@
+\begin{thebibliography}{}
+
+\bibitem[Afram and Janabi-Sharifi, 2014]{aframTheoryApplicationsHVAC2014}
+Afram, A. and Janabi-Sharifi, F. (2014).
+\newblock Theory and applications of {HVAC} control systems – {A} review of
+  model predictive control ({MPC}).
+\newblock {\em Building and Environment}, 72:343--355.
+
+\bibitem[Balali et~al., 2023]{balaliEnergyModellingControl2023}
+Balali, Y., Chong, A., Busch, A., and O’Keefe, S. (2023).
+\newblock Energy modelling and control of building heating and cooling systems
+  with data-driven and hybrid models—{A} review.
+\newblock {\em Renewable and Sustainable Energy Reviews}, 183:113496.
+
+\bibitem[Camacho and Bordons, 2007]{camachoModelPredictiveControl2007}
+Camacho, E.~F. and Bordons, C. (2007).
+\newblock {\em Model {Predictive} control}.
+\newblock Advanced {Textbooks} in {Control} and {Signal} {Processing}. Springer
+  London, London.
+
+\bibitem[Dounis and Caraiscos, 2009]{dounisAdvancedControlSystems2009}
+Dounis, A. and Caraiscos, C. (2009).
+\newblock Advanced control systems engineering for energy and comfort
+  management in a building environment—{A} review.
+\newblock {\em Renewable and Sustainable Energy Reviews}, 13(6-7):1246--1261.
+
+\bibitem[Harrold and Lush, 1988]{harroldAutomaticControlsBuilding1988}
+Harrold, M. and Lush, D. (1988).
+\newblock Automatic controls in building services.
+\newblock {\em IEE Proceedings B Electric Power Applications}, 135(3):105.
+
+\bibitem[Kalogirou, 2009]{kalogirouArtificialNeuralNetworks2009}
+Kalogirou, S.~A. (2009).
+\newblock Artificial {Neural} {Networks} and {Genetic} {Algorithms} in {Energy}
+  {Applications} in {Buildings}.
+\newblock {\em Advances in Building Energy Research}, 3(1):83--119.
+
+\bibitem[Naidu and Rieger, 2011]{naiduAdvancedControlStrategies2011}
+Naidu, D.~S. and Rieger, C.~G. (2011).
+\newblock Advanced control strategies for heating, ventilation,
+  air-conditioning, and refrigeration systems—{An} overview: {Part} {I}:
+  {Hard} control.
+\newblock {\em HVAC\&R Research}, 17(1):2--21.
+
+\bibitem[Qin and Badgwell, 2003]{qinSurveyIndustrialModel2003}
+Qin, S. and Badgwell, T.~A. (2003).
+\newblock A survey of industrial model predictive control technology.
+\newblock {\em Control Engineering Practice}, 11(7):733--764.
+
+\bibitem[Singh et~al., 2006]{singhFuzzyModelingControl2009}
+Singh, J., Singh, N., and Sharma, J. (2006).
+\newblock Fuzzy modeling and control of hvac systems - a review.
+\newblock {\em Journal of Scientific and Industrial Research}, 65.
+
+\bibitem[Tekler et~al., 2022]{robod2022}
+Tekler, Z.~D., Ono, E., Peng, Y., Zhan, S., Lasternas, B., and Chong, A.
+  (2022).
+\newblock Robod, room-level occupancy and building operation dataset.
+\newblock {\em Building Simulation}, 15(12):2127--2137.
+
+\bibitem[Wang and Ma, 2008]{wangSupervisoryOptimalControl2008}
+Wang, S. and Ma, Z. (2008).
+\newblock Supervisory and {Optimal} {Control} of {Building} {HVAC} {Systems}:
+  {A} {Review}.
+\newblock {\em HVAC\&R Research}, 14(1):3--32.
+
+\bibitem[Yang et~al., 2019]{yangHVACEnergyCost2019}
+Yang, Y., Hu, G., and Spanos, C.~J. (2019).
+\newblock {HVAC} {Energy} {Cost} {Optimization} for a {Multi}-zone {Building}
+  via a {Decentralized} {Approach}.
+\newblock Version Number: 1.
+
+\end{thebibliography}

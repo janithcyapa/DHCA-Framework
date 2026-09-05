@@ -117,8 +117,8 @@ class Initializer:
                 # Configuration for random setpoint generation
                 temp_min = 20.0
                 temp_max = 25.0
-                hours_min = 8
-                hours_max = 8
+                hours_min = 12
+                hours_max = 24
                 steps_per_hour = self.plugin.steps_per_hour
 
                 rng = np.random.RandomState(2026 + i * 13)
@@ -146,9 +146,9 @@ class Initializer:
                 
                 for r_idx, r in enumerate(reader):
                     rows.append({
-                        'plug_W':   float(r['plug_load_energy [kWh]']) * 12_000.0,
-                        'light_W':  float(r['lighting_energy [kWh]'])  * 12_000.0,
-                        'occupant_count': float(r['occupant_count [number]']),
+                        'plug_W':   min(2500.0, float(r['plug_load_energy [kWh]']) * 12_000.0),
+                        'light_W':  min(2500.0, float(r['lighting_energy [kWh]'])  * 12_000.0),
+                        'occupant_count': min(10.0, float(r['occupant_count [number]'])),
                         'outdoor_co2':    float(r.get('outdoor_co2 [ppm]', 420.0)),
                         'temp_setpoint':  float(setpoints[r_idx]),
                     })
@@ -303,6 +303,21 @@ class HVAC_Coordinator(EnergyPlusPlugin):
             dt_h = self.api.exchange.zone_time_step(state)
         return dt_h * 3600.0
 
+    def _apply_dataset_inputs(self, state, idx):
+        sa = self.api.exchange.set_actuator_value
+        if "SPACE1-1" in self.datasets:
+            df1 = self.datasets["SPACE1-1"]
+            co2 = df1[idx % len(df1)]['outdoor_co2']
+            if self.actuators.get("CO2_Out_SP", -1) != -1:
+                sa(state, self.actuators["CO2_Out_SP"], co2)
+
+        for z in self.zones:
+            if z in self.datasets:
+                row = self.datasets[z][idx % len(self.datasets[z])]
+                for suffix, key in [("People_SP", "occupant_count"), ("Equip_SP", "plug_W"), ("Lights_SP", "light_W")]:
+                    h = self.actuators.get(f"{z}_{suffix}", -1)
+                    if h != -1: sa(state, h, row[key])
+
     #  HOOK 1 — State Estimation & Controller Update
     def on_begin_timestep_before_predictor(self, state) -> int:
         if not self.api.exchange.api_data_fully_ready(state): return 0
@@ -328,6 +343,9 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         # Time sync for dataset schedules
         elapsed = (day - 1) * 24.0 + t
         idx = int(elapsed * self.steps_per_hour)
+        
+        # Apply dataset inputs (occupancy, plug load, lighting, outdoor CO2) before predictor runs
+        self._apply_dataset_inputs(state, idx)
         
         # If Benchmark mode is ON (Custom Controllers OFF), apply thermostat setpoints and skip custom logic
         if not self.USE_CUSTOM_CONTROLLERS:
@@ -476,18 +494,7 @@ class HVAC_Coordinator(EnergyPlusPlugin):
         idx     = int(elapsed * self.steps_per_hour)
 
         # Dataset overrides
-        if "SPACE1-1" in self.datasets:
-            df1 = self.datasets["SPACE1-1"]
-            co2 = df1[idx % len(df1)]['outdoor_co2']
-            if self.actuators.get("CO2_Out_SP", -1) != -1:
-                sa(state, self.actuators["CO2_Out_SP"], co2)
-
-        for z in self.zones:
-            if z in self.datasets:
-                row = self.datasets[z][idx % len(self.datasets[z])]
-                for suffix, key in [("People_SP", "occupant_count"), ("Equip_SP", "plug_W"), ("Lights_SP", "light_W")]:
-                    h = self.actuators.get(f"{z}_{suffix}", -1)
-                    if h != -1: sa(state, h, row[key])
+        self._apply_dataset_inputs(state, idx)
 
         if not self.USE_CUSTOM_CONTROLLERS:
             return 0

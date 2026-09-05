@@ -1,0 +1,17 @@
+\contentsline {figure}{\numberline {1}{\ignorespaces Hierarchical Bi-Level Optimization and Arbitration Control Architecture for Multi-Zone HVAC}}{9}{figure.26}%
+\contentsline {figure}{\numberline {2}{\ignorespaces Layer\nobreakspace {}1, Stage\nobreakspace {}1 - Comfort and IAQ constrained flow MPC}}{16}{figure.63}%
+\contentsline {figure}{\numberline {3}{\ignorespaces Comfort and IAQ operating regions}}{17}{figure.69}%
+\contentsline {figure}{\numberline {4}{\ignorespaces Layer\nobreakspace {}1, Stage\nobreakspace {}2 -- the ideal-ask solver.}}{20}{figure.83}%
+\contentsline {figure}{\numberline {5}{\ignorespaces Layer\nobreakspace {}2 - Central AHU Coordinator}}{23}{figure.99}%
+\contentsline {figure}{\numberline {6}{\ignorespaces Building geometry of the \texttt {5ZoneAutoDXVAV} EnergyPlus reference model.}}{26}{figure.113}%
+\contentsline {figure}{\numberline {7}{\ignorespaces PCB layout of the custom ESP32 shield.}}{28}{figure.119}%
+\contentsline {figure}{\numberline {8}{\ignorespaces Assembled DECEN-VAV zone controller module in its enclosure.}}{29}{figure.121}%
+\contentsline {figure}{\numberline {9}{\ignorespaces Real-time web dashboard and DAQ}}{31}{figure.130}%
+\contentsline {figure}{\numberline {10}{\ignorespaces Single-zone experimental testbench with the digitally retrofitted sensing and control layer.}}{32}{figure.132}%
+\contentsline {figure}{\numberline {11}{\ignorespaces EKF diagnostics for SPACE3-1}}{33}{figure.136}%
+\contentsline {figure}{\numberline {12}{\ignorespaces Temperature regulation across all five zones over the full 31-day simulation}}{34}{figure.138}%
+\contentsline {figure}{\numberline {13}{\ignorespaces AHU Coordinator arbitration for a representative 24-hour period }}{36}{figure.141}%
+\contentsline {figure}{\numberline {14}{\ignorespaces Whole-building comfort aggregation}}{37}{figure.143}%
+\contentsline {figure}{\numberline {15}{\ignorespaces Zone Controller on the physical testbench.}}{39}{figure.146}%
+\contentsline {figure}{\numberline {16}{\ignorespaces Hardware AHU coordinator arbitration}}{40}{figure.148}%
+\contentsline {figure}{\numberline {17}{\ignorespaces AHU component actuation on the physical testbench}}{41}{figure.150}%

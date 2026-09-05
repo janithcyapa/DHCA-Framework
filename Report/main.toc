@@ -1,0 +1,88 @@
+\contentsline {section}{Executive Summary}{i}{Doc-Start}%
+\contentsline {section}{Acknowledgments}{ii}{Doc-Start}%
+\contentsline {section}{Declaration}{iii}{Doc-Start}%
+\contentsline {section}{List of Figures}{vii}{Doc-Start}%
+\contentsline {section}{List of Tables}{viii}{Doc-Start}%
+\contentsline {section}{Abbreviations}{ix}{Doc-Start}%
+\contentsline {section}{\numberline {1}Introduction}{1}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Aims and Objectives}{2}{subsection.2}%
+\contentsline {subsection}{\numberline {1.2}Scope}{2}{subsection.3}%
+\contentsline {subsection}{\numberline {1.3}Intended Beneficiaries}{2}{subsection.4}%
+\contentsline {subsection}{\numberline {1.4}Approach}{3}{subsection.5}%
+\contentsline {subsection}{\numberline {1.5}Assumptions}{3}{subsection.6}%
+\contentsline {subsection}{\numberline {1.6}Expected Outcomes}{3}{subsection.7}%
+\contentsline {section}{\numberline {2}Background}{4}{section.8}%
+\contentsline {subsection}{\numberline {2.1}Conventional HVAC Control Strategies and their Limitations}{4}{subsection.9}%
+\contentsline {subsubsection}{\numberline {2.1.1}Classical Control}{4}{subsubsection.10}%
+\contentsline {subsubsection}{\numberline {2.1.2}Intelligent and Soft Computing Approaches}{4}{subsubsection.12}%
+\contentsline {subsubsection}{\numberline {2.1.3}Model Predictive Control}{5}{subsubsection.13}%
+\contentsline {subsection}{\numberline {2.2}The Coupled Nature of Indoor Air Quality Regulation}{5}{subsection.15}%
+\contentsline {subsection}{\numberline {2.3}Building Thermal Modelling}{6}{subsection.17}%
+\contentsline {subsection}{\numberline {2.4}Decentralised and Agent-Based Control}{6}{subsection.19}%
+\contentsline {subsection}{\numberline {2.5}Identified Gaps in the Literature}{7}{subsection.21}%
+\contentsline {subsection}{\numberline {2.6}Problem Statement}{8}{subsection.23}%
+\contentsline {section}{\numberline {3}Control System Architecture}{9}{section.24}%
+\contentsline {subsection}{\numberline {3.1}System Overview}{9}{subsection.25}%
+\contentsline {subsection}{\numberline {3.2}Dynamic System Derivation}{10}{subsection.27}%
+\contentsline {subsubsection}{\numberline {3.2.1}Fundamental Electrical Analogy}{10}{subsubsection.28}%
+\contentsline {subsubsection}{\numberline {3.2.2}Single-Zone Governing Equations}{10}{subsubsection.29}%
+\contentsline {subsubsection}{\numberline {3.2.3}Model Simplification}{11}{subsubsection.34}%
+\contentsline {subsection}{\numberline {3.3}State Estimation via the Extended Kalman Filter (EKF)}{13}{subsection.48}%
+\contentsline {subsubsection}{\numberline {3.3.1}Augmented State Vector}{13}{subsubsection.49}%
+\contentsline {subsubsection}{\numberline {3.3.2}Sensor Fusion and Hidden-State Estimation}{13}{subsubsection.52}%
+\contentsline {subsubsection}{\numberline {3.3.3}Disturbance and Occupancy Observation}{14}{subsubsection.54}%
+\contentsline {subsubsection}{\numberline {3.3.4}Online Physical-Parameter Estimation}{14}{subsubsection.57}%
+\contentsline {subsubsection}{\numberline {3.3.5}EKF Prediction and Measurement Correction}{14}{subsubsection.58}%
+\contentsline {subsubsection}{\numberline {3.3.6}EKF Tuning}{15}{subsubsection.60}%
+\contentsline {subsection}{\numberline {3.4}Layer 1 - Zone Controller: Comfort- and IAQ-Constrained MPC}{16}{subsection.62}%
+\contentsline {subsubsection}{\numberline {3.4.1}Control Philosophy}{16}{subsubsection.64}%
+\contentsline {subsubsection}{\numberline {3.4.2}Comfort and IAQ Operating Regions}{16}{subsubsection.65}%
+\contentsline {subsubsection}{\numberline {3.4.3}Objective Function}{17}{subsubsection.71}%
+\contentsline {subsubsection}{\numberline {3.4.4}Soft Constraints}{18}{subsubsection.74}%
+\contentsline {subsubsection}{\numberline {3.4.5}Hard Actuator Constraints}{19}{subsubsection.76}%
+\contentsline {subsubsection}{\numberline {3.4.6}Prediction, MPC Formulation and Tuning Strategy}{19}{subsubsection.79}%
+\contentsline {subsubsection}{\numberline {3.4.7}Tuning Strategy}{19}{subsubsection.80}%
+\contentsline {subsection}{\numberline {3.5}Layer 1 - Zone Controller: Ideal Supply State Solver}{20}{subsection.82}%
+\contentsline {subsubsection}{\numberline {3.5.1}Sequential Linearisation and Supply-State Optimisation}{20}{subsubsection.84}%
+\contentsline {subsubsection}{\numberline {3.5.2}Dynamic Neutral Supply Target}{21}{subsubsection.87}%
+\contentsline {subsubsection}{\numberline {3.5.3}Ideal State Solver Objective, Penalties, and Constraints}{21}{subsubsection.92}%
+\contentsline {subsubsection}{\numberline {3.5.4}Flow-Authority Taper and Saturation Index}{22}{subsubsection.94}%
+\contentsline {subsection}{\numberline {3.6}Layer 2 - Central Controller: AHU Coordination and Multi-Zone Arbitration}{23}{subsection.98}%
+\contentsline {subsubsection}{\numberline {3.6.1}Multi-Zone Weighting}{23}{subsubsection.102}%
+\contentsline {subsubsection}{\numberline {3.6.2}Central Coordination Objective}{24}{subsubsection.104}%
+\contentsline {subsubsection}{\numberline {3.6.3}Hard Physical Constraints}{24}{subsubsection.108}%
+\contentsline {section}{\numberline {4}Implementation and Experimental Setup}{26}{section.110}%
+\contentsline {subsection}{\numberline {4.1}Simulation Environment}{26}{subsection.111}%
+\contentsline {subsubsection}{\numberline {4.1.1}EnergyPlus Building Model}{26}{subsubsection.112}%
+\contentsline {subsubsection}{\numberline {4.1.2}Python Plugin Architecture}{27}{subsubsection.115}%
+\contentsline {subsubsection}{\numberline {4.1.3}Supplementary Occupancy Dataset}{27}{subsubsection.116}%
+\contentsline {subsection}{\numberline {4.2}Hardware Implementation}{28}{subsection.117}%
+\contentsline {subsubsection}{\numberline {4.2.1}Controller Hardware}{28}{subsubsection.118}%
+\contentsline {subsubsection}{\numberline {4.2.2}Sensing Suite}{29}{subsubsection.122}%
+\contentsline {subsubsection}{\numberline {4.2.3}Air Flow Calibration}{30}{subsubsection.124}%
+\contentsline {subsection}{\numberline {4.3}Telemetry and Monitoring Interface}{31}{subsection.129}%
+\contentsline {subsection}{\numberline {4.4}Single-Zone Experimental Testbench}{32}{subsection.131}%
+\contentsline {section}{\numberline {5}Results}{33}{section.133}%
+\contentsline {subsection}{\numberline {5.1}Simulation Validation within EnergyPlus}{33}{subsection.134}%
+\contentsline {subsubsection}{\numberline {5.1.1}EKF State Tracking and Normalised Innovation Squared Health}{33}{subsubsection.135}%
+\contentsline {subsubsection}{\numberline {5.1.2}Multi-Zone Temperature Regulation with Independent Setpoints}{34}{subsubsection.137}%
+\contentsline {subsubsection}{\numberline {5.1.3}AHU Coordinator Arbitration}{35}{subsubsection.140}%
+\contentsline {subsubsection}{\numberline {5.1.4}Overall Simulation Results}{37}{subsubsection.142}%
+\contentsline {subsection}{\numberline {5.2}Single-Zone Cool Room Experimental Performance and Hardware Validation}{38}{subsection.144}%
+\contentsline {subsubsection}{\numberline {5.2.1}Zone Controller Performance}{38}{subsubsection.145}%
+\contentsline {subsubsection}{\numberline {5.2.2}AHU Coordinator Arbitration on Hardware}{38}{subsubsection.147}%
+\contentsline {subsubsection}{\numberline {5.2.3}AHU Component Actuation}{40}{subsubsection.149}%
+\contentsline {section}{\numberline {6}Discussion}{42}{section.151}%
+\contentsline {subsection}{\numberline {6.1}Modelling Challenges and Grey-Box Model Development}{42}{subsection.152}%
+\contentsline {subsection}{\numberline {6.2}EKF Tuning and Convergence}{42}{subsection.153}%
+\contentsline {subsection}{\numberline {6.3}MPC Tuning and Constraint Hierarchy}{42}{subsection.154}%
+\contentsline {subsection}{\numberline {6.4}PCB Design and Sensor Noise Mitigation}{42}{subsection.155}%
+\contentsline {subsection}{\numberline {6.5}Sensor Placement and Multi-Sensor Averaging}{43}{subsection.156}%
+\contentsline {subsection}{\numberline {6.6}Simulation-to-Hardware Transfer}{43}{subsection.157}%
+\contentsline {section}{\numberline {7}Conclusions}{44}{section.158}%
+\contentsline {section}{\numberline {8}Future Work}{45}{section.162}%
+\contentsline {subsection}{\numberline {8.1}Multi-Zone Hardware Deployment and Robustness Testing}{45}{subsection.163}%
+\contentsline {subsection}{\numberline {8.2}System Tuning}{45}{subsection.164}%
+\contentsline {subsection}{\numberline {8.3}VAV Systems with Reheat Terminals}{45}{subsection.165}%
+\contentsline {subsection}{\numberline {8.4}Demand Response and Energy Aware Control}{45}{subsection.166}%
+\contentsline {section}{\numberline {A}Nomenclature \& Variable Definitions}{47}{appendix.167}%

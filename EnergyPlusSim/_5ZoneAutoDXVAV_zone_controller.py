@@ -137,19 +137,19 @@ class ZoneController:
         # --- MPC Initialization ---
         self.N = 20 
 
-        self.r = 1e-1
-        self.r_delta = 5e1 
+        self.r = 1e-5
+        self.r_delta = 1e-1 
 
-        self.lambda_T = 1e3 
-        self.lambda_W = 1e10  
+        self.lambda_T = 1e3
+        self.lambda_W = 1e8  
         self.lambda_C = 1e1
 
-        self.mu_T = 1e4  
-        self.du_max = 0.05
+        self.mu_T = 1e1  
+        self.du_max = 1.0
 
         # Centering weights
         self.q_T_center = 5.0
-        self.q_W_center = 1e7 
+        self.q_W_center = 1e2 
 
         # --- Phase 2 QP (Ideal Ask) weights & reference points ---
         self.q_T_ask = 1.0
@@ -668,7 +668,7 @@ class ZoneController:
             self.x[6] = max(0.0, self.x[6])
             self.x[7] = np.clip(self.x[7], 1.0, 5000.0)
             self.x[8] = np.clip(self.x[8], 1.0, 5000.0)
-            self.x[9] = np.clip(self.x[9], 1e-7, 1e-4)
+            self.x[9] = np.clip(self.x[9], 1e-7, 1e-6   )
             self.x[10] = np.clip(self.x[10], 1e-9, 1e-5)
             self.x[11] = np.clip(self.x[11], -500.0, 500.0) # d_C: unmodeled CO2 source bounds
     

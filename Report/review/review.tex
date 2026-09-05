@@ -1,0 +1,157 @@
+\documentclass[twocolumn,11pt,a4paper]{article}
+
+\usepackage[english]{babel}
+\usepackage{cite}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{times}
+\usepackage{enumitem}
+\setlist{nosep}
+
+\usepackage[a4paper, margin=1.5cm]{geometry}
+
+\title{\textbf{Literature Review on Decentralized and Scalable Control Strategies for Multi-Zone HVAC Systems}}
+
+\author{
+    Janith C. Yapa \\
+    \textit{Dept. of Mechanical Engineering} \\
+    \textit{University of Peradeniya} \\
+    \textit{Peradeniya, Sri Lanka} \\
+    janithcyapa@gmail.com
+}
+\date{}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+
+Buildings represent one of the largest global energy consumers.Report shows that buildings account for approximately 37\% of final energy consumption in the European Union and more than 40\% of primary energy use in the United States \cite{perez-lombardReviewBuildingsEnergy2008}. Within this share, HVAC systems contribute nearly half of total building energy consumption \cite{aframTheoryApplicationsHVAC2014}. These figures highlight that even marginal improvements in HVAC efficiency can produce substantial aggregate energy and emissions reductions at scale.
+
+In the Sri Lankan context, improving HVAC control efficiency is particularly important due to the high contribution of buildings to national electricity consumption. The building sector accounts for nearly 60\% of the country’s total electricity usage, and within commercial buildings, HVAC systems consume a significant share of this energy\cite{universityofmoratuwasrilankaGuidelinesOptimisingEnergy2025}. Studies indicate that HVAC systems alone can account for more than half of the energy consumption in commercial buildings, with airside systems playing a major role in this demand\cite{universityofmoratuwasrilankaGuidelinesOptimisingEnergy2025}. Therefore, developing a scalable decentralized control architecture tailored to Sri Lanka’s tropical climate and operational realities si significant, as it directly supports energy security, reduces operational costs in commercial buildings, and contributes to long-term sustainability goals.
+
+Given the size of global building energy consumption, a 1\% improvement in HVAC operational can result in significant cumulative energy savings. Therefore, advanced control strategies have been widely studied as a cost-effective pathway to improving building energy performance \cite{aframTheoryApplicationsHVAC2014}, \cite{wangSupervisoryOptimalControl2008}.
+
+
+\end{abstract}
+
+\section{HVAC Control Strategies}
+\subsection{Classical and Conventional Control}
+Conventional HVAC systems primarily rely on on–off control, PID control, and time scheduling strategies \cite{harroldAutomaticControlsBuilding1988}. Although PID controllers are simple and robust, they exhibit time-response delays, particularly under time-varying disturbances and nonlinear dynamics \cite{balaliEnergyModellingControl2023}. HVAC systems present several control challenges, including,
+\begin{itemize}
+    \item Nonlinear and time-varying dynamics
+    \item Disturbance uncertainty (weather, occupancy)
+    \item Interacting control loops
+\end{itemize}
+Classical control methods are limited in handling multivariable systems and operational constraints such as airflow limits, thermal comfort bounds, and actuator saturation.
+
+\subsection{Intelligent and Soft Computing Approaches}
+To address nonlinearities and adaptability, soft computing methods such as fuzzy logic, artificial neural networks (ANN), and genetic algorithms (GA) have been extensively investigated \cite{naiduAdvancedControlStrategies2011}. Many reviews on these intelligent HVAC control can be found including Dounis and Caraiscos \cite{dounisAdvancedControlSystems2009}, Singh et al. \cite{singhFuzzyModelingControl2009}, and Kalogirou \cite{kalogirouArtificialNeuralNetworks2009}.
+
+These approaches enhance adaptability and can approximate nonlinear system behavior. However, they often lack,
+
+\begin{itemize}
+    \item Explicit constraint handling
+    \item Predictive optimization
+    \item Scalability across large multi-zone systems
+\end{itemize}
+
+As a result, while intelligent techniques improve local performance, they do not systematically address global energy optimization.
+
+\section{Model Predictive Control for HVAC Systems}
+Model Predictive Control (MPC) has emerged as the dominant advanced control framework for HVAC applications. Foundational MPC theory is presented by Camacho and Alba \cite{camachoModelPredictiveControl2007} and surveyed industrially by Qin and Badgwell \cite{qinSurveyIndustrialModel2003}. 
+
+The advantages of MPC for HVAC systems include:
+\begin{itemize}
+    \item Anticipatory control actions
+    \item Explicit constraint handling
+    \item Multi-objective optimization
+    \item Integration of disturbance forecasting
+    \item Supervisory and local-loop coordination capability \cite{aframTheoryApplicationsHVAC2014}
+\end{itemize}
+
+Despite strong theoretical and simulation-based validation, comprehensive surveys emphasize persistent challenges,
+\begin{itemize}
+    \item Computational complexity for large-scale systems
+    \item Dependence on accurate predictive models
+    \item Limited standardized deployment frameworks
+    \item Gap between research prototypes and commercial products \cite{aframTheoryApplicationsHVAC2014}
+\end{itemize}
+
+Thus, while MPC is well established academically, scalable and deployable implementations remain limited.
+
+\section{System Modeling}
+Effective controlling requires control-oriented thermal models. Thermal modeling strategies are typically categorized as white-box, black-box, and grey-box approaches \cite{aframTheoryApplicationsHVAC2014}.
+
+\subsection{White-Box (Physics-Based) Models}
+White-box models rely on detailed physical representations of building geometry, materials, and heat transfer mechanisms \cite{aframTheoryApplicationsHVAC2014}. These models provide high accuracy but require extensive building information and significant computational effort. For real-time control applications, their complexity often becomes prohibitive.
+
+\subsection{Black-Box (Data-Driven) Models}
+Black-box models establish mathematical relationships between inputs and outputs using historical data and machine learning techniques \cite{aframTheoryApplicationsHVAC2014}. Their performance depends strongly on data quality and availability. Although flexible, they lack interpretability and may fail under extrapolation or changing operating conditions.
+
+\subsection{Grey-Box (Hybrid RC) Models}
+Grey-box models combine physical structure with parameter estimation from data \cite{aframTheoryApplicationsHVAC2014}. Resistance–capacitance (RC) networks are widely used because ther have following benefits,
+\begin{itemize}
+    \item Interpretability
+    \item Reduced model order
+    \item Computational feasibility
+    \item Compatibility with MPC
+\end{itemize}
+
+Grey-box RC models have become standard in building MPC implementations. However, model generation and parameter tuning remain building-specific and often require significant engineering effort.
+
+\section{Multi-Zone HVAC Systems and Decentralized Control}
+In multi-zone buildings, thermal coupling between adjacent zones and shared AHU constraints introduce significant complexity. Centralized MPC formulations become computationally intensive as the number of zones increases.
+
+Yang et al. propose a decentralized approach using an Accelerated Distributed Augmented Lagrangian (ADAL) method for multi-zone HVAC optimization \cite{yangHVACEnergyCost2019}. Their results show that decentralized control approaches can approach centralized optimality while improving computational efficiency. In large-scale scenarios (100+ zones), decentralized methods demonstrate improved scalability compared to centralized or token-based scheduling strategies \cite{yangHVACEnergyCost2019}.
+
+However, most decentralized and distributed approaches in the literature,
+\begin{itemize}
+    \item Are formulated for specific building case studies
+    \item Assume simplified coupling models
+    \item Require manual modeling and configuration
+    \item They lack standardized supervisory coordination interfaces
+\end{itemize}
+Therefore, scalability and generalizability remain open challenges.
+
+\subsection{Supervisory and Adaptive Control}
+Supervisory HVAC control has been reviewed extensively by Wang and Ma \cite{wangSupervisoryOptimalControl2008}, who highlight the need for system-level coordination beyond local PID loops. More recently, integration of MPC with reinforcement learning (RL) has been explored to enhance adaptability \cite{balaliEnergyModellingControl2023}. While RL offers adaptability in nonlinear environments, it requires substantial data and computational resources, and its competitiveness relative to MPC remains limited in practical applications \cite{balaliEnergyModellingControl2023}.
+
+Overall, many literature mention following as limitation and future works, 
+\begin{itemize}
+    \item Automated model updating
+    \item Reduced engineering effort
+    \item Scalable supervisory architectures
+    \item Deployment-oriented frameworks
+\end{itemize}
+
+\subsection{Agent-Based Supervisory Control}
+Agent-based supervisory control has emerged as a promising methord for coordinating distributed subsystems while maintaining scalability and modularity. In this each zone or subsystem is modeled as an autonomous agent capable of local decision-making, while a higher-level coordinator resolves coupling constraints and global objectives. Reviews of intelligent HVAC control highlight the potential of multi-agent control systems (MACs) for energy management and indoor environmental regulation, particularly when integrating soft and hybrid control techniques \cite{naiduAdvancedControlStrategies2011}, \cite{dounisAdvancedControlSystems2009}.
+
+Agent-based supervisory architectures offer several structural advantages,
+Scalability – Adding or removing zones does not require redesign of the entire control problem; agents operate locally with defined communication interfaces.
+Modularity – Zone controllers can be independently developed and tuned.
+Parallel Computation – Local optimization problems can be solved simultaneously, reducing computational latency.
+Fault Tolerance – Partial system failures do not necessarily compromise global operation.
+
+Despite these advantages, several challenges remain. First, inter-zone thermal coupling and shared AHU constraints introduce non-separable optimization structures. Literature indicates that many decentralized approaches simplify or neglect coupling effects to maintain tractability \cite{yangHVACEnergyCost2019}. Second, communication overhead and convergence stability must be addressed in distributed coordination schemes. Third, most agent-based implementations remain validated at simulation scale and lack standardized deployment protocols.
+
+
+
+\section{Identified Gaps}
+Based on the reviewed literature, the following research gaps were mentioned,
+
+\begin{itemize}
+    \item Deployment Gap – Most studies validate MPC in simulation or single-building case studies, with limited commercialization \cite{aframTheoryApplicationsHVAC2014}, \cite{balaliEnergyModellingControl2023}.
+    \item Model Automation Gap - There is no standardized methods to automatically generate control-oriented gray-box models from building descriptions \cite{balaliEnergyModellingControl2023}.
+    \item Scalability Gap – Decentralized approaches lack standardized implementation frameworks \cite{yangHVACEnergyCost2019}.
+    \item Computational Complexity –Multi-zone thermal coupling and shared AHU constraints create non-separable optimization problems, increasing computational complexity and reducing the practicality of centralized MPC \cite{yangHVACEnergyCost2019}.
+    \item End-to-End Integration Gap – Literature often stops at controller design rather than bridging simulation models and operational deployment.
+    \item Transferability and Climate Robustness Gap – Many HVAC control strategies are tuned for specific buildings and climates. Controllers developed for one climate may not perform well in tropical or cold regions. The lack of adaptability limits their applicability.
+\end{itemize}
+
+This motivates the development of a agent-based supervisory control architecture in which zone-level predictive controllers operate as autonomous agents, while a centralized AHU coordinator enforces global operating conditions, performs energy-aware optimization, and manages inter-zone coupling to preserve modularity and scalability. In addition, a framework enables automated generation of control-oriented MPC models from common digital building representations (e.g., simulation or BIM-based models such as EnergyPlus IDF files), supporting scalable, modular, and support deployment across diverse buildings and climates.
+
+\bibliographystyle{plain}
+\bibliography{ref}
+
+\end{document}

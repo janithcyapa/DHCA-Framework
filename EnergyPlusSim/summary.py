@@ -9,6 +9,8 @@ import functools
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
 # --- 1. Global Design System & Grammar ---
+THEME = "light"  # Global theme configuration: "light" (white default) or "dark"
+
 COLORS = {
     # Functional Semantics (View 1, 2, 3)
     "Temp": "#2ecc71",       # Green
@@ -39,16 +41,31 @@ STATUS_COLORSCALE = [
     [1.0, '#e74c3c']   # 9 = Red (Failed)
 ]
 
-plasma_transparent = [
-    [0.0, "rgba(0, 0, 0, 0)"],
-    [0.001, "rgba(13, 8, 135, 0.0)"],
-    [0.05, "rgba(156, 39, 176, 0.5)"],
-    [0.15, "rgba(233, 30, 99, 0.8)"],
-    [0.3, "rgba(255, 87, 34, 1)"],
-    [0.5, "rgba(255, 193, 7, 1)"],
-    [0.7, "rgba(255, 235, 59, 1)"],
-    [1.0, "rgba(255, 255, 255, 1)"]
-]
+def get_plasma_transparent(theme=THEME):
+    if theme == "light":
+        return [
+            [0.0, "rgba(255, 255, 255, 0)"],
+            [0.001, "rgba(255, 235, 59, 0.2)"],
+            [0.05, "rgba(255, 193, 7, 0.6)"],
+            [0.15, "rgba(255, 87, 34, 0.8)"],
+            [0.3, "rgba(233, 30, 99, 0.9)"],
+            [0.5, "rgba(156, 39, 176, 1)"],
+            [0.7, "rgba(70, 15, 120, 1)"],
+            [1.0, "rgba(13, 8, 135, 1)"]
+        ]
+    else:
+        return [
+            [0.0, "rgba(0, 0, 0, 0)"],
+            [0.001, "rgba(13, 8, 135, 0.0)"],
+            [0.05, "rgba(156, 39, 176, 0.5)"],
+            [0.15, "rgba(233, 30, 99, 0.8)"],
+            [0.3, "rgba(255, 87, 34, 1)"],
+            [0.5, "rgba(255, 193, 7, 1)"],
+            [0.7, "rgba(255, 235, 59, 1)"],
+            [1.0, "rgba(255, 255, 255, 1)"]
+        ]
+
+plasma_transparent = get_plasma_transparent("dark")
 
 ZONES = ["SPACE1-1", "SPACE2-1", "SPACE3-1", "SPACE4-1", "SPACE5-1"]
 BASE_YEAR = 2014
@@ -75,24 +92,27 @@ def lighten_hex(hex_color, amount=0.15):
     r, g, b = colorsys.hls_to_rgb(h, l, s)
     return f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
 
-def add_comfort_band(fig, row, col, x_arr, ymin, ymax):
+def add_comfort_band(fig, row, col, x_arr, ymin, ymax, theme=THEME):
     if np.isscalar(ymin):
         ymin = [ymin] * len(x_arr)
     if np.isscalar(ymax):
         ymax = [ymax] * len(x_arr)
         
+    line_color = 'rgba(120,120,120,0.5)' if theme == 'light' else 'rgba(255,255,255,0.4)'
+    fill_color = 'rgba(200,200,200,0.15)' if theme == 'light' else 'rgba(255,255,255,0.05)'
+
     fig.add_trace(go.Scatter(
-        x=x_arr, y=ymin, line=dict(color='rgba(255,255,255,0.4)', width=1, dash='dot'), 
+        x=x_arr, y=ymin, line=dict(color=line_color, width=1, dash='dot'), 
         showlegend=False, hoverinfo='skip'
     ), row=row, col=col)
     
     fig.add_trace(go.Scatter(
-        x=x_arr, y=ymax, fill='tonexty', fillcolor="rgba(255,255,255,0.05)", 
-        line=dict(color='rgba(255,255,255,0.4)', width=1, dash='dot'), 
+        x=x_arr, y=ymax, fill='tonexty', fillcolor=fill_color, 
+        line=dict(color=line_color, width=1, dash='dot'), 
         showlegend=False, hoverinfo='skip'
     ), row=row, col=col)
 
-def add_psychrometric_comfort(fig, row, col):
+def add_psychrometric_comfort(fig, row, col, theme=THEME):
     T_cz = np.linspace(20, 25, 50)
     P_atm = 101.325
     P_sat = 0.61078 * np.exp(17.27 * T_cz / (T_cz + 237.3))
@@ -102,18 +122,24 @@ def add_psychrometric_comfort(fig, row, col):
     cz_x = np.concatenate([T_cz, T_cz[::-1]])
     cz_y = np.concatenate([W_30, W_60[::-1]])
     
+    line_color = 'rgba(120,120,120,0.5)' if theme == 'light' else 'rgba(255,255,255,0.4)'
+    fill_color = 'rgba(200,200,200,0.15)' if theme == 'light' else 'rgba(255,255,255,0.05)'
+
     fig.add_trace(go.Scatter(
-        x=cz_x, y=cz_y, fill='toself', fillcolor='rgba(255,255,255,0.05)', 
-        line=dict(color='rgba(255,255,255,0.4)', width=1, dash='dot'),
+        x=cz_x, y=cz_y, fill='toself', fillcolor=fill_color, 
+        line=dict(color=line_color, width=1, dash='dot'),
         showlegend=False, hoverinfo='skip'
     ), row=row, col=col)
 
-def add_rh_co2_comfort(fig, row, col):
+def add_rh_co2_comfort(fig, row, col, theme=THEME):
     cz_x = [30, 60, 60, 30, 30]
     cz_y = [0, 0, 1000, 1000, 0]
+    line_color = 'rgba(120,120,120,0.5)' if theme == 'light' else 'rgba(255,255,255,0.4)'
+    fill_color = 'rgba(200,200,200,0.15)' if theme == 'light' else 'rgba(255,255,255,0.05)'
+
     fig.add_trace(go.Scatter(
-        x=cz_x, y=cz_y, fill='toself', fillcolor='rgba(255,255,255,0.05)', 
-        line=dict(color='rgba(255,255,255,0.4)', width=1, dash='dot'),
+        x=cz_x, y=cz_y, fill='toself', fillcolor=fill_color, 
+        line=dict(color=line_color, width=1, dash='dot'),
         showlegend=False, hoverinfo='skip'
     ), row=row, col=col)
 
@@ -123,7 +149,7 @@ def ep_to_datetime(row):
         day += 1; hour -= 24
     return pd.Timestamp(year=BASE_YEAR, month=1, day=1) + pd.Timedelta(days=day-1, hours=hour, minutes=minute)
 
-def configure_subplot_legends(fig):
+def configure_subplot_legends(fig, theme=THEME):
     layout_updates = {}
     subplot_legends = {} 
     legend_counter = 1
@@ -171,18 +197,23 @@ def configure_subplot_legends(fig):
                 
             y_title = y_domain[1] + 0.015
             for ann in ann_list:
-                if getattr(ann, 'yanchor', None) == 'bottom' and getattr(ann, 'xanchor', None) == 'center':
-                    if abs(ann.x - (x_domain[0] + x_domain[1])/2) < 0.02 and abs(ann.y - y_domain[1]) < 0.05:
+                if getattr(ann, 'yanchor', None) == 'bottom':
+                    is_center = getattr(ann, 'xanchor', None) == 'center' and abs(ann.x - (x_domain[0] + x_domain[1])/2) < 0.02
+                    is_left = getattr(ann, 'xanchor', None) == 'left' and abs(ann.x - x_domain[0]) < 0.02
+                    if (is_center or is_left) and abs(ann.y - y_domain[1]) < 0.05:
                         y_title = ann.y
+                        ann.xanchor = 'left'
+                        ann.x = x_domain[0]
                         break
                         
+            text_color = '#2c3e50' if theme == 'light' else '#ecf0f1'
             layout_updates[legend_id] = dict(
                 x=x_domain[1],
                 y=y_title, 
                 xanchor='right',
                 yanchor='bottom',
                 orientation='h',
-                font=dict(size=10),
+                font=dict(size=10, color=text_color),
                 bgcolor='rgba(0,0,0,0)'
             )
             
@@ -231,6 +262,24 @@ def load_csv_cached(csv_path):
     if not os.path.exists(csv_path):
         return pd.DataFrame()
     df = pd.read_csv(csv_path)
+    
+    # Clean data to prevent OutOfBoundsTimedelta or NaN issues
+    for col in ['DayOfYear', 'Hour', 'Minute']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+    df = df.dropna(subset=['DayOfYear', 'Hour', 'Minute'])
+    
+    # Filter out invalid time values that would cause OutOfBoundsTimedelta
+    df = df[
+        (df['DayOfYear'] >= 1) & (df['DayOfYear'] <= 366) &
+        (df['Hour'] >= 0) & (df['Hour'] <= 24) &
+        (df['Minute'] >= 0) & (df['Minute'] <= 60)
+    ].copy()
+    
+    if df.empty:
+        return pd.DataFrame()
+
     df['Datetime'] = pd.Timestamp(year=BASE_YEAR, month=1, day=1) + \
                      pd.to_timedelta(df['DayOfYear'] - 1, unit='D') + \
                      pd.to_timedelta(df['Hour'], unit='h') + \
@@ -286,21 +335,27 @@ def load_data(baseline_csv='./results/baseline_results.csv', run_plan_name=None)
 
     return df
 
-def add_psychrometric_background(fig, row, col):
+def add_psychrometric_background(fig, row, col, theme=THEME):
     T_range = np.linspace(10, 35, 100)
     P_atm = 101.325 # kPa
     for rh in [0.2, 0.4, 0.6, 0.8, 1.0]:
         P_sat = 0.61078 * np.exp(17.27 * T_range / (T_range + 237.3))
         P_v = rh * P_sat
         W = 0.622 * P_v / (P_atm - P_v)
-        line_color = 'rgba(255, 255, 255, 0.2)' if rh == 1.0 else 'rgba(255, 255, 255, 0.05)'
+        if theme == "light":
+            line_color = 'rgba(120, 120, 120, 0.4)' if rh == 1.0 else 'rgba(180, 180, 180, 0.25)'
+        else:
+            line_color = 'rgba(255, 255, 255, 0.2)' if rh == 1.0 else 'rgba(255, 255, 255, 0.05)'
         line_width = 1.5 if rh == 1.0 else 1
         fig.add_trace(go.Scatter(x=T_range, y=W, mode='lines', line=dict(color=line_color, width=line_width), hoverinfo='skip', showlegend=False), row=row, col=col)
         
         valid_idx = np.where((W <= 0.024) & (T_range <= 34))[0]
         if len(valid_idx) > 0:
             idx = valid_idx[-1]
-            text_color = 'rgba(255, 255, 255, 0.5)' if rh == 1.0 else 'rgba(255, 255, 255, 0.3)'
+            if theme == "light":
+                text_color = 'rgba(80, 80, 80, 0.8)' if rh == 1.0 else 'rgba(120, 120, 120, 0.6)'
+            else:
+                text_color = 'rgba(255, 255, 255, 0.5)' if rh == 1.0 else 'rgba(255, 255, 255, 0.3)'
             fig.add_trace(go.Scatter(
                 x=[T_range[idx]], y=[W[idx]],
                 mode='text',
@@ -311,7 +366,7 @@ def add_psychrometric_background(fig, row, col):
             ), row=row, col=col)
 
 # --- View 1: EKF State Estimation ---
-def build_view1_ekf(df, zone):
+def build_view1_ekf(df, zone, theme=THEME):
     specs_v1 = [
         [{"colspan": 3, "type": "xy"}, None, None],
         [{"type": "xy"}, {"type": "xy"}, {"type": "xy"}],
@@ -348,7 +403,7 @@ def build_view1_ekf(df, zone):
     # 1.3 NIS
     if f'{zone}_EKF_NIS' in df.columns:
         fig.add_trace(go.Scatter(x=df['Datetime'], y=df[f'{zone}_EKF_NIS'], name="NIS", line=dict(color=COLORS['NIS_Trace'], width=1.5)), row=3, col=1)
-        add_comfort_band(fig, 3, 1, df['Datetime'], 0.216, 7.815)
+        add_comfort_band(fig, 3, 1, df['Datetime'], 0.216, 7.815, theme=theme)
         fig.update_yaxes(type="log", row=3, col=1)
 
     # 1.4 Covariance Convergence
@@ -376,20 +431,13 @@ def build_view1_ekf(df, zone):
             fig.update_yaxes(scaleanchor="x", scaleratio=1, row=4, col=3)
         except: pass
 
-    fig.update_layout(height=1600, template="plotly_dark", title_text=f"{zone} EKF Filter Diagnostics")
-    configure_subplot_legends(fig)
+    template = "plotly_white" if theme == "light" else "plotly_dark"
+    fig.update_layout(height=1600, template=template, title_text=f"{zone} EKF Filter Diagnostics")
+    configure_subplot_legends(fig, theme=theme)
     return fig
 
 # --- View 2: Zone Controller ---
-def build_view2_zone(df, zone):
-    specs_v2 = [
-        [{"colspan": 4, "type": "xy"}, None, None, None], 
-        [{"colspan": 4, "type": "xy"}, None, None, None], 
-        [{"colspan": 4, "type": "xy"}, None, None, None], 
-        [{"colspan": 4, "type": "xy", "secondary_y": True}, None, None, None], 
-        [{"colspan": 4, "type": "heatmap"}, None, None, None], 
-        [{"type": "xy"}, {"type": "xy"}, {"type": "xy"}, {"type": "xy"}]
-    ]
+def build_view2_zone(df, zone, theme=THEME):
     titles = [
         "Temperature Regulation",
         "Relative Humidity Regulation",
@@ -413,34 +461,43 @@ def build_view2_zone(df, zone):
     
     c_temp, c_hum, c_co2, c_occ = COLORS['Temp'], COLORS['Hum'], COLORS['CO2'], COLORS['Occ']
     c_def = COLORS['Default']
+    c_supply = '#7f8c8d' if theme == 'light' else '#e0e0e0'
     time_arr = df['Datetime']
     
     # 2.1 Temp
     t_min = df[f'{zone}_T_min_C'] if f'{zone}_T_min_C' in df.columns else [21.0]*len(df)
     t_max = df[f'{zone}_T_max_C'] if f'{zone}_T_max_C' in df.columns else [24.0]*len(df)
-    add_comfort_band(fig, 1, 1, time_arr, t_min, t_max)
+    add_comfort_band(fig, 1, 1, time_arr, t_min, t_max, theme=theme)
     
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_Temp_C'], name="Zone Controller", line=dict(color=c_temp, width=2)), row=1, col=1)
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_Temp_C_default'], name="Default Controller", line=dict(color=c_def, width=1.5, dash='dash')), row=1, col=1)
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_ideal_temp'], name="Ideal Setpoint", line=dict(color=hex_to_rgba("#48c9b0", 0.6), width=1, dash='dot')), row=1, col=1)
 
+
+
     # 2.2 RH
-    add_comfort_band(fig, 2, 1, time_arr, 30, 60)
+    add_comfort_band(fig, 2, 1, time_arr, 30, 60, theme=theme)
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_RH_pct'], name="Zone Controller", line=dict(color=c_hum, width=2)), row=2, col=1)
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_RH_pct_default'], name="Default Controller", line=dict(color=c_def, width=1.5, dash='dash')), row=2, col=1)
 
+
+
     # 2.3 Abs Hum
-    add_comfort_band(fig, 3, 1, time_arr, 0, 0.012)
+    add_comfort_band(fig, 3, 1, time_arr, 0, 0.012, theme=theme)
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_W_kg_kg'], name="Zone Controller", line=dict(color=c_hum, width=2)), row=3, col=1)
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_W_kg_kg_default'], name="Default Controller", line=dict(color=c_def, width=1.5, dash='dash')), row=3, col=1)
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_ideal_hum'], name="Ideal Setpoint", line=dict(color=lighten_hex(c_hum), width=1.5, dash='dot')), row=3, col=1)
 
     # 2.4 CO2 & Occ
-    add_comfort_band(fig, 4, 1, time_arr, 0, 1000)
-    fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_Occupants'], name="Occupancy", line=dict(color="rgba(255,255,255,0.1)", width=0), fill='tozeroy'), row=4, col=1, secondary_y=True)
+    add_comfort_band(fig, 4, 1, time_arr, 0, 1000, theme=theme)
+    occ_line_color = "rgba(120,120,120,0.2)" if theme == "light" else "rgba(255,255,255,0.1)"
+    occ_fill_color = "rgba(200,200,200,0.25)" if theme == "light" else None
+    fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_Occupants'], name="Occupancy", line=dict(color=occ_line_color, width=0), fill='tozeroy', fillcolor=occ_fill_color), row=4, col=1, secondary_y=True)
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_CO2_ppm'], name="Zone Controller", line=dict(color=c_co2, width=2)), row=4, col=1, secondary_y=False)
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_CO2_ppm_default'], name="Default Controller", line=dict(color=c_def, width=1.5, dash='dash')), row=4, col=1, secondary_y=False)
     fig.add_trace(go.Scatter(x=time_arr, y=df[f'{zone}_ideal_co2'], name="Ideal Setpoint", line=dict(color=lighten_hex(c_co2), width=1.5, dash='dot')), row=4, col=1, secondary_y=False)
+
+
 
     # 2.5 Status Timeline
     if f'{zone}_MPC_Status' in df.columns and f'{zone}_AskQP_Status' in df.columns:
@@ -478,34 +535,35 @@ def build_view2_zone(df, zone):
             ), row=5, col=1)
 
     # 2.6 Psychrometric and RH Scatters
-    add_psychrometric_background(fig, 6, 1)
-    add_psychrometric_comfort(fig, 6, 1)
+    add_psychrometric_background(fig, 6, 1, theme=theme)
+    add_psychrometric_comfort(fig, 6, 1, theme=theme)
     fig.add_trace(go.Histogram2d(
         x=df[f'{zone}_Temp_C'], y=df[f'{zone}_W_kg_kg'],
-        colorscale=plasma_transparent, showscale=False, nbinsx=60, nbinsy=60
+        colorscale=get_plasma_transparent(theme), showscale=False, nbinsx=60, nbinsy=60
     ), row=6, col=1)
 
-    add_psychrometric_background(fig, 6, 2)
-    add_psychrometric_comfort(fig, 6, 2)
+    add_psychrometric_background(fig, 6, 2, theme=theme)
+    add_psychrometric_comfort(fig, 6, 2, theme=theme)
     fig.add_trace(go.Histogram2d(
         x=df[f'{zone}_Temp_C_default'], y=df[f'{zone}_W_kg_kg_default'],
-        colorscale=plasma_transparent, showscale=False, nbinsx=60, nbinsy=60
+        colorscale=get_plasma_transparent(theme), showscale=False, nbinsx=60, nbinsy=60
     ), row=6, col=2)
 
-    add_rh_co2_comfort(fig, 7, 1)
+    add_rh_co2_comfort(fig, 7, 1, theme=theme)
     fig.add_trace(go.Histogram2d(
         x=df[f'{zone}_RH_pct'], y=df[f'{zone}_CO2_ppm'],
-        colorscale=plasma_transparent, showscale=False, nbinsx=60, nbinsy=60
+        colorscale=get_plasma_transparent(theme), showscale=False, nbinsx=60, nbinsy=60
     ), row=7, col=1)
 
-    add_rh_co2_comfort(fig, 7, 2)
+    add_rh_co2_comfort(fig, 7, 2, theme=theme)
     fig.add_trace(go.Histogram2d(
         x=df[f'{zone}_RH_pct_default'], y=df[f'{zone}_CO2_ppm_default'],
-        colorscale=plasma_transparent, showscale=False, nbinsx=60, nbinsy=60
+        colorscale=get_plasma_transparent(theme), showscale=False, nbinsx=60, nbinsy=60
     ), row=7, col=2)
 
+    template = "plotly_white" if theme == "light" else "plotly_dark"
     fig.update_layout(
-        height=2800, template="plotly_dark", title_text=f"{zone} Single Zone Deep Dive"
+        height=2800, template=template, title_text=f"{zone} Single Zone Deep Dive"
     )
     
     for c in [1, 2]: 
@@ -516,11 +574,11 @@ def build_view2_zone(df, zone):
         
     fig.update_yaxes(showgrid=False, row=4, col=1, secondary_y=True)
     
-    configure_subplot_legends(fig)
+    configure_subplot_legends(fig, theme=theme)
     return fig
 
 # --- View 3: AHU Coordinator ---
-def build_view3_ahu(df):
+def build_view3_ahu(df, theme=THEME):
     specs_v3 = [
         [{"type": "xy"}], [{"type": "xy"}], [{"type": "xy"}], 
         [{"type": "xy"}], [{"type": "xy"}], [{"type": "heatmap"}]
@@ -542,8 +600,10 @@ def build_view3_ahu(df):
         if mins:
             env_min = pd.concat(mins, axis=1).min(axis=1)
             env_max = pd.concat(maxs, axis=1).max(axis=1)
-            fig.add_trace(go.Scatter(x=df['Datetime'], y=env_min, line=dict(color='rgba(255,255,255,0.4)', width=1, dash='dot'), showlegend=False), row=row, col=1)
-            fig.add_trace(go.Scatter(x=df['Datetime'], y=env_max, fill='tonexty', fillcolor="rgba(255,255,255,0.05)", line=dict(color='rgba(255,255,255,0.4)', width=1, dash='dot'), name="Envelope"), row=row, col=1)
+            env_line = 'rgba(120,120,120,0.5)' if theme == "light" else 'rgba(255,255,255,0.4)'
+            env_fill = 'rgba(200,200,200,0.15)' if theme == "light" else 'rgba(255,255,255,0.05)'
+            fig.add_trace(go.Scatter(x=df['Datetime'], y=env_min, line=dict(color=env_line, width=1, dash='dot'), showlegend=False), row=row, col=1)
+            fig.add_trace(go.Scatter(x=df['Datetime'], y=env_max, fill='tonexty', fillcolor=env_fill, line=dict(color=env_line, width=1, dash='dot'), name="Envelope"), row=row, col=1)
             
         for r_col, m_col in zip(result_cols, main_colors):
             if r_col in df.columns:
@@ -603,12 +663,13 @@ def build_view3_ahu(df):
                 name=name, showlegend=True, hoverinfo='skip'
             ), row=6, col=1)
 
-    fig.update_layout(height=1800, template="plotly_dark", title_text="AHU Coordinator Arbitration")
-    configure_subplot_legends(fig)
+    template = "plotly_white" if theme == "light" else "plotly_dark"
+    fig.update_layout(height=1800, template=template, title_text="AHU Coordinator Arbitration")
+    configure_subplot_legends(fig, theme=theme)
     return fig
 
 # --- View 4: Whole Building Rollup ---
-def build_view4_building(df):
+def build_view4_building(df, theme=THEME):
     specs_v4 = [
         [{"type": "bar", "colspan": 4}, None, None, None, None, {"type": "bar", "colspan": 4}, None, None, None, None, {"type": "bar", "colspan": 4}, None, None, None],
         [None]*14,
@@ -677,23 +738,24 @@ def build_view4_building(df):
         all_C_D.extend(df[f'{z}_CO2_ppm_default'].values); all_RH_D.extend(df[f'{z}_RH_pct_default'].values)
 
     # Row 5 (Psychrometric)
-    add_psychrometric_background(fig, 5, 1)
-    add_psychrometric_comfort(fig, 5, 1)
-    fig.add_trace(go.Histogram2d(x=all_T_P, y=all_W_P, colorscale=plasma_transparent, showscale=False, nbinsx=100, nbinsy=100), row=5, col=1)
+    add_psychrometric_background(fig, 5, 1, theme=theme)
+    add_psychrometric_comfort(fig, 5, 1, theme=theme)
+    fig.add_trace(go.Histogram2d(x=all_T_P, y=all_W_P, colorscale=get_plasma_transparent(theme), showscale=False, nbinsx=100, nbinsy=100), row=5, col=1)
 
-    add_psychrometric_background(fig, 5, 9)
-    add_psychrometric_comfort(fig, 5, 9)
-    fig.add_trace(go.Histogram2d(x=all_T_D, y=all_W_D, colorscale=plasma_transparent, showscale=False, nbinsx=100, nbinsy=100), row=5, col=9)
+    add_psychrometric_background(fig, 5, 9, theme=theme)
+    add_psychrometric_comfort(fig, 5, 9, theme=theme)
+    fig.add_trace(go.Histogram2d(x=all_T_D, y=all_W_D, colorscale=get_plasma_transparent(theme), showscale=False, nbinsx=100, nbinsy=100), row=5, col=9)
 
     # Row 7 (RH vs CO2)
-    add_rh_co2_comfort(fig, 7, 1)
-    fig.add_trace(go.Histogram2d(x=all_RH_P, y=all_C_P, colorscale=plasma_transparent, showscale=False, nbinsx=100, nbinsy=100), row=7, col=1)
+    add_rh_co2_comfort(fig, 7, 1, theme=theme)
+    fig.add_trace(go.Histogram2d(x=all_RH_P, y=all_C_P, colorscale=get_plasma_transparent(theme), showscale=False, nbinsx=100, nbinsy=100), row=7, col=1)
 
-    add_rh_co2_comfort(fig, 7, 9)
-    fig.add_trace(go.Histogram2d(x=all_RH_D, y=all_C_D, colorscale=plasma_transparent, showscale=False, nbinsx=100, nbinsy=100), row=7, col=9)
+    add_rh_co2_comfort(fig, 7, 9, theme=theme)
+    fig.add_trace(go.Histogram2d(x=all_RH_D, y=all_C_D, colorscale=get_plasma_transparent(theme), showscale=False, nbinsx=100, nbinsy=100), row=7, col=9)
 
+    template = "plotly_white" if theme == "light" else "plotly_dark"
     fig.update_layout(
-        height=2200, template="plotly_dark", barmode='group', title_text="Whole Building Aggregation"
+        height=2200, template=template, barmode='group', title_text="Whole Building Aggregation"
     )
     
     for c in [1, 9]: 
@@ -702,11 +764,11 @@ def build_view4_building(df):
         fig.update_xaxes(title_text="Relative Humidity (%)", row=7, col=c)
         fig.update_yaxes(title_text="CO2 (ppm)", row=7, col=c)
 
-    configure_subplot_legends(fig)
+    configure_subplot_legends(fig, theme=theme)
     return fig
 
 # --- View 5: Energy ---
-def build_view5_energy(df):
+def build_view5_energy(df, theme=THEME):
     specs_v5 = [
         [{"type": "xy", "colspan": 3}, None, None], 
         [{"type": "xy", "colspan": 3}, None, None], 
@@ -728,9 +790,10 @@ def build_view5_energy(df):
     fig.add_trace(go.Scatter(x=df['Datetime'], y=df['Gas_kW_default'], name="Heating (Default Controller)", line=dict(color=COLORS['CO2'], width=1.5, dash='dash')), row=1, col=1)
 
     # 5.2 Cumulative
+    fill_cum = "rgba(180, 180, 180, 0.25)" if theme == "light" else "rgba(255, 255, 255, 0.2)"
     fig.add_trace(go.Scatter(x=df['Datetime'], y=df['Total_Energy_kWh_cum'], name="Zone Controller Total", line=dict(color=COLORS['Temp'], width=3)), row=2, col=1)
     fig.add_trace(go.Scatter(x=df['Datetime'], y=df['Total_Energy_kWh_cum_default'], name="Default Controller Total", line=dict(color=COLORS['Default'], width=2, dash='solid')), row=2, col=1)
-    fig.add_trace(go.Scatter(x=df['Datetime'], y=df['Total_Energy_kWh_cum'], fill='tonexty', fillcolor="rgba(255, 255, 255, 0.2)", line=dict(width=0), showlegend=False), row=2, col=1)
+    fig.add_trace(go.Scatter(x=df['Datetime'], y=df['Total_Energy_kWh_cum'], fill='tonexty', fillcolor=fill_cum, line=dict(width=0), showlegend=False), row=2, col=1)
 
     # 5.3 Load Duration
     p_total = (df['Fan_kW'] + df['Cooling_kW'] + df['Gas_kW']).sort_values(ascending=False).values
@@ -757,12 +820,14 @@ def build_view5_energy(df):
     values_outer = [prop_totals[0], prop_totals[1], prop_totals[2], def_totals[0], def_totals[1], def_totals[2]]
     colors_outer = [COLORS['Occ'], COLORS['Hum'], COLORS['CO2'], COLORS['Occ'], COLORS['Hum'], COLORS['CO2']]
     
+    pie_line_color = '#ffffff' if theme == "light" else '#121212'
+
     fig.add_trace(go.Pie(
         labels=labels_inner, values=values_inner, hole=0.3,
         textinfo='none', sort=False, direction='clockwise',
         marker=dict(
             colors=colors_inner,
-            line=dict(color=['#121212', 'rgba(0,0,0,0)'], width=1.5)
+            line=dict(color=[pie_line_color, 'rgba(0,0,0,0)'], width=1.5)
         )
     ), row=3, col=3)
     
@@ -774,7 +839,7 @@ def build_view5_energy(df):
             colors=colors_outer,
             pattern=dict(shape=["-", "-", "-", "/", "/", "/"]),
             line=dict(
-                color=['#121212', '#121212', '#121212', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)'],
+                color=[pie_line_color]*3 + ['rgba(0,0,0,0)']*3,
                 width=1.5
             )
         )
@@ -791,12 +856,13 @@ def build_view5_energy(df):
         if ann.text in titles_left_edges:
             ann.update(x=titles_left_edges[ann.text], xanchor="left")
 
-    fig.update_layout(height=1400, template="plotly_dark", title_text="Energy Consumption & Efficiency", barmode='group')
-    configure_subplot_legends(fig)
+    template = "plotly_white" if theme == "light" else "plotly_dark"
+    fig.update_layout(height=1400, template=template, title_text="Energy Consumption & Efficiency", barmode='group')
+    configure_subplot_legends(fig, theme=theme)
     return fig
 
 # --- View 6: Numerical Summary (All Tables) ---
-def build_view6_summary(df):
+def build_view6_summary(df, theme=THEME):
     fig = make_subplots(
         rows=4, cols=1,
         subplot_titles=["EKF Performance Summary", "Zone Controller Performance", "AHU Coordinator Summary", "Energy Summary"],
@@ -804,6 +870,10 @@ def build_view6_summary(df):
         vertical_spacing=0.05
     )
     
+    header_bg = '#34495e' if theme == "light" else '#2c3e50'
+    cell_bg = '#ffffff' if theme == "light" else '#1e1e1e'
+    cell_font = '#2c3e50' if theme == "light" else 'white'
+
     # 6.1 EKF Table
     cols_ekf = ["Metric"] + [f"{z}" for z in ZONES] + ["Building Avg"]
     vals_ekf = [["Occ. RMSE", "Occ. MAE", "Mean |Resid T|", "Mean |Resid W|", "Mean |Resid CO2|", "% NIS in Bounds", "Final Trace(P)"]]
@@ -835,8 +905,8 @@ def build_view6_summary(df):
         else: vals_ekf[i].append(f"{avg:.2f}")
 
     fig.add_trace(go.Table(
-        header=dict(values=cols_ekf, fill_color='#2c3e50', font=dict(color='white')),
-        cells=dict(values=vals_ekf, fill_color='#1e1e1e', font=dict(color='white'))
+        header=dict(values=cols_ekf, fill_color=header_bg, font=dict(color='white')),
+        cells=dict(values=vals_ekf, fill_color=cell_bg, font=dict(color=cell_font))
     ), row=1, col=1)
 
     # 6.2 Zone Controller Table
@@ -863,8 +933,8 @@ def build_view6_summary(df):
         vals_zone.append([f"{mae_t_d:.2f}", f"{pct_t_d:.1f}%", f"{pct_rh_d:.1f}%", f"{max_c_d:.0f}", f"{pct_c_d:.1f}%"])
 
     fig.add_trace(go.Table(
-        header=dict(values=cols_zone, fill_color='#2c3e50', font=dict(color='white')),
-        cells=dict(values=vals_zone, fill_color='#1e1e1e', font=dict(color='white'))
+        header=dict(values=cols_zone, fill_color=header_bg, font=dict(color='white')),
+        cells=dict(values=vals_zone, fill_color=cell_bg, font=dict(color=cell_font))
     ), row=2, col=1)
 
     # 6.3 AHU Table
@@ -874,11 +944,11 @@ def build_view6_summary(df):
     except: mean_cc = max_cc = mean_hc = max_hc = 0
         
     fig.add_trace(go.Table(
-        header=dict(values=["Metric", "Value"], fill_color='#2c3e50', font=dict(color='white')),
+        header=dict(values=["Metric", "Value"], fill_color=header_bg, font=dict(color='white')),
         cells=dict(values=[
             ["Mean CC Setpoint (°C)", "Max CC Setpoint (°C)", "Mean HC Setpoint (°C)", "Max HC Setpoint (°C)"],
             [f"{mean_cc:.2f}", f"{max_cc:.2f}", f"{mean_hc:.2f}", f"{max_hc:.2f}"]
-        ], fill_color='#1e1e1e', font=dict(color='white'))
+        ], fill_color=cell_bg, font=dict(color=cell_font))
     ), row=3, col=1)
 
     # 6.4 Energy Table
@@ -887,27 +957,38 @@ def build_view6_summary(df):
     cats = ['Fan', 'Cooling', 'Gas']
     
     fig.add_trace(go.Table(
-        header=dict(values=["End-Use", "Proposed (kWh)", "Default (kWh)", "Δ (kWh)"], fill_color='#2c3e50', font=dict(color='white')),
+        header=dict(values=["End-Use", "Proposed (kWh)", "Default (kWh)", "Δ (kWh)"], fill_color=header_bg, font=dict(color='white')),
         cells=dict(values=[
             cats + ["Total"],
             [f"{p:.1f}" for p in prop_totals] + [f"{sum(prop_totals):.1f}"],
             [f"{d:.1f}" for d in def_totals] + [f"{sum(def_totals):.1f}"],
             [f"{p-d:.1f}" for p, d in zip(prop_totals, def_totals)] + [f"{sum(prop_totals)-sum(def_totals):.1f}"]
-        ], fill_color='#1e1e1e', font=dict(color='white'))
+        ], fill_color=cell_bg, font=dict(color=cell_font))
     ), row=4, col=1)
 
-    fig.update_layout(height=1800, template="plotly_dark", title_text="Detailed Numerical Summary")
+    template = "plotly_white" if theme == "light" else "plotly_dark"
+    fig.update_layout(height=1800, template=template, title_text="Detailed Numerical Summary")
     return fig
 
 
 # --- Dash App ---
 app = Dash(__name__)
 
-app.layout = html.Div([
-    html.H2("Decentralized HVAC Control Dashboard", style={"textAlign": "center", "color": "#ecf0f1", "paddingTop": "20px", "fontFamily": "sans-serif"}),
-    html.Div([
+app.layout = html.Div(id="app-container", children=[
+    html.H2("Decentralized HVAC Control Dashboard", id="app-header", style={"textAlign": "center", "color": "#2c3e50", "paddingTop": "20px", "fontFamily": "sans-serif"}),
+    html.Div(id="control-panel", children=[
         html.Div([
-            html.Label("Select View:", style={"color": "#ecf0f1", "fontWeight": "bold"}),
+            html.Label("Theme Mode:", id="label-theme", style={"color": "#2c3e50", "fontWeight": "bold"}),
+            dcc.Dropdown(
+                id="theme-dropdown",
+                options=[
+                    {"label": "☀️ Light Mode", "value": "light"},
+                    {"label": "🌙 Dark Mode", "value": "dark"}
+                ], value=THEME, clearable=False, style={"color": "#000"}
+            ),
+        ], style={"width": "12%", "display": "inline-block", "padding": "10px"}),
+        html.Div([
+            html.Label("Select View:", id="label-view", style={"color": "#2c3e50", "fontWeight": "bold"}),
             dcc.Dropdown(
                 id="view-dropdown",
                 options=[
@@ -921,14 +1002,14 @@ app.layout = html.Div([
             ),
         ], style={"width": "18%", "display": "inline-block", "padding": "10px"}),
         html.Div([
-            html.Label("Select Zone:", style={"color": "#ecf0f1", "fontWeight": "bold"}),
+            html.Label("Select Zone:", id="label-zone", style={"color": "#2c3e50", "fontWeight": "bold"}),
             dcc.Dropdown(
                 id="zone-dropdown", options=[{"label": z, "value": z} for z in ZONES],
                 value="SPACE1-1", clearable=False, style={"color": "#000"}
             ),
         ], style={"width": "14%", "display": "inline-block", "padding": "10px"}),
         html.Div([
-            html.Label("Run Plan:", style={"color": "#ecf0f1", "fontWeight": "bold"}),
+            html.Label("Run Plan:", id="label-run-plan", style={"color": "#2c3e50", "fontWeight": "bold"}),
             dcc.Dropdown(
                 id="run-plan-dropdown",
                 options=[{"label": rp["name"], "value": rp["name"]} for rp in RUN_PERIODS],
@@ -936,9 +1017,9 @@ app.layout = html.Div([
                 placeholder="Select a Run Plan...",
                 clearable=True, style={"color": "#000"}
             ),
-        ], style={"width": "22%", "display": "inline-block", "padding": "10px"}),
+        ], style={"width": "20%", "display": "inline-block", "padding": "10px"}),
         html.Div([
-            html.Label("Baseline Data:", style={"color": "#ecf0f1", "fontWeight": "bold"}),
+            html.Label("Baseline Data:", id="label-baseline", style={"color": "#2c3e50", "fontWeight": "bold"}),
             dcc.Dropdown(
                 id="baseline-dropdown",
                 options=[
@@ -948,18 +1029,18 @@ app.layout = html.Div([
                 value="./results/baseline_results.csv",
                 clearable=False, style={"color": "#000"}
             ),
-        ], style={"width": "22%", "display": "inline-block", "padding": "10px"}),
+        ], style={"width": "20%", "display": "inline-block", "padding": "10px"}),
         html.Div([
-            html.Label("Time Range:", style={"color": "#ecf0f1", "fontWeight": "bold"}),
+            html.Label("Time Range:", id="label-time", style={"color": "#2c3e50", "fontWeight": "bold"}),
             dcc.Dropdown(
                 id="time-dropdown", options=[{"label": "Plot All", "value": "ALL"}], value="ALL",
                 clearable=False, style={"color": "#000"}
             ),
-        ], style={"width": "14%", "display": "inline-block", "padding": "10px"}),
-    ], style={"width": "95%", "margin": "0 auto", "backgroundColor": "#2c3e50", "padding": "20px", "borderRadius": "8px", "boxShadow": "0 4px 8px rgba(0,0,0,0.3)"}),
+        ], style={"width": "12%", "display": "inline-block", "padding": "10px"}),
+    ], style={"width": "95%", "margin": "0 auto", "backgroundColor": "#f8f9fa", "border": "1px solid #e9ecef", "padding": "20px", "borderRadius": "8px", "boxShadow": "0 4px 8px rgba(0,0,0,0.05)"}),
     html.Br(),
     dcc.Loading(id="loading", color="#3498db", children=html.Div(dcc.Graph(id="main-graph"), style={"width": "95%", "margin": "0 auto"}))
-], style={"backgroundColor": "#121212", "minHeight": "100vh", "margin": "-8px"})
+], style={"backgroundColor": "#ffffff", "minHeight": "100vh", "margin": "-8px"})
 
 @app.callback(
     Output("time-dropdown", "options"),
@@ -981,22 +1062,56 @@ def update_time_options(run_plan, baseline):
     return options
 
 @app.callback(
-    [Output("main-graph", "figure"), Output("zone-dropdown", "disabled")],
-    [Input("view-dropdown", "value"), Input("zone-dropdown", "value"), Input("time-dropdown", "value"), Input("run-plan-dropdown", "value"), Input("baseline-dropdown", "value")]
+    [
+        Output("main-graph", "figure"), 
+        Output("zone-dropdown", "disabled"),
+        Output("app-container", "style"),
+        Output("control-panel", "style"),
+        Output("app-header", "style"),
+        Output("label-theme", "style"),
+        Output("label-view", "style"),
+        Output("label-zone", "style"),
+        Output("label-run-plan", "style"),
+        Output("label-baseline", "style"),
+        Output("label-time", "style")
+    ],
+    [
+        Input("view-dropdown", "value"), 
+        Input("zone-dropdown", "value"), 
+        Input("time-dropdown", "value"), 
+        Input("run-plan-dropdown", "value"), 
+        Input("baseline-dropdown", "value"),
+        Input("theme-dropdown", "value")
+    ]
 )
-def update_dashboard(view, zone, time_range, run_plan, baseline):
+def update_dashboard(view, zone, time_range, run_plan, baseline, theme):
+    is_light = (theme == "light")
+    bg_color = "#ffffff" if is_light else "#121212"
+    panel_bg = "#f8f9fa" if is_light else "#2c3e50"
+    panel_border = "1px solid #e2e8f0" if is_light else "none"
+    text_color = "#2c3e50" if is_light else "#ecf0f1"
+    shadow = "0 4px 8px rgba(0,0,0,0.05)" if is_light else "0 4px 8px rgba(0,0,0,0.3)"
+    
+    container_style = {"backgroundColor": bg_color, "minHeight": "100vh", "margin": "-8px"}
+    panel_style = {"width": "95%", "margin": "0 auto", "backgroundColor": panel_bg, "border": panel_border, "padding": "20px", "borderRadius": "8px", "boxShadow": shadow}
+    header_style = {"textAlign": "center", "color": text_color, "paddingTop": "20px", "fontFamily": "sans-serif"}
+    label_style = {"color": text_color, "fontWeight": "bold"}
+
+    template = "plotly_white" if is_light else "plotly_dark"
+
     if not run_plan:
         fig = go.Figure()
         fig.update_layout(
-            template="plotly_dark", 
+            template=template, 
             title_text="Please select a Run Plan to view data.",
             xaxis=dict(visible=False),
             yaxis=dict(visible=False)
         )
-        return fig, True
+        return fig, True, container_style, panel_style, header_style, label_style, label_style, label_style, label_style, label_style, label_style
 
     df = load_data(baseline, run_plan).copy()
-    if df.empty: return go.Figure(), False
+    if df.empty: 
+        return go.Figure(), False, container_style, panel_style, header_style, label_style, label_style, label_style, label_style, label_style, label_style
         
     if time_range != "ALL":
         min_t = df['Datetime'].min()
@@ -1016,15 +1131,15 @@ def update_dashboard(view, zone, time_range, run_plan, baseline):
     
     zone_disabled = view not in ["VIEW_1", "VIEW_2"]
     
-    if view == "VIEW_1": fig = build_view1_ekf(df, zone)
-    elif view == "VIEW_2": fig = build_view2_zone(df, zone)
-    elif view == "VIEW_3": fig = build_view3_ahu(df)
-    elif view == "VIEW_4": fig = build_view4_building(df)
-    elif view == "VIEW_5": fig = build_view5_energy(df)
-    elif view == "VIEW_6": fig = build_view6_summary(df)
+    if view == "VIEW_1": fig = build_view1_ekf(df, zone, theme=theme)
+    elif view == "VIEW_2": fig = build_view2_zone(df, zone, theme=theme)
+    elif view == "VIEW_3": fig = build_view3_ahu(df, theme=theme)
+    elif view == "VIEW_4": fig = build_view4_building(df, theme=theme)
+    elif view == "VIEW_5": fig = build_view5_energy(df, theme=theme)
+    elif view == "VIEW_6": fig = build_view6_summary(df, theme=theme)
     else: fig = go.Figure()
         
-    return fig, zone_disabled
+    return fig, zone_disabled, container_style, panel_style, header_style, label_style, label_style, label_style, label_style, label_style, label_style
 
 if __name__ == "__main__":
     app.run(debug=True, port=8050)

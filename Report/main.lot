@@ -1,0 +1,16 @@
+\contentsline {table}{\numberline {1}{\ignorespaces Limitations of Classical HVAC Control}}{4}{table.11}%
+\contentsline {table}{\numberline {2}{\ignorespaces Advantages of MPC for HVAC Control}}{5}{table.14}%
+\contentsline {table}{\numberline {3}{\ignorespaces Indoor Environmental Quality Comfort Bounds}}{6}{table.16}%
+\contentsline {table}{\numberline {4}{\ignorespaces Comparison of Building Thermal Modelling Approaches}}{6}{table.18}%
+\contentsline {table}{\numberline {5}{\ignorespaces Structural Advantages of Agent-Based Supervisory Control}}{7}{table.20}%
+\contentsline {table}{\numberline {6}{\ignorespaces Identified Research Gaps}}{7}{table.22}%
+\contentsline {table}{\numberline {7}{\ignorespaces EKF process covariance tuning strategy.}}{15}{table.61}%
+\contentsline {table}{\numberline {8}{\ignorespaces Zone comfort and actuator limits applied in the Phase-1 MPC.}}{17}{table.70}%
+\contentsline {table}{\numberline {9}{\ignorespaces Phase-1 MPC tuning parameters and their control rationale.}}{20}{table.81}%
+\contentsline {table}{\numberline {10}{\ignorespaces Hard physical constraints imposed on the AHU coordinator.}}{25}{table.109}%
+\contentsline {table}{\numberline {11}{\ignorespaces EnergyPlus Simulation Configuration}}{26}{table.114}%
+\contentsline {table}{\numberline {12}{\ignorespaces Custom PCB Peripheral Interface Summary}}{28}{table.120}%
+\contentsline {table}{\numberline {13}{\ignorespaces Environmental Sensing Specifications}}{30}{table.123}%
+\contentsline {table}{\numberline {14}{\ignorespaces Total Actual System Flow at Main Duct (m$^3$/h)}}{30}{table.125}%
+\contentsline {table}{\numberline {15}{\ignorespaces Economizer Mixer Contribution Flow (m$^3$/h)}}{30}{table.126}%
+\contentsline {table}{\numberline {16}{\ignorespaces Zone controller performance summary - proposed (P) vs. default EnergyPlus controller (D)}}{35}{table.139}%
